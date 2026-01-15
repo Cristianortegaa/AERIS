@@ -3,15 +3,16 @@ const express = require('express');
 const axios = require('axios');
 const { Sequelize, DataTypes } = require('sequelize');
 const cors = require('cors');
+const fs = require('fs'); // Para guardar el listado de ciudades
 
 const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// --- 1. BASE DE DATOS (Forzamos limpieza con _master) ---
+// --- 1. BASE DE DATOS METEOROLÓGICA (Caché) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_master.sqlite', 
+    storage: './weather_db_v11.sqlite', 
     logging: false
 });
 
@@ -21,36 +22,95 @@ const WeatherCache = sequelize.define('WeatherCache', {
     updatedAt: { type: DataTypes.DATE }
 });
 
-// --- 2. BASE DE DATOS DE CIUDADES (Top 50 + Pueblos solicitados) ---
-const CITIES_DB = [
-    { id: '28079', name: 'Madrid', lat: 40.4168, lon: -3.7038 },
-    { id: '08019', name: 'Barcelona', lat: 41.3851, lon: 2.1734 },
-    { id: '46250', name: 'Valencia', lat: 39.4699, lon: -0.3763 },
-    { id: '41091', name: 'Sevilla', lat: 37.3891, lon: -5.9845 },
-    { id: '50297', name: 'Zaragoza', lat: 41.6488, lon: -0.8891 },
-    { id: '29067', name: 'Málaga', lat: 36.7213, lon: -4.4214 },
-    { id: '30030', name: 'Murcia', lat: 37.9922, lon: -1.1307 },
-    { id: '07040', name: 'Palma', lat: 39.5696, lon: 2.6502 },
-    { id: '48020', name: 'Bilbao', lat: 43.2630, lon: -2.9350 },
-    { id: '03014', name: 'Alicante', lat: 38.3452, lon: -0.4810 },
-    { id: '14021', name: 'Córdoba', lat: 37.8882, lon: -4.7794 },
-    { id: '47186', name: 'Valladolid', lat: 41.6523, lon: -4.7245 },
-    { id: '36057', name: 'Vigo', lat: 42.2406, lon: -8.7207 },
-    { id: '33024', name: 'Gijón', lat: 43.5322, lon: -5.6611 },
-    { id: '15030', name: 'A Coruña', lat: 43.3623, lon: -8.4115 },
-    { id: '18087', name: 'Granada', lat: 37.1773, lon: -3.5986 },
-    { id: '28065', name: 'Getafe', lat: 40.3083, lon: -3.7327 },
-    { id: '28089', name: 'Moraleja de Enmedio', lat: 40.2625, lon: -3.8631 },
-    { id: '06126', name: 'Siruela', lat: 38.9766, lon: -5.0521 },
-    { id: '45013', name: 'Almorox', lat: 40.2312, lon: -4.3906 },
-    { id: '28074', name: 'Leganés', lat: 40.3280, lon: -3.7635 },
-    { id: '28058', name: 'Fuenlabrada', lat: 40.2842, lon: -3.7942 },
-    { id: '28005', name: 'Alcalá de Henares', lat: 40.4818, lon: -3.3643 },
-    { id: '28007', name: 'Alcorcón', lat: 40.3458, lon: -3.8249 },
-    { id: '06015', name: 'Badajoz', lat: 38.8794, lon: -6.9706 }
-];
+// --- 2. SISTEMA DE CIUDADES (CARGA MASIVA DE ESPAÑA) ---
+let CITIES_DB = []; // Aquí vivirán los 8.000 municipios en memoria
 
-// --- 3. UTILS (Haversine + Iconos) ---
+// Utilidad: Convierte coordenadas AEMET (GradosMinutosSegundos) a Decimal (Google Maps)
+// Ejemplo AEMET: "403040N" -> 40.5111...
+const parseCoordinate = (coordStr) => {
+    if (!coordStr) return 0;
+    // Formato DDMMSSX (Ej: 413040N o 020510W)
+    // A veces AEMET manda 6 caracteres, a veces 7. Ajustamos.
+    const regex = /(\d+)(\d{2})(\d{2})([NSEW])/;
+    const match = coordStr.match(regex);
+    
+    if (!match) return 0;
+    
+    const deg = parseInt(match[1]);
+    const min = parseInt(match[2]);
+    const sec = parseInt(match[3]);
+    const dir = match[4];
+    
+    let decimal = deg + (min / 60) + (sec / 3600);
+    
+    if (dir === 'S' || dir === 'W') {
+        decimal = decimal * -1;
+    }
+    return decimal;
+};
+
+// FUNCIÓN DE ARRANQUE: Cargar o Descargar Municipios
+const loadAllCities = async () => {
+    const filePath = './cities_full.json';
+
+    // A. Si ya tenemos el archivo descargado, lo cargamos rápido
+    if (fs.existsSync(filePath)) {
+        console.log("📂 Cargando municipios desde archivo local...");
+        const raw = fs.readFileSync(filePath);
+        CITIES_DB = JSON.parse(raw);
+        console.log(`✅ ¡Carga completada! ${CITIES_DB.length} municipios listos.`);
+        return;
+    }
+
+    // B. Si no existe, lo pedimos a AEMET (Solo la primera vez)
+    console.log("🌐 Descargando Listado Maestro de AEMET (Esto tarda unos segundos)...");
+    
+    if (!process.env.AEMET_API_KEY) {
+        console.error("❌ ERROR: No hay API KEY, no puedo descargar las ciudades.");
+        // Carga de emergencia (Top 5 para que no rompa)
+        CITIES_DB = [{id:'28079', name:'Madrid', lat:40.4, lon:-3.7}, {id:'28065', name:'Getafe', lat:40.3, lon:-3.7}];
+        return;
+    }
+
+    try {
+        // 1. Pedir URL del maestro
+        const resUrl = await axios.get('https://opendata.aemet.es/opendata/api/maestro/municipios', {
+            headers: { 'api_key': process.env.AEMET_API_KEY }
+        });
+        
+        if (resUrl.data.estado !== 200) throw new Error("AEMET denegó el acceso al maestro");
+
+        // 2. Descargar el JSON gigante
+        const resData = await axios.get(resRes.data.datos); // A veces AEMET devuelve un link, a veces datos.
+        // Nota: A veces la variable es resUrl.data.datos. Corregimos flujo estándar:
+        const dataUrl = resUrl.data.datos;
+        const resJson = await axios.get(dataUrl);
+        
+        // 3. Procesar y Limpiar (AEMET da datos sucios)
+        const rawCities = resJson.data; // Array gigante
+        
+        CITIES_DB = rawCities.map(c => ({
+            id: c.id.replace('id', ''), // AEMET pone "id28079", lo dejamos en "28079"
+            name: c.nombre,
+            lat: parseCoordinate(c.latitud),
+            lon: parseCoordinate(c.longitud)
+        }));
+
+        // 4. Guardar en disco para la próxima vez
+        fs.writeFileSync(filePath, JSON.stringify(CITIES_DB));
+        console.log(`✅ ¡Descarga exitosa! ${CITIES_DB.length} municipios de España guardados.`);
+
+    } catch (error) {
+        console.error("⚠️ Error descargando ciudades:", error.message);
+        console.log("⚠️ Usando base de datos mínima de emergencia.");
+        CITIES_DB = [
+            { id: '28079', name: 'Madrid', lat: 40.4168, lon: -3.7038 },
+            { id: '28065', name: 'Getafe', lat: 40.3083, lon: -3.7327 }
+        ];
+    }
+};
+
+// --- 3. UTILS COMUNES ---
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
     const R = 6371; 
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -63,84 +123,55 @@ const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
 const getIcon = (code) => {
     const cleanCode = code ? String(code).replace(/\D/g, '') : '11'; 
     const iconMap = {
-        '11': 'bi-sun-fill', '12': 'bi-cloud-sun-fill', '13': 'bi-cloud-sun',
-        '14': 'bi-cloud-fill', '15': 'bi-clouds-fill', '16': 'bi-clouds',
-        '17': 'bi-cloud-haze-fill', '81': 'bi-cloud-fog2-fill', '82': 'bi-cloud-fog2-fill',
-        '43': 'bi-cloud-drizzle-fill', '44': 'bi-cloud-drizzle', '45': 'bi-cloud-rain-fill',
-        '46': 'bi-cloud-rain-heavy-fill', '23': 'bi-cloud-rain-heavy', '24': 'bi-cloud-rain-heavy-fill',
-        '25': 'bi-cloud-rain-heavy-fill', '26': 'bi-cloud-rain-heavy-fill',
-        '51': 'bi-cloud-lightning-fill', '52': 'bi-cloud-lightning-rain-fill',
-        '53': 'bi-cloud-lightning-rain-fill', '54': 'bi-cloud-lightning-rain-fill',
-        '61': 'bi-cloud-lightning', '33': 'bi-cloud-snow', '34': 'bi-cloud-snow',
-        '35': 'bi-cloud-snow-fill', '36': 'bi-cloud-snow-fill', '71': 'bi-cloud-snow',
-        '72': 'bi-cloud-snow', '73': 'bi-cloud-snow-fill', '74': 'bi-cloud-snow-fill'
+        '11': 'bi-sun-fill', '12': 'bi-cloud-sun-fill', '13': 'bi-cloud-sun', '14': 'bi-cloud-fill', '15': 'bi-clouds-fill', '16': 'bi-clouds', '17': 'bi-cloud-haze-fill', '81': 'bi-cloud-fog2-fill', '82': 'bi-cloud-fog2-fill', '43': 'bi-cloud-drizzle-fill', '44': 'bi-cloud-drizzle', '45': 'bi-cloud-rain-fill', '46': 'bi-cloud-rain-heavy-fill', '23': 'bi-cloud-rain-heavy', '24': 'bi-cloud-rain-heavy-fill', '25': 'bi-cloud-rain-heavy-fill', '26': 'bi-cloud-rain-heavy-fill', '51': 'bi-cloud-lightning-fill', '52': 'bi-cloud-lightning-rain-fill', '53': 'bi-cloud-lightning-rain-fill', '54': 'bi-cloud-lightning-rain-fill', '61': 'bi-cloud-lightning', '33': 'bi-cloud-snow', '34': 'bi-cloud-snow', '35': 'bi-cloud-snow-fill', '36': 'bi-cloud-snow-fill', '71': 'bi-cloud-snow', '72': 'bi-cloud-snow', '73': 'bi-cloud-snow-fill', '74': 'bi-cloud-snow-fill'
     };
     return iconMap[cleanCode] || 'bi-cloud-sun';
 };
 
-// --- 4. PARSEO ROBUSTO (NORMALIZACIÓN DE PERIODOS) ---
+// --- 4. PARSEO WEATHER (Fix Finde v10 integrado) ---
 const parseAemetData = (rawData) => {
     if (!rawData || !rawData[0] || !rawData[0].prediccion) return [];
     
     return rawData[0].prediccion.dia.map(dia => {
-        // 1. LLUVIA MÁXIMA REAL (Fuente de verdad del día)
         let rainMax = 0;
         if (Array.isArray(dia.probPrecipitacion)) {
             const values = dia.probPrecipitacion.map(p => parseInt(p.value)).filter(v => !isNaN(v));
             rainMax = Math.max(...values, 0);
         }
 
-        // 2. FUNCIÓN DE BÚSQUEDA INTELIGENTE
-        // Esta función busca datos que coincidan o contengan el horario pedido
         const findData = (collection, targetStart, targetEnd) => {
             if (!collection || collection.length === 0) return null;
-            
-            // Intento 1: Coincidencia exacta (ej: 12-18)
             const exact = collection.find(x => x.periodo === `${targetStart}-${targetEnd}`);
             if (exact) return exact;
-
-            // Intento 2: Contenedor (ej: busco 12-18 pero hay 12-24)
             const container = collection.find(x => {
                 if (!x.periodo || x.periodo.length < 3) return false;
                 const [pStart, pEnd] = x.periodo.split('-').map(Number);
                 return (targetStart >= pStart && targetEnd <= pEnd);
             });
             if (container) return container;
-
-            // Intento 3: Dato diario o el primero que haya (Fallback para finde)
             return collection.find(x => x.periodo === '00-24') || collection[0];
         };
 
-        // 3. GENERAR SIEMPRE LOS 4 PERIODOS ESTÁNDAR
-        // Esto garantiza que el Frontend nunca reciba arrays vacíos o raros
         const periodosStandard = ['00-06', '06-12', '12-18', '18-24'];
-        
         const periodosOutput = periodosStandard.map(rango => {
             const [start, end] = rango.split('-');
-            
             const p = findData(dia.probPrecipitacion, start, end);
             const v = findData(dia.viento, start, end);
             const c = findData(dia.estadoCielo, start, end);
-
-            // Si el dato encontrado no tiene valor numérico, usamos el máximo diario
             let probVal = p ? parseInt(p.value) : rainMax;
             if (isNaN(probVal)) probVal = rainMax;
 
             return {
-                horario: rango, // SIEMPRE devolvemos el nombre correcto
+                horario: rango,
                 probLluvia: probVal,
                 vientoVel: v ? (parseInt(v.velocidad) || 0) : 0,
                 icono: getIcon(c?.value)
             };
         });
 
-        // 4. DATOS GENERALES (Cielo y Viento principales)
-        // Usamos la franja de tarde (12-18 o 12-24) como representativa
         const mainSky = findData(dia.estadoCielo, '12', '18');
         let iconoFinal = getIcon(mainSky?.value);
         let descFinal = mainSky?.descripcion || 'Variable';
-
-        // 5. COHERENCIA VISUAL (Icono vs Lluvia)
         if (rainMax >= 40 && !iconoFinal.includes('rain') && !iconoFinal.includes('snow') && !iconoFinal.includes('lightning')) {
             iconoFinal = 'bi-cloud-rain-fill'; 
         }
@@ -157,27 +188,38 @@ const parseAemetData = (rawData) => {
             iconoGeneral: iconoFinal,
             descripcionGeneral: descFinal,
             uv: dia.uvMax || 0,
-            periodos: periodosOutput // <-- ARRAY PERFECTO DE 4 ELEMENTOS
+            periodos: periodosOutput
         };
     });
 };
 
 // --- 5. ENDPOINTS ---
 
+// BUSCADOR MASIVO (Filtra entre 8000 ciudades)
 app.get('/api/search/:query', (req, res) => {
     const query = req.params.query.toLowerCase();
-    const results = CITIES_DB.filter(city => city.name.toLowerCase().includes(query)).slice(0, 5);
+    // Filtramos. Como son 8000, limitamos a 10 resultados para no colapsar
+    const results = CITIES_DB.filter(city => city.name.toLowerCase().includes(query)).slice(0, 10);
     res.json(results);
 });
 
+// GEO MASIVO (Busca la más cercana entre 8000)
 app.get('/api/geo', (req, res) => {
     const { lat, lon } = req.query;
     if (!lat || !lon) return res.status(400).json({ error: "Faltan coordenadas" });
-    let closest = null, minD = Infinity;
-    CITIES_DB.forEach(c => {
-        const d = getDistanceFromLatLonInKm(lat, lon, c.lat, c.lon);
-        if (d < minD) { minD = d; closest = c; }
-    });
+    
+    let closest = null;
+    let minD = Infinity;
+    
+    // Algoritmo rápido
+    for (const city of CITIES_DB) {
+        // Optimización: Si la diferencia de latitud es muy grande (>1 grado), saltar (evita calculo Haversine costoso)
+        if (Math.abs(city.lat - lat) > 1) continue;
+        
+        const d = getDistanceFromLatLonInKm(lat, lon, city.lat, city.lon);
+        if (d < minD) { minD = d; closest = city; }
+    }
+    
     res.json(closest || { error: "No encontrada" });
 });
 
@@ -187,11 +229,8 @@ app.get('/api/alerts/:id', async (req, res) => {
         await sequelize.sync();
         const cache = await WeatherCache.findByPk(locationId);
         if (!cache) return res.json({ alert: null });
-        
         const data = JSON.parse(cache.data)[0];
         let alert = null;
-        
-        // Calcular máximos reales iterando los periodos normalizados
         const maxRain = Math.max(...data.periodos.map(p => p.probLluvia));
         const maxWind = Math.max(...data.periodos.map(p => p.vientoVel));
 
@@ -199,7 +238,6 @@ app.get('/api/alerts/:id', async (req, res) => {
         else if (maxRain >= 80) alert = { type: 'rain', level: 'warning', msg: `Lluvia intensa (${maxRain}%)`, icon: 'bi-cloud-rain-heavy-fill' };
         else if (data.tempMax >= 38) alert = { type: 'heat', level: 'danger', msg: `Calor extremo (${data.tempMax}°C)`, icon: 'bi-thermometer-sun' };
         else if (data.tempMax <= 0) alert = { type: 'cold', level: 'info', msg: `Heladas`, icon: 'bi-thermometer-snow' };
-        
         res.json({ alert });
     } catch (e) { res.json({ alert: null }); }
 });
@@ -209,19 +247,14 @@ app.get('/api/weather/:id', async (req, res) => {
     try {
         await sequelize.sync();
         const cache = await WeatherCache.findByPk(locationId);
-        
-        // 15 minutos de caché
         if (cache && (new Date() - new Date(cache.updatedAt) < 15 * 60 * 1000)) {
             return res.json(JSON.parse(cache.data));
         }
-
         if (!process.env.AEMET_API_KEY) throw new Error("Falta API Key");
         const urlRes = await axios.get(`https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/diaria/${locationId}`, { headers: { 'api_key': process.env.AEMET_API_KEY } });
         if (urlRes.data.estado !== 200) return res.status(404).json({error: "Error AEMET"});
         const weatherRes = await axios.get(urlRes.data.datos);
-        
         const cleanData = parseAemetData(weatherRes.data);
-        
         await WeatherCache.upsert({ locationId: locationId, data: JSON.stringify(cleanData), updatedAt: new Date() });
         res.json(cleanData);
     } catch (error) {
@@ -230,5 +263,10 @@ app.get('/api/weather/:id', async (req, res) => {
     }
 });
 
+// INICIALIZACIÓN
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Aeris MASTER VERSION en puerto ${PORT}`));
+app.listen(PORT, async () => {
+    console.log(`🚀 Aeris V11 (FULL ESPAÑA) arrancando en puerto ${PORT}`);
+    // Cargar ciudades al iniciar
+    await loadAllCities();
+});
