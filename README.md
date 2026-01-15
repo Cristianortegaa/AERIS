@@ -3,7 +3,8 @@
 > **El clima, elevado.**
 > Una Progressive Web App (PWA) meteorológica que fusiona datos precisos de la AEMET con una experiencia visual inmersiva basada en Glassmorphism y Mesh Gradients.
 
-![Aeris Banner](<img width="1024" height="1024" alt="ideogram-v3 0_A_modern_dynamic_banner_with_a_fluid_gradient_background_in_deep_blues_electric_-0" src="https://github.com/user-attachments/assets/b00acf34-5a9a-456c-8edd-a820f518277e" />
+![Aeris Banner](https://github.com/user-attachments/assets/48dff143-cf29-4453-b7cd-4cd23276126a)
+
 )
 ## ✨ Características Principales
 
