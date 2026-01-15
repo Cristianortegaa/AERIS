@@ -8,10 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// --- 1. BASE DE DATOS (Caché) ---
+// --- 1. BASE DE DATOS (Caché v7 - Forzamos limpieza) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v5.sqlite', // V5 para limpiar caché antigua
+    storage: './weather_db_v7.sqlite', // IMPORTANTE: v7 para borrar datos corruptos viejos
     logging: false
 });
 
@@ -23,7 +23,7 @@ const WeatherCache = sequelize.define('WeatherCache', {
 
 // --- 2. DICCIONARIO DE ICONOS (AEMET -> BOOTSTRAP) ---
 const getIcon = (code) => {
-    const cleanCode = code ? String(code).replace(/\D/g, '') : '11'; // Quitar letras (n, p)
+    const cleanCode = code ? String(code).replace(/\D/g, '') : '11'; 
     
     const iconMap = {
         '11': 'bi-sun-fill',           // Despejado
@@ -63,137 +63,96 @@ const getIcon = (code) => {
         '73': 'bi-cloud-snow-fill',
         '74': 'bi-cloud-snow-fill'
     };
+    // Fallback: Si el código falla, devolvemos sol
     return iconMap[cleanCode] || 'bi-cloud-sun';
 };
 
-// --- 3. LÓGICA DE DATOS ROBUSTA ---
+// --- 3. PARSEO ROBUSTO (Lógica Blindada) ---
 const parseAemetData = (rawData) => {
     if (!rawData || !rawData[0] || !rawData[0].prediccion) return [];
     
     return rawData[0].prediccion.dia.map(dia => {
         
-        // A. CALCULAR LLUVIA REAL (Buscando en todos los periodos disponibles)
-        let maxRainProb = 0;
+        // A. OBTENER PROBABILIDAD DE LLUVIA MÁXIMA (Vital para el finde)
+        let rainMax = 0;
         if (Array.isArray(dia.probPrecipitacion)) {
-            // Extraemos todos los valores numéricos que haya, sin importar el periodo
-            const probs = dia.probPrecipitacion.map(p => parseInt(p.value || 0));
-            maxRainProb = Math.max(...probs, 0);
+            // Extraemos SOLO los números. Si viene 'null' o texto raro, lo convertimos a 0.
+            const values = dia.probPrecipitacion.map(p => {
+                const val = parseInt(p.value);
+                return isNaN(val) ? 0 : val;
+            });
+            rainMax = Math.max(...values, 0);
         }
 
-        // B. ELEGIR ICONO Y CORREGIR INCOHERENCIAS
-        // Priorizamos el estado del cielo entre las 12 y las 24, o el general (00-24)
-        let cieloObj = dia.estadoCielo.find(e => e.periodo === '12-24') || 
-                       dia.estadoCielo.find(e => e.periodo === '00-24') || 
-                       dia.estadoCielo[0];
-        
-        let iconoCode = cieloObj?.value;
-        let descripcion = cieloObj?.descripcion || '';
-        let iconoFinal = getIcon(iconoCode);
+        // B. OBTENER DATOS GENERALES (Cielo y Viento)
+        // Buscamos cualquier dato disponible. Prioridad: 12-24 > 00-24 > El primero que pille
+        const findValid = (arr) => {
+            if (!arr || arr.length === 0) return null;
+            return arr.find(x => x.periodo === '12-24') || 
+                   arr.find(x => x.periodo === '00-24') || 
+                   arr[0];
+        };
 
-        // --- REGLAS DE COHERENCIA (MAGIA AQUÍ) ---
+        const cieloObj = findValid(dia.estadoCielo);
+        const vientoObj = findValid(dia.viento);
+
+        let iconoFinal = getIcon(cieloObj?.value);
+        let descFinal = cieloObj?.descripcion || '';
+        let vientoVel = vientoObj?.velocidad ? parseInt(vientoObj.velocidad) : 0;
+        let uvMax = dia.uvMax || 0;
+
+        // C. REGLAS DE COHERENCIA (Icono vs Datos)
         
-        // REGLA 1: Si probabilidad es 0% y el icono es de lluvia -> Forzamos SOL/NUBES
+        // 1. Si llueve mucho (>35%) y el icono es Sol -> Ponemos Lluvia
+        if (rainMax >= 35 && !iconoFinal.includes('rain') && !iconoFinal.includes('snow') && !iconoFinal.includes('lightning')) {
+            iconoFinal = 'bi-cloud-rain-fill'; 
+        }
+        
+        // 2. Si NO llueve (0%) y el icono es Lluvia -> Ponemos Nubes
         const esIconoLluvia = iconoFinal.includes('rain') || iconoFinal.includes('drizzle') || iconoFinal.includes('lightning');
-        if (maxRainProb === 0 && esIconoLluvia) {
-            iconoFinal = 'bi-cloud-sun'; // Lo cambiamos a "Intervalos nubosos" para que cuadre
-            descripcion = descripcion.replace('con lluvia', '').replace('con tormenta', ''); // Limpiamos texto
-            if(descripcion === '') descripcion = 'Intervalos nubosos';
+        if (rainMax === 0 && esIconoLluvia) {
+            iconoFinal = 'bi-cloud-sun';
+            descFinal = 'Intervalos nubosos';
         }
 
-        // REGLA 2: Si probabilidad > 0% (ej: 5%) y el icono es de sol -> Ponemos nube con gotitas
-        if (maxRainProb > 0 && !esIconoLluvia && !iconoFinal.includes('snow') && !iconoFinal.includes('fog')) {
-            // Solo si es > 25% forzamos el cambio visual, si es 5% puede ser sol con 4 gotas
-            if (maxRainProb >= 25) {
-                iconoFinal = 'bi-cloud-drizzle'; 
-            }
+        // D. GENERAR PERIODOS (Arreglo Sábado/Domingo)
+        // El frontend espera un array de periodos.
+        let periodosOutput = [];
+
+        // Si tenemos datos detallados (Hoy/Mañana tienen 3 o más tramos horarios)
+        if (dia.probPrecipitacion.length >= 3) {
+            const rangos = ['00-06', '06-12', '12-18', '18-24'];
+            periodosOutput = rangos.map(r => {
+                const p = dia.probPrecipitacion.find(e => e.periodo === r);
+                const v = dia.viento.find(e => e.periodo === r);
+                const c = dia.estadoCielo.find(e => e.periodo === r);
+                return {
+                    horario: r,
+                    probLluvia: p ? parseInt(p.value || 0) : 0,
+                    vientoVel: v ? parseInt(v.velocidad || 0) : 0,
+                    icono: getIcon(c?.value)
+                };
+            });
+        } else {
+            // SI ES FINDE (O días lejanos con pocos datos)
+            // Creamos 4 periodos FALSOS pero con el dato REAL MÁXIMO del día.
+            // Así tu web leerá "40%" en todos los tramos y mostrará 40% en el resumen.
+            periodosOutput = Array(4).fill({
+                horario: 'Día', 
+                probLluvia: rainMax, // Usamos el máximo calculado arriba
+                vientoVel: vientoVel,
+                icono: iconoFinal
+            });
         }
 
-        // C. VIENTO (Buscar valor numérico disponible)
-        let vientoObj = dia.viento.find(e => e.periodo === '12-24') || dia.viento.find(e => e.periodo === '00-24') || dia.viento[0];
-        let vientoVel = vientoObj ? parseInt(vientoObj.velocidad || 0) : 0;
-        let vientoDir = vientoObj ? vientoObj.direccion : 'C';
-
-        // D. DATOS PARA PERIODOS (Frontend)
-        // Mapeamos lo que haya para que el acordeón no falle
-        // Intentamos normalizar: Mañana (00-12) y Tarde (12-24) para días futuros
-        const periodosMap = [];
-        
-        // Función auxiliar para buscar dato en rango
-        const findData = (arr, p1, p2) => arr.find(e => e.periodo === p1 || e.periodo === p2);
-
-        // Periodo Mañana
-        let pManana = findData(dia.probPrecipitacion, '00-06', '00-12');
-        let cManana = findData(dia.estadoCielo, '00-06', '00-12');
-        let vManana = findData(dia.viento, '00-06', '00-12');
-
-        // Periodo Tarde
-        let pTarde = findData(dia.probPrecipitacion, '12-18', '12-24');
-        let cTarde = findData(dia.estadoCielo, '12-18', '12-24');
-        let vTarde = findData(dia.viento, '12-18', '12-24');
-
-        // Construimos 2 bloques principales para asegurar datos en días lejanos
-        // (El frontend usará el array 'periodos', nos aseguramos que tenga datos)
-        const periodosList = [
-            { h: 'Mañana', p: pManana, c: cManana, v: vManana },
-            { h: 'Tarde', p: pTarde, c: cTarde, v: vTarde }
-        ];
-
-        const periodosClean = periodosList.map(item => ({
-            horario: item.h,
-            icono: getIcon(item.c?.value),
-            probLluvia: item.p?.value ? parseInt(item.p.value) : 0,
-            vientoVel: item.v?.velocidad || 0,
-            vientoRot: 0 // Simplificamos rotación
-        }));
-
-        // Hack: Para mantener compatibilidad con tu frontend que espera 4 periodos o usa indices
-        // Rellenamos el array con los datos "reales" máximos calculados antes
-        const periodosFrontend = [
-            { horario: '00-12', probLluvia: maxRainProb, vientoVel: vientoVel, icono: iconoFinal },
-            { horario: '12-24', probLluvia: maxRainProb, vientoVel: vientoVel, icono: iconoFinal } 
-            // Ponemos el mismo dato general si no hay detalle, para que siempre salga bien el numero
-        ];
-
-        // Si tenemos datos detallados de AEMET (días 0-2), usamos los reales
-        if(dia.probPrecipitacion.length > 2) {
-             // Es un día con detalle (hoy/mañana) -> devolvemos la estructura original mapeada
-             return {
-                 fecha: dia.fecha,
-                 tempMax: dia.temperatura.maxima,
-                 tempMin: dia.temperatura.minima,
-                 iconoGeneral: iconoFinal,
-                 descripcionGeneral: descripcion,
-                 uv: dia.uvMax || 0,
-                 periodos: ['00-06','06-12','12-18','18-24'].map(r => {
-                     let p = dia.probPrecipitacion.find(e=>e.periodo === r);
-                     let c = dia.estadoCielo.find(e=>e.periodo === r);
-                     let v = dia.viento.find(e=>e.periodo === r);
-                     return {
-                         horario: r,
-                         probLluvia: p ? parseInt(p.value) : 0,
-                         vientoVel: v ? v.velocidad : 0,
-                         icono: getIcon(c?.value)
-                     }
-                 })
-             };
-        }
-
-        // Si es día futuro (Sábado 17...), devolvemos estructura simplificada pero correcta
         return {
             fecha: dia.fecha,
             tempMax: dia.temperatura.maxima,
             tempMin: dia.temperatura.minima,
             iconoGeneral: iconoFinal,
-            descripcionGeneral: descripcion,
-            uv: dia.uvMax || 0,
-            // Truco: Enviamos el dato MAXIMO en todos los periodos del array
-            // Así tu frontend `Math.max(...periodos)` siempre sacará el dato correcto
-            periodos: Array(4).fill({
-                horario: 'Gen',
-                probLluvia: maxRainProb, // <--- AQUÍ ESTÁ LA CLAVE (Forzamos el valor real)
-                vientoVel: vientoVel,
-                icono: iconoFinal
-            })
+            descripcionGeneral: descFinal,
+            uv: uvMax,
+            periodos: periodosOutput
         };
     });
 };
@@ -205,7 +164,7 @@ app.get('/api/weather/:id', async (req, res) => {
         await sequelize.sync();
         const cache = await WeatherCache.findByPk(locationId);
         
-        // Caché de 30 minutos para asegurar datos frescos
+        // Caché de 30 mins
         if (cache && (new Date() - new Date(cache.updatedAt) < 30 * 60 * 1000)) {
             return res.json(JSON.parse(cache.data));
         }
@@ -229,10 +188,10 @@ app.get('/api/weather/:id', async (req, res) => {
 
         res.json(cleanData);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Error Servidor" });
+        console.error("Error Servidor:", error.message);
+        res.status(500).json({ error: "Error Interno" });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Aeris v5 Corrector Lluvia activo en ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Aeris v7 (Final Fix) corriendo en puerto ${PORT}`));
