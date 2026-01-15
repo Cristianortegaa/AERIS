@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AERIS | App del Tiempo</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- VARIABLES DE TEMA --- */
+        :root {
+            --bg-gradient-1: #bae6fd;
+            --bg-gradient-2: #e0f2fe;
+            --bg-gradient-3: #7dd3fc;
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-hover: rgba(255, 255, 255, 0.85);
+            --glass-border: 2px solid #ffffff;
+            --text-main: #0c4a6e;
+            --text-sec: #64748b;
+            --accent: #0ea5e9;
+            --card-shadow: 0 10px 30px -5px rgba(14, 165, 233, 0.2);
+            --min-temp-color: #3b82f6; /* Azul para mínima */
+            --max-temp-color: #ef4444; /* Rojo para máxima */
+        }
+
+        [data-theme="dark"] {
+            --bg-gradient-1: #0f172a;
+            --bg-gradient-2: #1e293b;
+            --bg-gradient-3: #334155;
+            --glass-bg: rgba(30, 41, 59, 0.75);
+            --glass-hover: rgba(51, 65, 85, 0.9);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --text-main: #f1f5f9;
+            --text-sec: #94a3b8;
+            --accent: #38bdf8;
+            --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+            --min-temp-color: #60a5fa;
+            --max-temp-color: #f87171;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-main);
+            min-height: 100vh;
+            background-color: var(--bg-gradient-1);
+            transition: background 0.5s ease, color 0.5s ease;
+            background-image: 
+                radial-gradient(at 0% 0%, var(--bg-gradient-3) 0, transparent 50%), 
+                radial-gradient(at 100% 100%, var(--bg-gradient-2) 0, transparent 50%);
+            background-size: 150% 150%;
+            animation: bgFlow 15s ease infinite;
+            padding-bottom: 80px;
+        }
+
+        @keyframes bgFlow { 0% {background-position:0% 50%} 50% {background-position:100% 50%} 100% {background-position:0% 50%} }
+
+        /* --- CUSTOM SELECT --- */
+        .custom-select-wrapper { position: relative; user-select: none; width: 220px; z-index: 1000; }
+        .select-trigger {
+            background: var(--glass-bg); backdrop-filter: blur(12px); border-radius: 50px;
+            padding: 10px 20px; border: var(--glass-border); box-shadow: var(--card-shadow);
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            font-family: 'Outfit', sans-serif; font-weight: 700; transition: all 0.3s;
+        }
+        .select-trigger:hover { transform: scale(1.02); background: var(--glass-hover); }
+        .custom-options {
+            position: absolute; top: 110%; left: 0; right: 0;
+            background: var(--glass-bg); backdrop-filter: blur(15px); border-radius: 20px;
+            border: var(--glass-border); box-shadow: var(--card-shadow); overflow: hidden;
+            opacity: 0; visibility: hidden; transform: translateY(-10px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-height: 300px; overflow-y: auto;
+        }
+        .custom-options::-webkit-scrollbar { width: 5px; }
+        .custom-options::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
+        .custom-select-wrapper.open .custom-options { opacity: 1; visibility: visible; transform: translateY(0); }
+        .custom-option { padding: 12px 20px; cursor: pointer; transition: background 0.2s; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .custom-option:last-child { border-bottom: none; }
+        .custom-option:hover { background: var(--accent); color: white; }
+        .custom-option.selected { background: rgba(14, 165, 233, 0.1); color: var(--accent); }
+
+        /* --- TARJETAS --- */
+        .glass-card {
+            background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: var(--glass-border); border-radius: 28px; padding: 24px; box-shadow: var(--card-shadow);
+            transition: transform 0.3s, opacity 0.4s; perspective: 1000px;
+        }
+        .glass-card:hover { transform: translateY(-5px); }
+
+        /* Efecto 3D Tilt al pasar ratón */
+        .tilt-effect { transition: transform 0.1s; transform-style: preserve-3d; }
+
+        .bento-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 1200px; margin: 0 auto;
+        }
+        .span-2 { grid-column: span 2; }
+        .span-1 { grid-column: span 1; }
+        @media (min-width: 992px) {
+            .bento-grid { grid-template-columns: repeat(4, 1fr); }
+            .item-main { grid-column: span 2; grid-row: span 2; }
+            .item-chart { grid-column: span 2; grid-row: span 1; }
+            .span-full { grid-column: 1 / -1; } 
+        }
+
+        /* --- ACORDEÓN --- */
+        .accordion-glass { --bs-accordion-bg: transparent; --bs-accordion-border-color: transparent; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--text-main); --bs-accordion-btn-focus-box-shadow: none; }
+        .accordion-item { border: none; background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2); margin-bottom: 5px; }
+        .accordion-button { color: var(--text-main); font-weight: bold; padding: 15px 0; box-shadow: none !important; }
+        .accordion-button::after { filter: grayscale(1) opacity(0.5); transition: transform 0.3s; }
+        .accordion-button:not(.collapsed) { color: var(--accent); }
+        .accordion-button:not(.collapsed)::after { filter: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%230ea5e9'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e"); }
+        
+        .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px 0 20px 0; font-size: 0.9rem; }
+        @media (min-width: 768px) { .detail-grid { grid-template-columns: repeat(4, 1fr); } }
+        .detail-box { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 12px; text-align: center; }
+
+        /* --- INTERACCIONES & ANIMACIONES --- */
+        .temp-big { font-family: 'Outfit', sans-serif; font-size: 5rem; font-weight: 700; line-height: 1; letter-spacing: -2px; }
+        .label-sm { text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1.5px; color: var(--text-sec); font-weight: 800; }
+        
+        .icon-btn {
+            width: 45px; height: 45px; border-radius: 50%; border: var(--glass-border); background: var(--glass-bg); color: var(--text-main);
+            display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 1.2rem;
+            box-shadow: var(--card-shadow); transition: all 0.2s;
+        }
+        .icon-btn:hover { transform: scale(1.1); background: var(--accent); color: white; border-color: var(--accent); }
+
+        /* Animación Icono Principal */
+        @keyframes bounce-spin { 
+            0% { transform: scale(1); } 
+            50% { transform: scale(1.2) rotate(10deg); } 
+            100% { transform: scale(1) rotate(0deg); } 
+        }
+        .interact-anim { animation: bounce-spin 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* Toast Notification */
+        #toast-notification {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: var(--text-main); color: var(--bg-gradient-1);
+            padding: 12px 24px; border-radius: 50px; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            font-weight: 600; font-size: 0.9rem; z-index: 2000; opacity: 0; transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            display: flex; align-items: center; gap: 10px;
+        }
+        #toast-notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        #loader { position: fixed; top:0; left:0; width:100%; height:100%; z-index: 999; background: var(--bg-gradient-1); display: flex; justify-content: center; align-items: center; transition: opacity 0.5s; }
+    </style>
+</head>
+<body data-theme="light">
+
+    <div id="loader"><div class="spinner-border text-primary" role="status"></div></div>
+
+    <div id="toast-notification">
+        <i class="bi bi-check-circle-fill text-success"></i>
+        <span id="toast-msg">Datos actualizados</span>
+    </div>
+
+    <nav class="navbar pt-4 mb-3">
+        <div class="container d-flex justify-content-between align-items-center" style="max-width: 1200px;">
+            <div class="custom-select-wrapper" id="customSelect">
+                <div class="select-trigger">
+                    <span id="select-label">Getafe</span>
+                    <i class="bi bi-chevron-down ms-2"></i>
+                </div>
+                <div class="custom-options">
+                    <div class="custom-option selected" data-value="28065">Getafe</div>
+                    <div class="custom-option" data-value="06126">Siruela</div>
+                    <div class="custom-option" data-value="28089">Moraleja de Enmedio</div>
+                    <div class="custom-option" data-value="45013">Almorox</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span style="font-family: 'Outfit'; font-weight: 800; font-size: 1.2rem; color: var(--text-main); letter-spacing: -1px;">
+                    AERIS
+                </span>
+            </div>
+            <div class="d-flex gap-3">
+                <button class="icon-btn" id="themeBtn" title="Cambiar Tema"><i class="bi bi-moon-stars-fill"></i></button>
+                <button class="icon-btn" id="refreshBtn" title="Refrescar"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container pb-5" style="max-width: 1200px;">
+        <div class="bento-grid">
+            
+            <div class="glass-card item-main span-2 d-flex flex-column justify-content-between tilt-card" style="cursor: default;">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="label-sm" style="color: var(--accent)" id="date-label">HOY</span>
+                        <div class="mt-2 text-capitalize fs-4 fw-bold" id="weather-desc">Cargando...</div>
+                    </div>
+                    <i id="main-icon" class="bi bi-sun display-3 filter-shadow" style="color: var(--accent); cursor: pointer; transition: transform 0.2s;" title="¡Hazme clic!"></i>
+                </div>
+                <div>
+                    <div class="d-flex align-items-end">
+                        <span class="temp-big" id="display-temp">--</span>
+                        <span class="fs-1 mb-3 ms-1 opacity-50">°</span>
+                    </div>
+                    <div class="d-flex gap-4 mt-2 fw-bold align-items-center" style="font-size: 1.1rem;">
+                        <span class="d-flex align-items-center" style="color: var(--min-temp-color)">
+                            <i class="bi bi-arrow-down-short fs-4"></i> Mín <span id="min-temp" class="ms-1">--</span>°
+                        </span>
+                        <span class="text-secondary opacity-25">|</span>
+                        <span class="d-flex align-items-center" style="color: var(--max-temp-color)">
+                            <i class="bi bi-arrow-up-short fs-4"></i> Máx <span id="max-temp" class="ms-1">--</span>°
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card item-chart span-2 position-relative">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="label-sm">Tendencia</span>
+                    <span class="badge bg-primary bg-opacity-10 text-primary small">7 Días</span>
+                </div>
+                <div style="height: 150px; width: 100%;">
+                    <canvas id="weatherChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card item-uv span-1 text-center">
+                <span class="label-sm">Viento</span>
+                <div class="position-relative my-3 mx-auto" style="width:50px; height:50px;">
+                    <i id="wind-arrow" class="bi bi-arrow-up display-6" style="color: var(--accent); transition: transform 0.5s;"></i>
+                </div>
+                <div class="fw-bold"><span id="wind-speed">--</span> km/h</div>
+            </div>
+
+            <div class="glass-card span-1 text-center d-flex flex-column justify-content-center">
+                <span class="label-sm mb-2">Lluvia Hoy</span>
+                <div class="progress bg-secondary bg-opacity-10 mb-2" style="height: 8px;">
+                    <div id="rain-bar" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div class="fw-bold"><span id="rain-prob">0</span>%</div>
+            </div>
+
+            <div class="glass-card span-full">
+                <span class="label-sm mb-3 d-block">Previsión Completa</span>
+                <div class="accordion accordion-glass" id="forecastAccordion"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let GLOBAL_DATA = [];
+        let myChart = null;
+        let selectedCityId = localStorage.getItem('selectedCity') || '28065';
+
+        // --- INTERACCIONES UI ---
+        
+        // 1. Toast Notification Function
+        const showToast = (msg) => {
+            const toast = document.getElementById('toast-notification');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        };
+
+        // 2. Icon Interaction
+        const mainIcon = document.getElementById('main-icon');
+        mainIcon.addEventListener('click', () => {
+            mainIcon.classList.add('interact-anim');
+            setTimeout(() => mainIcon.classList.remove('interact-anim'), 600);
+        });
+
+        // 3. Select Logic
+        const selectWrapper = document.querySelector('.custom-select-wrapper');
+        const selectTrigger = document.querySelector('.select-trigger');
+        const customOptions = document.querySelectorAll('.custom-option');
+        const selectLabel = document.getElementById('select-label');
+
+        const initialOption = document.querySelector(`.custom-option[data-value="${selectedCityId}"]`);
+        if(initialOption) {
+            selectLabel.textContent = initialOption.textContent;
+            customOptions.forEach(o => o.classList.remove('selected'));
+            initialOption.classList.add('selected');
+        }
+
+        selectTrigger.addEventListener('click', () => selectWrapper.classList.toggle('open'));
+
+        customOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                selectWrapper.classList.remove('open');
+                customOptions.forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+                const value = this.getAttribute('data-value');
+                selectLabel.textContent = this.textContent;
+                selectedCityId = value;
+                localStorage.setItem('selectedCity', value);
+                fetchWeather(value, `Cargando ${this.textContent}...`);
+            });
+        });
+
+        window.addEventListener('click', (e) => {
+            if (!selectWrapper.contains(e.target)) selectWrapper.classList.remove('open');
+        });
+
+        // 4. Botones
+        document.getElementById('themeBtn').addEventListener('click', () => {
+            const body = document.body;
+            const newTheme = body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            body.setAttribute('data-theme', newTheme);
+            if(myChart) myChart.update();
+            showToast(newTheme === 'dark' ? "Modo Oscuro Activado" : "Modo Claro Activado");
+        });
+
+        document.getElementById('refreshBtn').addEventListener('click', () => fetchWeather(selectedCityId, "Actualizando datos..."));
+
+        // --- LÓGICA DE DATOS ---
+        const estimateCurrentTemp = (min, max) => {
+            const hour = new Date().getHours();
+            let weight = (hour >= 6 && hour <= 15) ? (hour - 6) / 9 : (hour > 15 ? 1 - ((hour - 15) / 15) : 0);
+            return Math.round(min + (max - min) * weight);
+        };
+
+        const renderChart = (data) => {
+            const ctx = document.getElementById('weatherChart').getContext('2d');
+            if(myChart) myChart.destroy();
+            const labels = data.map(d => new Date(d.fecha).toLocaleDateString('es-ES', {weekday:'short'}));
+            const maxs = data.map(d => d.tempMax);
+            const mins = data.map(d => d.tempMin); // Usamos mínimas también si quieres, o solo maxs
+            const isDark = document.body.getAttribute('data-theme') === 'dark';
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: maxs,
+                        borderColor: isDark ? '#38bdf8' : '#0ea5e9',
+                        backgroundColor: (ctx) => {
+                            const grad = ctx.chart.ctx.createLinearGradient(0,0,0,200);
+                            grad.addColorStop(0, isDark ? 'rgba(56, 189, 248, 0.4)' : 'rgba(14, 165, 233, 0.4)');
+                            grad.addColorStop(1, 'rgba(0,0,0,0)');
+                            return grad;
+                        },
+                        borderWidth: 3, tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { grid: {display:false}, ticks: {color: '#64748b'} }, y: {display:false} }
+                }
+            });
+        };
+
+        async function fetchWeather(cityId, msg = null) {
+            document.getElementById('loader').style.display = 'flex';
+            document.getElementById('loader').style.opacity = '1';
+            
+            try {
+                const res = await fetch(`/api/weather/${cityId}`);
+                const data = await res.json();
+                GLOBAL_DATA = data;
+                const today = data[0];
+
+                // Render Main
+                const realTemp = estimateCurrentTemp(today.tempMin, today.tempMax);
+                document.getElementById('display-temp').innerText = realTemp;
+                document.getElementById('max-temp').innerText = today.tempMax;
+                document.getElementById('min-temp').innerText = today.tempMin;
+                document.getElementById('weather-desc').innerText = today.descripcionGeneral;
+                document.getElementById('date-label').innerText = new Date(today.fecha).toLocaleDateString('es-ES', {weekday:'long', day:'numeric'});
+                document.getElementById('main-icon').className = `bi ${today.iconoGeneral} display-3 filter-shadow`;
+
+                const currentPeriod = today.periodos.find(p => p.horario === '12-18') || today.periodos[1];
+                document.getElementById('wind-speed').innerText = currentPeriod.vientoVel;
+                document.getElementById('wind-arrow').style.transform = `rotate(${currentPeriod.vientoRot}deg)`;
+                
+                const maxRain = Math.max(...today.periodos.map(p => p.probLluvia));
+                document.getElementById('rain-prob').innerText = maxRain;
+                document.getElementById('rain-bar').style.width = `${maxRain}%`;
+
+                renderChart(data);
+
+                // Render List (MIN / MAX REORDERED HERE)
+                const accordion = document.getElementById('forecastAccordion');
+                accordion.innerHTML = '';
+
+                data.slice(1).forEach((day, index) => {
+                    const dateStr = new Date(day.fecha).toLocaleDateString('es-ES', {weekday:'long', day:'numeric'});
+                    const maxRainDay = Math.max(...day.periodos.map(p => p.probLluvia));
+                    const midDay = day.periodos.find(p => p.horario === '12-18') || day.periodos[1];
+
+                    const itemHtml = `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}">
+                                <div class="d-flex align-items-center w-100 pe-3">
+                                    <div style="width: 150px" class="text-capitalize">${dateStr.split(',')[0]}</div>
+                                    <i class="bi ${day.iconoGeneral} fs-5 mx-3 text-primary"></i>
+                                    <div class="flex-grow-1 text-end me-3 fw-bold">
+                                        <span style="color: var(--min-temp-color)">${day.tempMin}°</span> 
+                                        <span class="text-sec opacity-50 mx-1">/</span> 
+                                        <span style="color: var(--max-temp-color)">${day.tempMax}°</span>
+                                    </div>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="collapse${index}" class="accordion-collapse collapse" data-bs-parent="#forecastAccordion">
+                            <div class="accordion-body">
+                                <div class="detail-grid">
+                                    <div class="detail-box">
+                                        <div class="label-sm mb-1">Lluvia</div>
+                                        <i class="bi bi-cloud-drizzle text-info"></i> ${maxRainDay}%
+                                    </div>
+                                    <div class="detail-box">
+                                        <div class="label-sm mb-1">Viento</div>
+                                        <i class="bi bi-wind text-secondary"></i> ${midDay.vientoVel} km/h
+                                    </div>
+                                    <div class="detail-box">
+                                        <div class="label-sm mb-1">UV Max</div>
+                                        <i class="bi bi-sun text-warning"></i> ${day.uv || '-'}
+                                    </div>
+                                    <div class="detail-box">
+                                        <div class="label-sm mb-1">Estado</div>
+                                        <span class="small">${day.descripcionGeneral}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                    accordion.innerHTML += itemHtml;
+                });
+
+                if(msg) showToast(msg);
+
+            } catch (err) {
+                console.error(err);
+                showToast("Error de conexión");
+            } finally {
+                setTimeout(() => {
+                    document.getElementById('loader').style.opacity = '0';
+                    setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+                }, 500);
+            }
+        }
+
+        // 3D Tilt Effect on Main Card
+        const card = document.querySelector('.tilt-card');
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = ((y - centerY) / centerY) * -5; // Max 5deg
+            const rotateY = ((x - centerX) / centerX) * 5;
+
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = `perspective(1000px) rotateX(0) rotateY(0)`;
+        });
+
+        // Init
+        fetchWeather(selectedCityId);
+
+    </script>
+</body>
+</html>
