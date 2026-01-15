@@ -22,8 +22,6 @@ const WeatherCache = sequelize.define('WeatherCache', {
     updatedAt: { type: DataTypes.DATE }
 });
 
-// --- 2. BASE DE DATOS HÍBRIDA (MANUAL + AUTOMÁTICA) ---
-// Empezamos con tus pueblos FIJOS para que funcionen SIEMPRE al instante.
 let CITIES_DB = [
     { id: '28079', name: 'Madrid', lat: 40.4168, lon: -3.7038 },
     { id: '08019', name: 'Barcelona', lat: 41.3851, lon: 2.1734 },
@@ -32,7 +30,7 @@ let CITIES_DB = [
     { id: '28065', name: 'Getafe', lat: 40.3083, lon: -3.7327 },
     { id: '28089', name: 'Moraleja de Enmedio', lat: 40.2625, lon: -3.8631 },
     { id: '06126', name: 'Siruela', lat: 38.9766, lon: -5.0521 },
-    { id: '45013', name: 'Almorox', lat: 40.2312, lon: -4.3906 }, // <--- ¡AQUÍ ESTÁ!
+    { id: '45013', name: 'Almorox', lat: 40.2312, lon: -4.3906 }, 
     { id: '28074', name: 'Leganés', lat: 40.3280, lon: -3.7635 },
     { id: '28058', name: 'Fuenlabrada', lat: 40.2842, lon: -3.7942 },
     { id: '28005', name: 'Alcalá de Henares', lat: 40.4818, lon: -3.3643 },
