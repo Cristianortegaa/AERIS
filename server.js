@@ -23,15 +23,60 @@ const WeatherCache = sequelize.define('WeatherCache', {
 });
 
 // --- 2. UTILIDADES DE PARSEO (Robusto) ---
+// --- DICCIONARIO DE ICONOS (Traductor AEMET -> Bootstrap) ---
 const getIcon = (code) => {
-    const cleanCode = code ? code.replace('n', '') : '11';
+    // 1. Limpieza: AEMET a veces manda "11n" (noche). Quitamos la 'n' para usar el mismo icono.
+    const cleanCode = code ? code.replace('n', '').replace('p', '') : '11';
+
     const iconMap = {
-        '11': 'bi-sun', '12': 'bi-cloud-sun', '13': 'bi-cloud', '14': 'bi-clouds',
-        '15': 'bi-cloud-haze', '16': 'bi-cloud-haze2', '17': 'bi-sun',
-        '43': 'bi-cloud-drizzle', '44': 'bi-cloud-rain', '45': 'bi-cloud-rain-heavy',
-        '46': 'bi-cloud-rain-heavy', '23': 'bi-cloud-lightning-rain', '24': 'bi-cloud-lightning',
-        '81': 'bi-cloud-fog', '82': 'bi-cloud-fog2'
+        // ☀️ SOL / DESPEJADO
+        '11': 'bi-sun-fill',            // Despejado
+        '12': 'bi-cloud-sun-fill',      // Poco nuboso
+        '13': 'bi-cloud-sun',           // Intervalos nubosos
+
+        // ☁️ NUBES
+        '14': 'bi-cloud-fill',          // Nuboso
+        '15': 'bi-clouds-fill',         // Muy nuboso
+        '16': 'bi-clouds',              // Cubierto
+        '17': 'bi-cloud-haze-fill',     // Nubes altas
+
+        // 🌧️ LLUVIA
+        '43': 'bi-cloud-drizzle-fill',        // Llovizna
+        '44': 'bi-cloud-drizzle',             // Lluvia débil
+        '45': 'bi-cloud-rain-fill',           // Lluvia
+        '46': 'bi-cloud-rain-heavy-fill',     // Lluvia persistente
+        '23': 'bi-cloud-rain-heavy',          // Lluvia e intervalos
+        '24': 'bi-cloud-rain-heavy-fill',     // Muy nuboso con lluvia
+        '25': 'bi-cloud-rain-heavy-fill',     // Muy nuboso con lluvia
+        '26': 'bi-cloud-rain-heavy-fill',     // Cubierto con lluvia
+
+        // ⛈️ TORMENTA
+        '51': 'bi-cloud-lightning-fill',      // Tormenta
+        '52': 'bi-cloud-lightning-rain-fill', // Tormenta con lluvia
+        '53': 'bi-cloud-lightning-rain-fill', // Tormenta fuerte
+        '54': 'bi-cloud-lightning-rain-fill', // Tormenta muy fuerte
+        '61': 'bi-cloud-lightning',           // Tormenta seca
+        '62': 'bi-cloud-lightning',           // Tormenta seca
+        '63': 'bi-cloud-lightning',           // Tormenta seca
+        '64': 'bi-cloud-lightning',           // Tormenta seca
+
+        // 🌨️ NIEVE
+        '33': 'bi-cloud-snow',          // Nevadas débiles
+        '34': 'bi-cloud-snow',          // Nevadas
+        '35': 'bi-cloud-snow-fill',     // Nevadas fuertes
+        '36': 'bi-cloud-snow-fill',     // Nevadas muy fuertes
+        '71': 'bi-cloud-snow',          // Intervalos nubosos con nieve
+        '72': 'bi-cloud-snow',          // Nuboso con nieve
+        '73': 'bi-cloud-snow-fill',     // Muy nuboso con nieve
+        '74': 'bi-cloud-snow-fill',     // Cubierto con nieve
+
+        // 🌫️ NIEBLA / CALIMA
+        '81': 'bi-cloud-fog2-fill',     // Niebla
+        '82': 'bi-cloud-fog2-fill',     // Bruma
+        '83': 'bi-cloud-haze2-fill'     // Calima
     };
+
+    // Si el código no está en la lista (error raro), ponemos sol y nubes por defecto
     return iconMap[cleanCode] || 'bi-cloud-sun';
 };
 
