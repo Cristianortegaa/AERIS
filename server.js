@@ -117,4 +117,5 @@ app.get('/api/weather/:id', async (req, res) => {
     }
 });
 
-app.listen(process.env.PORT, () => console.log(`🚀 Super App v3.0 corriendo en puerto ${process.env.PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Super App v3.0 corriendo en puerto ${PORT}`));
