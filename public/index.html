@@ -7,136 +7,62 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
-    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <link rel="icon" type="image/png" href="/icons/icon-192.png">
 
     <style>
         :root {
-            --bg-gradient-1: #bae6fd;
-            --bg-gradient-2: #e0f2fe;
-            --bg-gradient-3: #7dd3fc;
-            --glass-bg: rgba(255, 255, 255, 0.65);
-            --glass-hover: rgba(255, 255, 255, 0.85);
-            --glass-border: 2px solid #ffffff;
-            --text-main: #0c4a6e;
-            --text-sec: #64748b;
-            --accent: #0ea5e9;
+            --bg-gradient-1: #bae6fd; --bg-gradient-2: #e0f2fe; --bg-gradient-3: #7dd3fc;
+            --glass-bg: rgba(255, 255, 255, 0.65); --glass-hover: rgba(255, 255, 255, 0.85); --glass-border: 2px solid #ffffff;
+            --text-main: #0c4a6e; --text-sec: #64748b; --accent: #0ea5e9;
             --card-shadow: 0 10px 30px -5px rgba(14, 165, 233, 0.2);
-            --min-temp-color: #3b82f6;
-            --max-temp-color: #ef4444;
-            --alert-bg: rgba(239, 68, 68, 0.15);
-            --alert-text: #b91c1c;
-            --alert-border: #f87171;
+            --min-temp-color: #3b82f6; --max-temp-color: #ef4444;
+            --alert-bg: rgba(239, 68, 68, 0.15); --alert-text: #b91c1c; --alert-border: #f87171;
         }
-
         [data-theme="dark"] {
-            --bg-gradient-1: #0f172a;
-            --bg-gradient-2: #1e293b;
-            --bg-gradient-3: #334155;
-            --glass-bg: rgba(30, 41, 59, 0.75);
-            --glass-hover: rgba(51, 65, 85, 0.9);
-            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
-            --text-main: #f1f5f9;
-            --text-sec: #94a3b8;
-            --accent: #38bdf8;
+            --bg-gradient-1: #0f172a; --bg-gradient-2: #1e293b; --bg-gradient-3: #334155;
+            --glass-bg: rgba(30, 41, 59, 0.75); --glass-hover: rgba(51, 65, 85, 0.9); --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --text-main: #f1f5f9; --text-sec: #94a3b8; --accent: #38bdf8;
             --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
-            --min-temp-color: #60a5fa;
-            --max-temp-color: #f87171;
-            --alert-bg: rgba(127, 29, 29, 0.4);
-            --alert-text: #fca5a5;
-            --alert-border: #7f1d1d;
+            --min-temp-color: #60a5fa; --max-temp-color: #f87171;
+            --alert-bg: rgba(127, 29, 29, 0.4); --alert-text: #fca5a5; --alert-border: #7f1d1d;
         }
-
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            color: var(--text-main);
-            min-height: 100vh;
-            background-color: var(--bg-gradient-1);
-            transition: background 0.5s ease, color 0.5s ease;
-            background-image: 
-                radial-gradient(at 0% 0%, var(--bg-gradient-3) 0, transparent 50%), 
-                radial-gradient(at 100% 100%, var(--bg-gradient-2) 0, transparent 50%);
-            background-size: 150% 150%;
-            animation: bgFlow 15s ease infinite;
-            padding-bottom: 80px;
-            overflow-x: hidden;
-        }
-
+        body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text-main); min-height: 100vh; background-color: var(--bg-gradient-1); transition: background 0.5s ease; background-image: radial-gradient(at 0% 0%, var(--bg-gradient-3) 0, transparent 50%), radial-gradient(at 100% 100%, var(--bg-gradient-2) 0, transparent 50%); background-size: 150% 150%; animation: bgFlow 15s ease infinite; padding-bottom: 80px; overflow-x: hidden; }
         @keyframes bgFlow { 0% {background-position:0% 50%} 50% {background-position:100% 50%} 100% {background-position:0% 50%} }
-
-        /* --- BENTO GRID --- */
+        
         .container { max-width: 1200px; padding: 0 20px; }
         .bento-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
         @media (min-width: 768px) { .bento-grid { grid-template-columns: repeat(2, 1fr); } .span-2 { grid-column: span 2; } }
         @media (min-width: 1100px) { .bento-grid { grid-template-columns: repeat(4, 1fr); } .item-main { grid-column: span 2; grid-row: span 2; } .item-chart { grid-column: span 2; grid-row: span 1; } .span-full { grid-column: 1 / -1; } }
-
-        /* --- GLASS CARDS --- */
-        .glass-card {
-            background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: var(--glass-border); border-radius: 28px; padding: 24px; box-shadow: var(--card-shadow);
-            transition: transform 0.3s, opacity 0.4s; overflow: hidden; position: relative;
-        }
-        @media (hover: hover) { .glass-card:hover { transform: translateY(-5px); } }
-
-        /* --- NUEVO BUSCADOR (SEARCH) --- */
-        .search-container { position: relative; flex-grow: 1; max-width: 400px; z-index: 1001; }
-        .search-input-group {
-            display: flex; align-items: center; background: var(--glass-bg);
-            border: var(--glass-border); border-radius: 50px; padding: 5px 10px 5px 20px;
-            box-shadow: var(--card-shadow); backdrop-filter: blur(12px);
-        }
-        .search-input {
-            border: none; background: transparent; outline: none; width: 100%;
-            color: var(--text-main); font-weight: 600; font-family: 'Outfit';
-        }
-        .search-input::placeholder { color: var(--text-sec); opacity: 0.7; }
         
-        .geo-btn {
-            background: var(--accent); color: white; border: none; border-radius: 50%;
-            width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; margin-left: 10px; transition: transform 0.2s; flex-shrink: 0;
-        }
+        .glass-card { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: var(--glass-border); border-radius: 28px; padding: 24px; box-shadow: var(--card-shadow); transition: transform 0.3s; position: relative; }
+        
+        /* SEARCH & GEO */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; z-index: 1001; }
+        .search-input-group { display: flex; align-items: center; background: var(--glass-bg); border: var(--glass-border); border-radius: 50px; padding: 5px 10px 5px 20px; box-shadow: var(--card-shadow); backdrop-filter: blur(12px); }
+        .search-input { border: none; background: transparent; outline: none; width: 100%; color: var(--text-main); font-weight: 600; font-family: 'Outfit'; }
+        .search-input::placeholder { color: var(--text-sec); opacity: 0.7; }
+        .geo-btn { background: var(--accent); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-left: 10px; flex-shrink: 0; transition: transform 0.2s; }
         .geo-btn:active { transform: scale(0.9); }
         .geo-btn.loading { animation: spin 1s infinite linear; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        .suggestions-list {
-            position: absolute; top: 115%; left: 0; right: 0;
-            background: var(--glass-bg); backdrop-filter: blur(20px);
-            border-radius: 20px; border: var(--glass-border);
-            box-shadow: var(--card-shadow); max-height: 250px; overflow-y: auto;
-            opacity: 0; visibility: hidden; transform: translateY(-10px);
-            transition: all 0.2s; list-style: none; padding: 0; margin: 0;
-        }
+        
+        .suggestions-list { position: absolute; top: 115%; left: 0; right: 0; background: var(--glass-bg); backdrop-filter: blur(20px); border-radius: 20px; border: var(--glass-border); box-shadow: var(--card-shadow); max-height: 250px; overflow-y: auto; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all 0.2s; list-style: none; padding: 0; margin: 0; }
         .suggestions-list.show { opacity: 1; visibility: visible; transform: translateY(0); }
-        .suggestion-item {
-            padding: 12px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.1);
-            font-weight: 600; display: flex; justify-content: space-between;
-        }
+        .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; display: flex; justify-content: space-between; }
         .suggestion-item:hover { background: var(--accent); color: white; }
-        .suggestion-item:last-child { border-bottom: none; }
 
-        /* --- ALERT BANNER --- */
-        #alert-banner {
-            background: var(--alert-bg); border: 1px solid var(--alert-border); color: var(--alert-text);
-            border-radius: 20px; padding: 15px 20px; margin-bottom: 20px;
-            display: flex; align-items: center; gap: 15px; font-weight: 700;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05); display: none; /* Oculto por defecto */
-            animation: slideDown 0.4s ease-out;
-        }
+        /* ALERT */
+        #alert-banner { background: var(--alert-bg); border: 1px solid var(--alert-border); color: var(--alert-text); border-radius: 20px; padding: 15px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; font-weight: 700; box-shadow: 0 5px 15px rgba(0,0,0,0.05); display: none; animation: slideDown 0.4s ease-out; }
         @keyframes slideDown { from {opacity: 0; transform: translateY(-10px);} to {opacity: 1; transform: translateY(0);} }
 
-        /* --- COMPONENTS --- */
+        /* UI ELEMENTS */
         .temp-big { font-family: 'Outfit', sans-serif; font-weight: 700; line-height: 1; letter-spacing: -2px; font-size: clamp(3.5rem, 8vw, 5rem); }
         .display-icon { font-size: clamp(3rem, 6vw, 4.5rem); color: var(--accent); }
         .label-sm { text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1.5px; color: var(--text-sec); font-weight: 800; }
         .icon-btn { width: 45px; height: 45px; border-radius: 50%; border: var(--glass-border); background: var(--glass-bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 1.2rem; box-shadow: var(--card-shadow); transition: all 0.2s; }
-        .icon-btn:active { transform: scale(0.9); }
         
         .navbar-content { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
         .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px 0; }
@@ -153,11 +79,7 @@
 <body data-theme="light">
 
     <div id="loader"><div class="spinner-border text-primary" role="status"></div></div>
-
-    <div id="toast-notification">
-        <i class="bi bi-info-circle-fill"></i>
-        <span id="toast-msg">Mensaje</span>
-    </div>
+    <div id="toast-notification"><i class="bi bi-info-circle-fill"></i><span id="toast-msg">Mensaje</span></div>
 
     <nav class="pt-3 mb-3">
         <div class="container navbar-content">
@@ -165,19 +87,13 @@
                 <div class="search-input-group">
                     <i class="bi bi-search text-secondary me-2"></i>
                     <input type="text" class="search-input" id="citySearch" placeholder="Buscar municipio..." autocomplete="off">
-                    <button class="geo-btn" id="geoBtn" title="Usar mi ubicación">
-                        <i class="bi bi-geo-alt-fill"></i>
-                    </button>
+                    <button class="geo-btn" id="geoBtn" title="Usar mi ubicación"><i class="bi bi-geo-alt-fill"></i></button>
                 </div>
                 <ul class="suggestions-list" id="suggestions"></ul>
             </div>
-
             <div class="d-flex align-items-center gap-2 app-title d-none d-sm-flex">
-                <span style="font-family: 'Outfit'; font-weight: 800; font-size: 1.2rem; letter-spacing: -1px;">
-                    AERIS
-                </span>
+                <span style="font-family: 'Outfit'; font-weight: 800; font-size: 1.2rem; letter-spacing: -1px;">AERIS</span>
             </div>
-
             <div class="d-flex gap-2">
                 <button class="icon-btn" id="themeBtn"><i class="bi bi-moon-stars-fill"></i></button>
                 <button class="icon-btn" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i></button>
@@ -186,7 +102,6 @@
     </nav>
 
     <div class="container pb-5">
-        
         <div id="alert-banner">
             <i id="alert-icon" class="bi bi-exclamation-triangle-fill fs-4"></i>
             <div>
@@ -196,7 +111,6 @@
         </div>
 
         <div class="bento-grid">
-            
             <div class="glass-card item-main span-2 d-flex flex-column justify-content-between">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
@@ -207,29 +121,21 @@
                 </div>
                 <div class="mt-4">
                     <div class="d-flex align-items-end">
-                        <span class="temp-big" id="display-temp">--</span>
-                        <span class="fs-1 mb-3 ms-1 opacity-50">°</span>
+                        <span class="temp-big" id="display-temp">--</span><span class="fs-1 mb-3 ms-1 opacity-50">°</span>
                     </div>
                     <div class="d-flex gap-4 mt-2 fw-bold align-items-center" style="font-size: 1rem;">
-                        <span class="d-flex align-items-center" style="color: var(--min-temp-color)">
-                            <i class="bi bi-arrow-down-short fs-4"></i> <span id="min-temp">--</span>°
-                        </span>
+                        <span class="d-flex align-items-center" style="color: var(--min-temp-color)"><i class="bi bi-arrow-down-short fs-4"></i> <span id="min-temp">--</span>°</span>
                         <span class="text-secondary opacity-25">|</span>
-                        <span class="d-flex align-items-center" style="color: var(--max-temp-color)">
-                            <i class="bi bi-arrow-up-short fs-4"></i> <span id="max-temp">--</span>°
-                        </span>
+                        <span class="d-flex align-items-center" style="color: var(--max-temp-color)"><i class="bi bi-arrow-up-short fs-4"></i> <span id="max-temp">--</span>°</span>
                     </div>
                 </div>
             </div>
 
             <div class="glass-card item-chart span-2 position-relative">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="label-sm">Tendencia</span>
-                    <span class="badge bg-primary bg-opacity-10 text-primary small">7 Días</span>
+                    <span class="label-sm">Tendencia</span><span class="badge bg-primary bg-opacity-10 text-primary small">7 Días</span>
                 </div>
-                <div style="height: 180px; width: 100%;">
-                    <canvas id="weatherChart"></canvas>
-                </div>
+                <div style="height: 180px; width: 100%;"><canvas id="weatherChart"></canvas></div>
             </div>
 
             <div class="glass-card item-uv text-center">
@@ -257,26 +163,21 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // --- ESTADO GLOBAL ---
         let GLOBAL_DATA = [];
         let myChart = null;
-        // Objeto actual: {id, name}
         let currentCity = JSON.parse(localStorage.getItem('savedCity')) || { id: '28065', name: 'Getafe' };
 
-        // --- UI UTILS ---
         const showToast = (msg) => {
             const toast = document.getElementById('toast-notification');
             document.getElementById('toast-msg').innerText = msg;
             toast.classList.add('show');
             setTimeout(() => toast.classList.remove('show'), 3000);
         };
-
         const updateCityDisplay = (name) => {
             document.getElementById('city-name-display').innerText = name.toUpperCase();
-            document.getElementById('citySearch').value = ''; // Limpiar buscador
+            document.getElementById('citySearch').value = '';
         };
 
-        // --- 1. BUSCADOR (AUTOCOMPLETE) ---
         const searchInput = document.getElementById('citySearch');
         const suggestionsList = document.getElementById('suggestions');
         let searchTimeout = null;
@@ -284,18 +185,11 @@
         searchInput.addEventListener('input', (e) => {
             const query = e.target.value.trim();
             clearTimeout(searchTimeout);
-            
-            if (query.length < 2) {
-                suggestionsList.classList.remove('show');
-                return;
-            }
-
-            // Debounce para no saturar
+            if (query.length < 2) { suggestionsList.classList.remove('show'); return; }
             searchTimeout = setTimeout(async () => {
                 try {
                     const res = await fetch(`/api/search/${query}`);
                     const cities = await res.json();
-                    
                     suggestionsList.innerHTML = '';
                     if (cities.length > 0) {
                         cities.forEach(city => {
@@ -306,48 +200,29 @@
                             suggestionsList.appendChild(li);
                         });
                         suggestionsList.classList.add('show');
-                    } else {
-                        suggestionsList.classList.remove('show');
-                    }
-                } catch (err) {
-                    console.error("Search error", err);
-                }
+                    } else { suggestionsList.classList.remove('show'); }
+                } catch (err) {}
             }, 300);
         });
 
-        // Cerrar lista al hacer click fuera
-        document.addEventListener('click', (e) => {
-            if (!searchInput.contains(e.target) && !suggestionsList.contains(e.target)) {
-                suggestionsList.classList.remove('show');
-            }
-        });
+        document.addEventListener('click', (e) => { if (!searchInput.contains(e.target) && !suggestionsList.contains(e.target)) suggestionsList.classList.remove('show'); });
 
-        // --- 2. GEOLOCALIZACIÓN ---
         const geoBtn = document.getElementById('geoBtn');
         geoBtn.addEventListener('click', () => {
-            if (!navigator.geolocation) return showToast("Geolocalización no soportada");
-            
+            if (!navigator.geolocation) return showToast("No soportado");
             geoBtn.classList.add('loading');
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const { latitude, longitude } = pos.coords;
                 try {
                     const res = await fetch(`/api/geo?lat=${latitude}&lon=${longitude}`);
-                    if (!res.ok) throw new Error("No encontrada");
+                    if (!res.ok) throw new Error();
                     const city = await res.json();
-                    showToast(`📍 Localizado: ${city.name}`);
+                    showToast(`📍 ${city.name}`);
                     selectCity(city);
-                } catch (err) {
-                    showToast("No hay ciudades cercanas soportadas");
-                } finally {
-                    geoBtn.classList.remove('loading');
-                }
-            }, (err) => {
-                geoBtn.classList.remove('loading');
-                showToast("Permiso de ubicación denegado");
-            });
+                } catch (err) { showToast("No encontrada"); } finally { geoBtn.classList.remove('loading'); }
+            }, () => { geoBtn.classList.remove('loading'); showToast("Sin permiso GPS"); });
         });
 
-        // --- LOGICA PRINCIPAL ---
         const selectCity = (city) => {
             currentCity = city;
             localStorage.setItem('savedCity', JSON.stringify(city));
@@ -356,29 +231,19 @@
             fetchWeather(city.id);
         };
 
-        // --- 3. ALERTAS ---
         const checkAlerts = async (cityId) => {
             const banner = document.getElementById('alert-banner');
             try {
                 const res = await fetch(`/api/alerts/${cityId}`);
                 const data = await res.json();
-                
                 if (data.alert) {
                     banner.style.display = 'flex';
-                    banner.className = ''; // Reset class
-                    // Aplicar colores según nivel (podrías personalizar CSS)
                     document.getElementById('alert-text').innerText = data.alert.msg;
                     document.getElementById('alert-icon').className = `bi ${data.alert.icon} fs-4`;
-                } else {
-                    banner.style.display = 'none';
-                }
-            } catch (e) {
-                banner.style.display = 'none';
-            }
+                } else { banner.style.display = 'none'; }
+            } catch (e) { banner.style.display = 'none'; }
         };
 
-        // --- CORE WEATHER FETCH ---
-        // (Logica idéntica a v8 pero llamando a checkAlerts)
         const estimateCurrentTemp = (min, max) => {
             const hour = new Date().getHours();
             let weight = (hour >= 6 && hour <= 15) ? (hour - 6) / 9 : (hour > 15 ? 1 - ((hour - 15) / 15) : 0);
@@ -393,18 +258,7 @@
             const isDark = document.body.getAttribute('data-theme') === 'dark';
             myChart = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: maxs, borderColor: isDark ? '#38bdf8' : '#0ea5e9',
-                        backgroundColor: (ctx) => {
-                            const grad = ctx.chart.ctx.createLinearGradient(0,0,0,200);
-                            grad.addColorStop(0, isDark ? 'rgba(56, 189, 248, 0.4)' : 'rgba(14, 165, 233, 0.4)');
-                            grad.addColorStop(1, 'rgba(0,0,0,0)');
-                            return grad;
-                        }, borderWidth: 3, tension: 0.4, fill: true, pointRadius: 3
-                    }]
-                },
+                data: { labels: labels, datasets: [{ data: maxs, borderColor: isDark ? '#38bdf8' : '#0ea5e9', backgroundColor: (ctx) => { const grad = ctx.chart.ctx.createLinearGradient(0,0,0,200); grad.addColorStop(0, isDark ? 'rgba(56, 189, 248, 0.4)' : 'rgba(14, 165, 233, 0.4)'); grad.addColorStop(1, 'rgba(0,0,0,0)'); return grad; }, borderWidth: 3, tension: 0.4, fill: true, pointRadius: 3 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: {display:false}, ticks: {color: '#64748b', font:{size:10}} }, y: {display:false} } }
             });
         };
@@ -412,37 +266,38 @@
         async function fetchWeather(cityId, msg = null) {
             const loader = document.getElementById('loader');
             loader.style.display = 'flex'; loader.style.opacity = '1';
-            
             try {
                 const res = await fetch(`/api/weather/${cityId}`);
                 if(!res.ok) throw new Error("Error API");
                 const data = await res.json();
                 GLOBAL_DATA = data;
                 const today = data[0];
-
                 updateCityDisplay(currentCity.name);
+                
                 document.getElementById('display-temp').innerText = estimateCurrentTemp(today.tempMin, today.tempMax);
                 document.getElementById('max-temp').innerText = today.tempMax;
                 document.getElementById('min-temp').innerText = today.tempMin;
                 document.getElementById('weather-desc').innerText = today.descripcionGeneral;
                 document.getElementById('main-icon').className = `bi ${today.iconoGeneral} display-icon filter-shadow`;
 
-                const currentPeriod = today.periodos.find(p => p.horario === '12-18') || today.periodos[1];
-                document.getElementById('wind-speed').innerText = currentPeriod.vientoVel;
-                document.getElementById('wind-arrow').style.transform = `rotate(${currentPeriod.vientoRot}deg)`;
+                // Aquí está la protección: Si find falla, usa el periodo 0
+                const currentPeriod = today.periodos.find(p => p.horario === '12-18') || today.periodos[0];
+                document.getElementById('wind-speed').innerText = currentPeriod ? currentPeriod.vientoVel : '--';
+                if(currentPeriod) document.getElementById('wind-arrow').style.transform = `rotate(${currentPeriod.vientoRot || 0}deg)`;
                 
                 const maxRain = Math.max(...today.periodos.map(p => p.probLluvia));
                 document.getElementById('rain-prob').innerText = maxRain;
                 document.getElementById('rain-bar').style.width = `${maxRain}%`;
 
                 renderChart(data);
-                
                 const accordion = document.getElementById('forecastAccordion');
                 accordion.innerHTML = '';
+                
                 data.slice(1).forEach((day, index) => {
                     const dateStr = new Date(day.fecha).toLocaleDateString('es-ES', {weekday:'long', day:'numeric'});
                     const maxRainDay = Math.max(...day.periodos.map(p => p.probLluvia));
-                    const midDay = day.periodos.find(p => p.horario === '12-18') || day.periodos[1];
+                    const midDay = day.periodos.find(p => p.horario === '12-18') || day.periodos[0]; 
+                    
                     const itemHtml = `
                     <div class="accordion-item">
                         <h2 class="accordion-header">
@@ -462,7 +317,7 @@
                             <div class="accordion-body pt-0">
                                 <div class="detail-grid">
                                     <div class="detail-box"><div class="label-sm mb-1">Lluvia</div><i class="bi bi-cloud-drizzle text-info"></i> ${maxRainDay}%</div>
-                                    <div class="detail-box"><div class="label-sm mb-1">Viento</div><i class="bi bi-wind text-secondary"></i> ${midDay.vientoVel}</div>
+                                    <div class="detail-box"><div class="label-sm mb-1">Viento</div><i class="bi bi-wind text-secondary"></i> ${midDay ? midDay.vientoVel : 0}</div>
                                     <div class="detail-box"><div class="label-sm mb-1">UV</div><i class="bi bi-sun text-warning"></i> ${day.uv || '-'}</div>
                                     <div class="detail-box"><div class="label-sm mb-1">Info</div><span class="small text-truncate d-block">${day.descripcionGeneral}</span></div>
                                 </div>
@@ -471,35 +326,25 @@
                     </div>`;
                     accordion.innerHTML += itemHtml;
                 });
-
-                // Llamar a Alertas después de cargar el tiempo
                 checkAlerts(cityId);
-
                 if(msg) showToast(msg);
-
             } catch (err) {
                 console.error(err);
                 showToast("Error de conexión");
             } finally {
-                setTimeout(() => {
-                    loader.style.opacity = '0';
-                    setTimeout(() => loader.style.display = 'none', 500);
-                }, 500);
+                setTimeout(() => { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }, 500);
             }
         }
 
         document.getElementById('themeBtn').addEventListener('click', () => {
             const body = document.body;
-            const newTheme = body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-            body.setAttribute('data-theme', newTheme);
+            body.setAttribute('data-theme', body.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
             if(myChart) myChart.update();
         });
         document.getElementById('refreshBtn').addEventListener('click', () => fetchWeather(currentCity.id, "Actualizando..."));
 
-        // Init
         updateCityDisplay(currentCity.name);
         fetchWeather(currentCity.id);
-
     </script>
 </body>
 </html>
