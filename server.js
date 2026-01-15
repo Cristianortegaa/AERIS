@@ -4,15 +4,24 @@ const axios = require('axios');
 const { Sequelize, DataTypes } = require('sequelize');
 const cors = require('cors');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(cors());
+
+// --- 🔥 ARREGLO PARA LA LETRA Ñ y TILDES 🔥 ---
+app.use((req, res, next) => {
+    res.header('Content-Type', 'application/json; charset=utf-8');
+    next();
+});
+
+// Servir archivos estáticos (Frontend)
 app.use(express.static('public'));
 
-// --- 1. BASE DE DATOS (Caché v12) ---
+// --- 1. BASE DE DATOS (Caché) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v12.sqlite', 
+    storage: './weather_db_v13.sqlite', 
     logging: false
 });
 
@@ -22,15 +31,14 @@ const WeatherCache = sequelize.define('WeatherCache', {
     updatedAt: { type: DataTypes.DATE }
 });
 
+// --- 2. BASE DE DATOS MUNICIPAL ---
 let CITIES_DB = [
     { id: '28079', name: 'Madrid', lat: 40.4168, lon: -3.7038 },
     { id: '08019', name: 'Barcelona', lat: 41.3851, lon: 2.1734 },
     { id: '46250', name: 'Valencia', lat: 39.4699, lon: -0.3763 },
     { id: '41091', name: 'Sevilla', lat: 37.3891, lon: -5.9845 },
     { id: '28065', name: 'Getafe', lat: 40.3083, lon: -3.7327 },
-    { id: '28089', name: 'Moraleja de Enmedio', lat: 40.2625, lon: -3.8631 },
-    { id: '06126', name: 'Siruela', lat: 38.9766, lon: -5.0521 },
-    { id: '45013', name: 'Almorox', lat: 40.2312, lon: -4.3906 }, 
+    { id: '28092', name: 'Móstoles', lat: 40.3224, lon: -3.8695 },
     { id: '28074', name: 'Leganés', lat: 40.3280, lon: -3.7635 },
     { id: '28058', name: 'Fuenlabrada', lat: 40.2842, lon: -3.7942 },
     { id: '28005', name: 'Alcalá de Henares', lat: 40.4818, lon: -3.3643 },
@@ -38,7 +46,8 @@ let CITIES_DB = [
     { id: '06015', name: 'Badajoz', lat: 38.8794, lon: -6.9706 },
     { id: '15030', name: 'A Coruña', lat: 43.3623, lon: -8.4115 },
     { id: '18087', name: 'Granada', lat: 37.1773, lon: -3.5986 },
-    { id: '48020', name: 'Bilbao', lat: 43.2630, lon: -2.9350 }
+    { id: '48020', name: 'Bilbao', lat: 43.2630, lon: -2.9350 },
+    { id: '26089', name: 'Logroño', lat: 42.4664, lon: -2.4456 }
 ];
 
 // UTILS
@@ -73,13 +82,12 @@ const getIcon = (code) => {
     return iconMap[cleanCode] || 'bi-cloud-sun';
 };
 
-// --- CARGA DE MUNICIPIOS (Intenta descargar el resto, pero mantiene los fijos) ---
+// --- CARGA DE MUNICIPIOS ---
 const loadAllCities = async () => {
     const filePath = './cities_full.json';
     if (fs.existsSync(filePath)) {
         console.log("📂 Cargando municipios extra...");
         const extraCities = JSON.parse(fs.readFileSync(filePath));
-        // Fusionamos sin duplicar (damos prioridad a lo descargado si existe)
         const currentIds = new Set(CITIES_DB.map(c => c.id));
         extraCities.forEach(c => {
             if(!currentIds.has(c.id)) CITIES_DB.push(c);
@@ -90,7 +98,7 @@ const loadAllCities = async () => {
 
     console.log("🌐 Intentando descargar municipios de AEMET...");
     if (!process.env.AEMET_API_KEY) {
-        console.log("⚠️ Sin API Key: Usando solo lista manual de respaldo.");
+        console.log("⚠️ Sin API Key: Usando solo lista manual.");
         return;
     }
 
@@ -106,7 +114,6 @@ const loadAllCities = async () => {
 
         fs.writeFileSync(filePath, JSON.stringify(downloaded));
         
-        // Agregar los nuevos a la lista en memoria
         const currentIds = new Set(CITIES_DB.map(c => c.id));
         downloaded.forEach(c => {
             if(!currentIds.has(c.id)) CITIES_DB.push(c);
@@ -153,6 +160,7 @@ const parseAemetData = (rawData) => {
                 horario: rango,
                 probLluvia: probVal,
                 vientoVel: v ? (parseInt(v.velocidad) || 0) : 0,
+                vientoRot: v ? (parseInt(v.direccion) || 0) : 0, // Añadido rotación viento si disponible
                 icono: getIcon(c?.value)
             };
         });
@@ -160,6 +168,8 @@ const parseAemetData = (rawData) => {
         const mainSky = findData(dia.estadoCielo, '12', '18');
         let iconoFinal = getIcon(mainSky?.value);
         let descFinal = mainSky?.descripcion || 'Variable';
+        
+        // Corrección visual si llueve mucho pero el icono no lo dice
         if (rainMax >= 40 && !iconoFinal.includes('rain') && !iconoFinal.includes('snow') && !iconoFinal.includes('lightning')) iconoFinal = 'bi-cloud-rain-fill'; 
         const esIconoLluvia = iconoFinal.includes('rain') || iconoFinal.includes('drizzle') || iconoFinal.includes('lightning');
         if (rainMax === 0 && esIconoLluvia) { iconoFinal = 'bi-cloud-sun'; descFinal = 'Intervalos nubosos'; }
@@ -213,12 +223,17 @@ app.get('/api/weather/:id', async (req, res) => {
     try {
         await sequelize.sync();
         const cache = await WeatherCache.findByPk(locationId);
-        if (cache && (new Date() - new Date(cache.updatedAt) < 15 * 60 * 1000)) return res.json(JSON.parse(cache.data));
+        // Caché de 30 mins
+        if (cache && (new Date() - new Date(cache.updatedAt) < 30 * 60 * 1000)) return res.json(JSON.parse(cache.data));
+        
         if (!process.env.AEMET_API_KEY) throw new Error("Falta API Key");
+        
         const urlRes = await axios.get(`https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/diaria/${locationId}`, { headers: { 'api_key': process.env.AEMET_API_KEY } });
         if (urlRes.data.estado !== 200) return res.status(404).json({error: "Error AEMET"});
+        
         const weatherRes = await axios.get(urlRes.data.datos);
         const cleanData = parseAemetData(weatherRes.data);
+        
         await WeatherCache.upsert({ locationId: locationId, data: JSON.stringify(cleanData), updatedAt: new Date() });
         res.json(cleanData);
     } catch (error) {
@@ -229,6 +244,6 @@ app.get('/api/weather/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
-    console.log(`🚀 Aeris V12 (LISTA MANUAL + AUTO) en puerto ${PORT}`);
+    console.log(`🚀 Aeris V14 en puerto ${PORT}`);
     await loadAllCities();
 });
