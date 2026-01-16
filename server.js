@@ -14,30 +14,28 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- BASE DE DATOS (Caché) ---
+// --- BASE DE DATOS (Caché V15) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v14.sqlite', // Actualizado versión
+    storage: './weather_db_v15.sqlite', 
     logging: false
 });
 
 const WeatherCache = sequelize.define('WeatherCache', {
     locationId: { type: DataTypes.STRING, primaryKey: true },
     dailyData: { type: DataTypes.TEXT },
-    hourlyData: { type: DataTypes.TEXT }, // Nuevo campo para caché horaria
+    hourlyData: { type: DataTypes.TEXT },
     updatedAt: { type: DataTypes.DATE }
 });
 
-// --- BASE DE DATOS MUNICIPIOS (Tu lista existente) ---
+// --- LISTA DE MUNICIPIOS ---
 let CITIES_DB = [
     { id: '28079', name: 'Madrid', lat: 40.4168, lon: -3.7038 },
     { id: '08019', name: 'Barcelona', lat: 41.3851, lon: 2.1734 },
+    { id: '28065', name: 'Getafe', lat: 40.3083, lon: -3.7327 },
     { id: '46250', name: 'Valencia', lat: 39.4699, lon: -0.3763 },
     { id: '41091', name: 'Sevilla', lat: 37.3891, lon: -5.9845 },
-    { id: '28065', name: 'Getafe', lat: 40.3083, lon: -3.7327 },
-    { id: '28089', name: 'Moraleja de Enmedio', lat: 40.2625, lon: -3.8631 },
-    { id: '06126', name: 'Siruela', lat: 38.9766, lon: -5.0521 },
-    { id: '45013', name: 'Almorox', lat: 40.2312, lon: -4.3906 }, 
+    { id: '28092', name: 'Móstoles', lat: 40.3224, lon: -3.8695 },
     { id: '28074', name: 'Leganés', lat: 40.3280, lon: -3.7635 },
     { id: '28058', name: 'Fuenlabrada', lat: 40.2842, lon: -3.7942 },
     { id: '28005', name: 'Alcalá de Henares', lat: 40.4818, lon: -3.3643 },
@@ -49,7 +47,6 @@ let CITIES_DB = [
     { id: '26089', name: 'Logroño', lat: 42.4664, lon: -2.4456 }
 ];
 
-// UTILS
 const parseCoordinate = (coordStr) => {
     if (!coordStr) return 0;
     const regex = /(\d+)(\d{2})(\d{2})([NSEW])/;
@@ -81,28 +78,20 @@ const getIcon = (code) => {
     return iconMap[cleanCode] || 'bi-cloud-sun';
 };
 
-// --- CARGA DE MUNICIPIOS ---
 const loadAllCities = async () => {
     const filePath = './cities_full.json';
     if (fs.existsSync(filePath)) {
         console.log("📂 Cargando municipios extra...");
         const extraCities = JSON.parse(fs.readFileSync(filePath));
         const currentIds = new Set(CITIES_DB.map(c => c.id));
-        extraCities.forEach(c => {
-            if(!currentIds.has(c.id)) CITIES_DB.push(c);
-        });
-        console.log(`✅ BD Cargada: ${CITIES_DB.length} municipios.`);
+        extraCities.forEach(c => { if(!currentIds.has(c.id)) CITIES_DB.push(c); });
         return;
     }
-    // Si no existe, intenta descargar (lógica existente...)
-    // (Omitido para brevedad, mantener tu lógica original de descarga aquí si la necesitas)
     console.log("⚠️ Usando lista manual de respaldo.");
 };
 
-// --- PARSEADORES AEMET ---
-
+// --- PARSEADOR DIARIO ---
 const parseAemetData = (rawData) => {
-    // (Tu lógica original para la previsión DIARIA - Mantenla igual)
     if (!rawData || !rawData[0] || !rawData[0].prediccion) return [];
     return rawData[0].prediccion.dia.map(dia => {
         let rainMax = 0;
@@ -110,63 +99,49 @@ const parseAemetData = (rawData) => {
             const values = dia.probPrecipitacion.map(p => parseInt(p.value)).filter(v => !isNaN(v));
             rainMax = Math.max(...values, 0);
         }
+
         const findData = (collection, targetStart, targetEnd) => {
             if (!collection || collection.length === 0) return null;
             const exact = collection.find(x => x.periodo === `${targetStart}-${targetEnd}`);
             if (exact) return exact;
             return collection.find(x => x.periodo === '00-24') || collection[0];
         };
+
         const periodosStandard = ['00-06', '06-12', '12-18', '18-24'];
         const periodosOutput = periodosStandard.map(rango => {
             const [start, end] = rango.split('-');
+            const p = findData(dia.probPrecipitacion, start, end);
             const v = findData(dia.viento, start, end);
             const c = findData(dia.estadoCielo, start, end);
+            let probVal = p ? parseInt(p.value) : 0;
+            if (isNaN(probVal)) probVal = 0;
             return {
                 horario: rango,
-                probLluvia: rainMax, // Simplificado para evitar complejidad
+                probLluvia: probVal,
                 vientoVel: v ? (parseInt(v.velocidad) || 0) : 0,
                 vientoRot: v ? (parseInt(v.direccion) || 0) : 0,
                 icono: getIcon(c?.value)
             };
         });
 
-        // Lógica Icono Principal
         const mainSky = findData(dia.estadoCielo, '12', '18') || dia.estadoCielo[0];
         let iconoFinal = getIcon(mainSky?.value);
         let descFinal = mainSky?.descripcion || 'Variable';
-        if (rainMax >= 40 && !iconoFinal.includes('rain')) iconoFinal = 'bi-cloud-rain-fill'; 
+        if (rainMax >= 60 && !iconoFinal.includes('rain') && !iconoFinal.includes('lightning')) iconoFinal = 'bi-cloud-rain-fill';
 
         return {
-            fecha: dia.fecha, tempMax: dia.temperatura.maxima, tempMin: dia.temperatura.minima,
-            iconoGeneral: iconoFinal, descripcionGeneral: descFinal, uv: dia.uvMax || 0,
+            fecha: dia.fecha, 
+            tempMax: dia.temperatura.maxima, 
+            tempMin: dia.temperatura.minima,
+            iconoGeneral: iconoFinal, 
+            descripcionGeneral: descFinal, 
+            uv: dia.uvMax || 0,
             periodos: periodosOutput
         };
     });
 };
 
-// --- UTILITY: Obtener hora actual en zona horaria Madrid ---
-const getCurrentTimeInMadrid = () => {
-    const formatter = new Intl.DateTimeFormat('es-ES', {
-        timeZone: 'Europe/Madrid',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-    });
-    const parts = formatter.formatToParts(new Date());
-    const result = {};
-    parts.forEach(({ type, value }) => {
-        result[type] = value;
-    });
-    const dateStr = `${result.year}-${result.month}-${result.day}`;
-    const hour = parseInt(result.hour);
-    return { dateStr, hour, fullDate: new Date() };
-};
-
-// --- UTILITY: Fusionar datos diarios con horarios (Data Merging) ---
+// --- 🔥 UTILITY: Fusionar datos diarios con horarios (Data Merging) 🔥 ---
 const mergeAemetData = (dailyData, hourlyRawData) => {
     if (!dailyData || dailyData.length === 0) return [];
     if (!hourlyRawData || !hourlyRawData[0] || !hourlyRawData[0].prediccion) return [];
@@ -183,7 +158,7 @@ const mergeAemetData = (dailyData, hourlyRawData) => {
         });
     });
 
-    // 2. Construir array horario desde datos AEMET horarios
+    // 2. Construir array horario completo (sin filtrar por hora aún)
     dias.forEach(dia => {
         const fechaBase = dia.fecha; // YYYY-MM-DD
 
@@ -193,14 +168,16 @@ const mergeAemetData = (dailyData, hourlyRawData) => {
                 if (!hora) return;
 
                 const hInt = parseInt(hora);
-                // Buscar datos coincidentes en otros arrays
+                // Buscar datos coincidentes
                 const tempObj = dia.temperatura.find(t => t.periodo === hora);
                 const rainObj = dia.precipitacion.find(p => p.periodo === hora);
 
-                // ⭐ DATA MERGING: Buscar lluvia del periodo diario correspondiente
-                let rainProb = rainObj ? (parseInt(rainObj.value) || 0) : 0;
+                // --- DATA MERGING ---
+                // Intentamos coger la lluvia horaria (AEMET horaria da mm, no %, pero a veces da algo)
+                // Si no hay dato claro, cruzamos con el periodo diario
+                let rainProb = 0;
                 
-                // Determinar en qué periodo diario cae esta hora
+                // Determinar periodo diario (00-06, 06-12, etc.)
                 let periodoDiario = null;
                 if (hInt >= 0 && hInt < 6) periodoDiario = '00-06';
                 else if (hInt >= 6 && hInt < 12) periodoDiario = '06-12';
@@ -210,17 +187,16 @@ const mergeAemetData = (dailyData, hourlyRawData) => {
                 const dayPeriodKey = `${fechaBase}_${periodoDiario}`;
                 const dayPeriodData = dailyPeriodMap[dayPeriodKey];
 
-                // Si el dato horario de lluvia es 0 o inexistente, usar el del periodo diario
-                if (rainProb === 0 && dayPeriodData) {
+                if (dayPeriodData) {
                     rainProb = dayPeriodData.probLluvia || 0;
                 }
 
                 hourlyCombined.push({
                     fullDate: `${fechaBase}T${String(hInt).padStart(2, '0')}:00:00`,
                     hour: hInt,
-                    date: fechaBase,
+                    date: fechaBase, // Para filtrar luego
                     temp: tempObj ? parseInt(tempObj.value) : 0,
-                    rainProb: rainProb, // ✅ Ahora incluye datos fusionados
+                    rainProb: rainProb, // Dato fusionado
                     icon: getIcon(item.value),
                     desc: item.descripcion
                 });
@@ -228,13 +204,7 @@ const mergeAemetData = (dailyData, hourlyRawData) => {
         }
     });
 
-    // 3. ⭐ NO FILTRAR EN BACKEND - Dejar que frontend filtre
-    // Esto evita problemas de zona horaria en servidores UTC
-    // El frontend tiene la zona horaria correcta del usuario
-    
-    console.log(`[mergeAemetData] Total horas devueltas: ${hourlyCombined.length} (sin filtro en backend, frontend lo hace)`);
-    
-    // Devolver todos los datos sin filtrar
+    // DEVOLVEMOS TODO EL ARRAY (El frontend filtrará según la hora real del usuario)
     return hourlyCombined;
 };
 
@@ -257,13 +227,9 @@ app.get('/api/geo', (req, res) => {
 });
 
 app.get('/api/alerts/:id', async (req, res) => {
-    // (Tu lógica de alertas se mantiene igual)
-    // Para brevedad del código, asumo que usas la misma lógica de "checkAlerts" en frontend
-    // basada en los datos diarios.
     res.json({ alert: null }); 
 });
 
-// Endpoint Principal (Diario + Horario Combinado con Data Merging)
 app.get('/api/weather/:id', async (req, res) => {
     const locationId = req.params.id;
     try {
@@ -285,11 +251,11 @@ app.get('/api/weather/:id', async (req, res) => {
         const weatherResDaily = await axios.get(urlResDaily.data.datos);
         const cleanDaily = parseAemetData(weatherResDaily.data);
 
-        // 2. Descargar Horaria (NIVEL DIOS)
+        // 2. Descargar Horaria
         const urlResHourly = await axios.get(`https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/${locationId}`, { headers: { 'api_key': process.env.AEMET_API_KEY } });
         const weatherResHourly = await axios.get(urlResHourly.data.datos);
         
-        // 3. ⭐ DATA MERGING: Fusionar datos diarios y horarios con timezone Madrid
+        // 3. Fusionar datos (Data Merging)
         const cleanHourly = mergeAemetData(cleanDaily, weatherResHourly.data);
 
         // Guardar en DB
@@ -304,7 +270,6 @@ app.get('/api/weather/:id', async (req, res) => {
 
     } catch (error) {
         console.error(error);
-        // Si falla AEMET, intenta devolver caché vieja si existe
         try {
             const cache = await WeatherCache.findByPk(locationId);
             if(cache) return res.json({ daily: JSON.parse(cache.dailyData), hourly: JSON.parse(cache.hourlyData || '[]') });
@@ -315,6 +280,6 @@ app.get('/api/weather/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
-    console.log(`🚀 Aeris V14 (Hourly Update) en puerto ${PORT}`);
+    console.log(`🚀 Aeris V15 (Sync Real) en puerto ${PORT}`);
     await loadAllCities();
 });
