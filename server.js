@@ -14,17 +14,16 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- BASE DE DATOS (Caché V15) ---
+// --- BASE DE DATOS (Caché V20 - WeatherAPI) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v15.sqlite', 
+    storage: './weather_db_v20.sqlite', 
     logging: false
 });
 
 const WeatherCache = sequelize.define('WeatherCache', {
     locationId: { type: DataTypes.STRING, primaryKey: true },
-    dailyData: { type: DataTypes.TEXT },
-    hourlyData: { type: DataTypes.TEXT },
+    data: { type: DataTypes.TEXT },
     updatedAt: { type: DataTypes.DATE }
 });
 
@@ -47,20 +46,6 @@ let CITIES_DB = [
     { id: '26089', name: 'Logroño', lat: 42.4664, lon: -2.4456 }
 ];
 
-const parseCoordinate = (coordStr) => {
-    if (!coordStr) return 0;
-    const regex = /(\d+)(\d{2})(\d{2})([NSEW])/;
-    const match = coordStr.match(regex);
-    if (!match) return 0;
-    const deg = parseInt(match[1]);
-    const min = parseInt(match[2]);
-    const sec = parseInt(match[3]);
-    const dir = match[4];
-    let decimal = deg + (min / 60) + (sec / 3600);
-    if (dir === 'S' || dir === 'W') decimal = decimal * -1;
-    return decimal;
-};
-
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
     const R = 6371; 
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -70,14 +55,23 @@ const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
     return R * c;
 };
 
-const getIcon = (code) => {
-    const cleanCode = code ? String(code).replace(/\D/g, '') : '11'; 
-    const iconMap = {
-        '11': 'bi-sun-fill', '12': 'bi-cloud-sun-fill', '13': 'bi-cloud-sun', '14': 'bi-cloud-fill', '15': 'bi-clouds-fill', '16': 'bi-clouds', '17': 'bi-cloud-haze-fill', '81': 'bi-cloud-fog2-fill', '82': 'bi-cloud-fog2-fill', '43': 'bi-cloud-drizzle-fill', '44': 'bi-cloud-drizzle', '45': 'bi-cloud-rain-fill', '46': 'bi-cloud-rain-heavy-fill', '23': 'bi-cloud-rain-heavy', '24': 'bi-cloud-rain-heavy-fill', '25': 'bi-cloud-rain-heavy-fill', '26': 'bi-cloud-rain-heavy-fill', '51': 'bi-cloud-lightning-fill', '52': 'bi-cloud-lightning-rain-fill', '53': 'bi-cloud-lightning-rain-fill', '54': 'bi-cloud-lightning-rain-fill', '61': 'bi-cloud-lightning', '33': 'bi-cloud-snow', '34': 'bi-cloud-snow', '35': 'bi-cloud-snow-fill', '36': 'bi-cloud-snow-fill', '71': 'bi-cloud-snow', '72': 'bi-cloud-snow', '73': 'bi-cloud-snow-fill', '74': 'bi-cloud-snow-fill'
-    };
-    return iconMap[cleanCode] || 'bi-cloud-sun';
+// --- MAPEO DE ICONOS DE WEATHERAPI A BOOTSTRAP ---
+// WeatherAPI da códigos numéricos. Los mapeamos a tus iconos.
+const mapIcon = (code, isDay) => {
+    // Códigos simplificados. WeatherAPI tiene muchos, agrupamos los principales.
+    const c = parseInt(code);
+    if (c === 1000) return isDay ? 'bi-sun' : 'bi-moon'; // Despejado
+    if (c === 1003) return isDay ? 'bi-cloud-sun' : 'bi-cloud-moon'; // Parcialmente nublado
+    if (c === 1006 || c === 1009) return 'bi-clouds'; // Nublado
+    if ([1030, 1135, 1147].includes(c)) return 'bi-cloud-haze2'; // Niebla
+    if ([1063, 1180, 1183, 1186, 1189, 1240].includes(c)) return 'bi-cloud-drizzle'; // Lluvia ligera
+    if ([1192, 1195, 1198, 1201, 1243, 1246].includes(c)) return 'bi-cloud-rain-heavy'; // Lluvia fuerte
+    if ([1066, 1114, 1210, 1213, 1216, 1219, 1222, 1225, 1255, 1258].includes(c)) return 'bi-cloud-snow'; // Nieve
+    if ([1087, 1273, 1276, 1279, 1282].includes(c)) return 'bi-cloud-lightning-rain'; // Tormenta
+    return 'bi-cloud'; // Por defecto
 };
 
+// --- CARGAR CIUDADES (Igual que antes) ---
 const loadAllCities = async () => {
     const filePath = './cities_full.json';
     if (fs.existsSync(filePath)) {
@@ -85,127 +79,7 @@ const loadAllCities = async () => {
         const extraCities = JSON.parse(fs.readFileSync(filePath));
         const currentIds = new Set(CITIES_DB.map(c => c.id));
         extraCities.forEach(c => { if(!currentIds.has(c.id)) CITIES_DB.push(c); });
-        return;
     }
-    console.log("⚠️ Usando lista manual de respaldo.");
-};
-
-// --- PARSEADOR DIARIO ---
-const parseAemetData = (rawData) => {
-    if (!rawData || !rawData[0] || !rawData[0].prediccion) return [];
-    return rawData[0].prediccion.dia.map(dia => {
-        let rainMax = 0;
-        if (Array.isArray(dia.probPrecipitacion)) {
-            const values = dia.probPrecipitacion.map(p => parseInt(p.value)).filter(v => !isNaN(v));
-            rainMax = Math.max(...values, 0);
-        }
-
-        const findData = (collection, targetStart, targetEnd) => {
-            if (!collection || collection.length === 0) return null;
-            const exact = collection.find(x => x.periodo === `${targetStart}-${targetEnd}`);
-            if (exact) return exact;
-            return collection.find(x => x.periodo === '00-24') || collection[0];
-        };
-
-        const periodosStandard = ['00-06', '06-12', '12-18', '18-24'];
-        const periodosOutput = periodosStandard.map(rango => {
-            const [start, end] = rango.split('-');
-            const p = findData(dia.probPrecipitacion, start, end);
-            const v = findData(dia.viento, start, end);
-            const c = findData(dia.estadoCielo, start, end);
-            let probVal = p ? parseInt(p.value) : 0;
-            if (isNaN(probVal)) probVal = 0;
-            return {
-                horario: rango,
-                probLluvia: probVal,
-                vientoVel: v ? (parseInt(v.velocidad) || 0) : 0,
-                vientoRot: v ? (parseInt(v.direccion) || 0) : 0,
-                icono: getIcon(c?.value)
-            };
-        });
-
-        const mainSky = findData(dia.estadoCielo, '12', '18') || dia.estadoCielo[0];
-        let iconoFinal = getIcon(mainSky?.value);
-        let descFinal = mainSky?.descripcion || 'Variable';
-        if (rainMax >= 60 && !iconoFinal.includes('rain') && !iconoFinal.includes('lightning')) iconoFinal = 'bi-cloud-rain-fill';
-
-        return {
-            fecha: dia.fecha, 
-            tempMax: dia.temperatura.maxima, 
-            tempMin: dia.temperatura.minima,
-            iconoGeneral: iconoFinal, 
-            descripcionGeneral: descFinal, 
-            uv: dia.uvMax || 0,
-            periodos: periodosOutput
-        };
-    });
-};
-
-// --- 🔥 UTILITY: Fusionar datos diarios con horarios (Data Merging) 🔥 ---
-const mergeAemetData = (dailyData, hourlyRawData) => {
-    if (!dailyData || dailyData.length === 0) return [];
-    if (!hourlyRawData || !hourlyRawData[0] || !hourlyRawData[0].prediccion) return [];
-
-    const dias = hourlyRawData[0].prediccion.dia;
-    let hourlyCombined = [];
-
-    // 1. Crear mapa de periodos diarios con sus datos de lluvia
-    const dailyPeriodMap = {};
-    dailyData.forEach(dayData => {
-        dayData.periodos.forEach(periodo => {
-            const key = `${dayData.fecha}_${periodo.horario}`;
-            dailyPeriodMap[key] = periodo;
-        });
-    });
-
-    // 2. Construir array horario completo (sin filtrar por hora aún)
-    dias.forEach(dia => {
-        const fechaBase = dia.fecha; // YYYY-MM-DD
-
-        if (dia.estadoCielo && Array.isArray(dia.estadoCielo)) {
-            dia.estadoCielo.forEach(item => {
-                const hora = item.periodo; // "01", "14", etc.
-                if (!hora) return;
-
-                const hInt = parseInt(hora);
-                // Buscar datos coincidentes
-                const tempObj = dia.temperatura.find(t => t.periodo === hora);
-                const rainObj = dia.precipitacion.find(p => p.periodo === hora);
-
-                // --- DATA MERGING ---
-                // Intentamos coger la lluvia horaria (AEMET horaria da mm, no %, pero a veces da algo)
-                // Si no hay dato claro, cruzamos con el periodo diario
-                let rainProb = 0;
-                
-                // Determinar periodo diario (00-06, 06-12, etc.)
-                let periodoDiario = null;
-                if (hInt >= 0 && hInt < 6) periodoDiario = '00-06';
-                else if (hInt >= 6 && hInt < 12) periodoDiario = '06-12';
-                else if (hInt >= 12 && hInt < 18) periodoDiario = '12-18';
-                else periodoDiario = '18-24';
-
-                const dayPeriodKey = `${fechaBase}_${periodoDiario}`;
-                const dayPeriodData = dailyPeriodMap[dayPeriodKey];
-
-                if (dayPeriodData) {
-                    rainProb = dayPeriodData.probLluvia || 0;
-                }
-
-                hourlyCombined.push({
-                    fullDate: `${fechaBase}T${String(hInt).padStart(2, '0')}:00:00`,
-                    hour: hInt,
-                    date: fechaBase, // Para filtrar luego
-                    temp: tempObj ? parseInt(tempObj.value) : 0,
-                    rainProb: rainProb, // Dato fusionado
-                    icon: getIcon(item.value),
-                    desc: item.descripcion
-                });
-            });
-        }
-    });
-
-    // DEVOLVEMOS TODO EL ARRAY (El frontend filtrará según la hora real del usuario)
-    return hourlyCombined;
 };
 
 // --- ENDPOINTS ---
@@ -218,68 +92,95 @@ app.get('/api/search/:query', (req, res) => {
 app.get('/api/geo', (req, res) => {
     const { lat, lon } = req.query;
     if (!lat || !lon) return res.status(400).json({ error: "Faltan coordenadas" });
-    let closest = null, minD = Infinity;
+    let closest = CITIES_DB[0], minD = Infinity;
     CITIES_DB.forEach(c => {
         const d = getDistanceFromLatLonInKm(lat, lon, c.lat, c.lon);
         if (d < minD) { minD = d; closest = c; }
     });
-    res.json(closest || { error: "No encontrada" });
-});
-
-app.get('/api/alerts/:id', async (req, res) => {
-    res.json({ alert: null }); 
+    res.json(closest);
 });
 
 app.get('/api/weather/:id', async (req, res) => {
     const locationId = req.params.id;
+    const city = CITIES_DB.find(c => c.id === locationId);
+    
+    if(!city) return res.status(404).json({error: "Ciudad no encontrada"});
+
     try {
         await sequelize.sync();
         const cache = await WeatherCache.findByPk(locationId);
         
-        // Cache válida 30 mins
-        if (cache && (new Date() - new Date(cache.updatedAt) < 30 * 60 * 1000)) {
-            return res.json({
-                daily: JSON.parse(cache.dailyData),
-                hourly: JSON.parse(cache.hourlyData || '[]')
-            });
+        // Cache 15 min
+        if (cache && (new Date() - new Date(cache.updatedAt) < 15 * 60 * 1000)) {
+            return res.json(JSON.parse(cache.data));
         }
 
-        if (!process.env.AEMET_API_KEY) throw new Error("Falta API Key");
+        if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key de WeatherAPI");
 
-        // 1. Descargar Diaria
-        const urlResDaily = await axios.get(`https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/diaria/${locationId}`, { headers: { 'api_key': process.env.AEMET_API_KEY } });
-        const weatherResDaily = await axios.get(urlResDaily.data.datos);
-        const cleanDaily = parseAemetData(weatherResDaily.data);
-
-        // 2. Descargar Horaria
-        const urlResHourly = await axios.get(`https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/${locationId}`, { headers: { 'api_key': process.env.AEMET_API_KEY } });
-        const weatherResHourly = await axios.get(urlResHourly.data.datos);
+        // 🔥 LLAMADA A WEATHERAPI.COM 🔥
+        // Pedimos 3 días de previsión (days=3) y en español (lang=es)
+        const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${city.lat},${city.lon}&days=7&aqi=no&alerts=no&lang=es`;
         
-        // 3. Fusionar datos (Data Merging)
-        const cleanHourly = mergeAemetData(cleanDaily, weatherResHourly.data);
+        const response = await axios.get(url);
+        const data = response.data;
 
-        // Guardar en DB
+        // Formatear datos para nuestro Frontend
+        const current = data.current;
+        const forecast = data.forecast.forecastday;
+
+        const finalData = {
+            current: {
+                temp: Math.round(current.temp_c),
+                feelsLike: Math.round(current.feelslike_c),
+                humidity: current.humidity,
+                pressure: current.pressure_mb,
+                windSpeed: Math.round(current.wind_kph),
+                desc: current.condition.text,
+                icon: mapIcon(current.condition.code, current.is_day),
+                isDay: current.is_day === 1,
+                uv: current.uv
+            },
+            // Aplanamos las horas de hoy y mañana
+            hourly: [
+                ...forecast[0].hour,
+                ...forecast[1].hour
+            ].map(h => ({
+                fullDate: h.time, // "2023-10-27 14:00"
+                epoch: h.time_epoch,
+                temp: Math.round(h.temp_c),
+                rainProb: h.chance_of_rain, // ¡DATO REAL!
+                icon: mapIcon(h.condition.code, h.is_day),
+                desc: h.condition.text
+            })),
+            daily: forecast.map(d => ({
+                fecha: d.date,
+                tempMax: Math.round(d.day.maxtemp_c),
+                tempMin: Math.round(d.day.mintemp_c),
+                uv: d.day.uv,
+                sunrise: d.astro.sunrise, // "07:30 AM"
+                sunset: d.astro.sunset,
+                icon: mapIcon(d.day.condition.code, 1),
+                desc: d.day.condition.text,
+                rainProbMax: d.day.daily_chance_of_rain
+            }))
+        };
+
         await WeatherCache.upsert({ 
             locationId: locationId, 
-            dailyData: JSON.stringify(cleanDaily), 
-            hourlyData: JSON.stringify(cleanHourly),
+            data: JSON.stringify(finalData), 
             updatedAt: new Date() 
         });
 
-        res.json({ daily: cleanDaily, hourly: cleanHourly });
+        res.json(finalData);
 
     } catch (error) {
-        console.error(error);
-        try {
-            const cache = await WeatherCache.findByPk(locationId);
-            if(cache) return res.json({ daily: JSON.parse(cache.dailyData), hourly: JSON.parse(cache.hourlyData || '[]') });
-        } catch(e) {}
-        res.status(500).json({ error: "Error Servidor AEMET" });
+        console.error("WeatherAPI Error:", error.message);
+        res.status(500).json({ error: "Error conectando con WeatherAPI" });
     }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
-    console.log(`🚀 Aeris V15 (Sync Real) en puerto ${PORT}`);
+    console.log(`🚀 Aeris V20 en puerto ${PORT}`);
     await loadAllCities();
 });
