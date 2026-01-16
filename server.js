@@ -8,10 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// --- BASE DE DATOS (V25 - Final) ---
+// --- BASE DE DATOS (V26) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v25.sqlite',
+    storage: './weather_db_v26.sqlite', // Nueva versión
     logging: false
 });
 
@@ -73,14 +73,18 @@ app.get('/api/weather/:id', async (req, res) => {
         }
 
         const q = isNaN(locationId) ? locationId : `id:${locationId}`;
-        // Pedimos 3 días (Plan Free)
         const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=3&aqi=no&alerts=no&lang=es`;
         
         const response = await axios.get(url);
         const data = response.data;
 
         const finalData = {
-            location: { name: data.location.name, region: data.location.region },
+            location: { 
+                name: data.location.name, 
+                region: data.location.region,
+                lat: data.location.lat, // AÑADIDO PARA EL RADAR
+                lon: data.location.lon  // AÑADIDO PARA EL RADAR
+            },
             current: {
                 temp: Math.round(data.current.temp_c),
                 feelsLike: Math.round(data.current.feelslike_c),
@@ -125,4 +129,4 @@ app.get('/api/weather/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Aeris V25 en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Aeris V26 en puerto ${PORT}`));

@@ -74,6 +74,11 @@
             <div class="hourly-scroll" id="hourly"></div>
         </div>
 
+        <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
+            <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none;"></iframe>
+            <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none;">RADAR EN VIVO</div>
+        </div>
+
         <div class="glass-card">
             <h6 class="small opacity-75 mb-3">PRÓXIMOS DÍAS</h6>
             <div id="daily"></div>
@@ -81,7 +86,6 @@
     </div>
 
     <script>
-        // Init
         let currentId = localStorage.getItem('lastId') || 'Madrid';
 
         // --- BUSCADOR ---
@@ -113,7 +117,7 @@
         const selectCity = (city) => {
             searchInput.value = '';
             suggestionsList.classList.remove('show');
-            const id = city.id || city.name; // Usar ID si existe
+            const id = city.id || city.name;
             localStorage.setItem('lastId', id);
             getWeather(id);
         };
@@ -128,15 +132,23 @@
                 
                 if(data.error) throw new Error(data.error);
 
-                // Update UI
+                // UI Update
                 const cur = data.current;
-                document.getElementById('city').innerText = data.location.name;
+                const loc = data.location;
+                
+                document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 document.getElementById('icon').className = `bi ${cur.icon} display-1 text-primary`;
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
+
+                // RADAR Update
+                if(loc.lat && loc.lon) {
+                    const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
+                    document.getElementById('radar-frame').src = radarUrl;
+                }
 
                 // Hourly
                 const nowEpoch = Math.floor(Date.now()/1000);
@@ -175,7 +187,7 @@
             }
         }
 
-        // --- BUTTONS (Ahora sí existen en el HTML) ---
+        // --- BUTTONS ---
         document.getElementById('refreshBtn').addEventListener('click', () => getWeather(localStorage.getItem('lastId') || 'Madrid'));
         
         document.getElementById('themeBtn').addEventListener('click', () => {
@@ -192,7 +204,6 @@
              });
         });
 
-        // Start
         getWeather(currentId);
     </script>
 </body>
