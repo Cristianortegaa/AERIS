@@ -175,14 +175,13 @@
                     document.getElementById('radar-frame').src = radarUrl;
                 }
 
-                // AQI (Lógica en el lugar correcto)
+                // AQI
                 const aqi = cur.aqi || 1;
                 const aqiLabels = {1: "Buena", 2: "Moderada", 3: "Dañina (Sensibles)", 4: "Dañina", 5: "Muy Dañina", 6: "Peligrosa"};
                 document.getElementById('aqi-val').innerText = aqi;
                 document.getElementById('aqi-text').innerText = aqiLabels[aqi] || "Buena";
                 document.getElementById('pm25').innerText = cur.pm25;
                 document.getElementById('pm10').innerText = cur.pm10;
-                // Barra color
                 const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
@@ -242,7 +241,6 @@
     </script>
     
     <script>
-    // PWA Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js')
