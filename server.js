@@ -112,17 +112,21 @@ app.get('/api/weather/:id', async (req, res) => {
         
         // Cache 15 min
         if (cache && (new Date() - new Date(cache.updatedAt) < 15 * 60 * 1000)) {
+            console.log(`[Cache] Devolviendo datos cacheados para ${city.name}`);
             return res.json(JSON.parse(cache.data));
         }
 
         if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key de WeatherAPI");
 
+        console.log(`[API] Llamando a WeatherAPI para ${city.name} (${city.lat},${city.lon})...`);
+
         // 🔥 LLAMADA A WEATHERAPI.COM 🔥
-        // Pedimos 3 días de previsión (days=3) y en español (lang=es)
         const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${city.lat},${city.lon}&days=7&aqi=no&alerts=no&lang=es`;
         
         const response = await axios.get(url);
         const data = response.data;
+
+        console.log(`[API] Respuesta recibida. Forecast days: ${data.forecast.forecastday.length}`);
 
         // Formatear datos para nuestro Frontend
         const current = data.current;
@@ -143,7 +147,7 @@ app.get('/api/weather/:id', async (req, res) => {
             // Aplanamos las horas de hoy y mañana
             hourly: [
                 ...forecast[0].hour,
-                ...forecast[1].hour
+                ...(forecast[1] ? forecast[1].hour : [])
             ].map(h => ({
                 fullDate: h.time, // "2023-10-27 14:00"
                 epoch: h.time_epoch,
@@ -165,18 +169,30 @@ app.get('/api/weather/:id', async (req, res) => {
             }))
         };
 
+        console.log(`[API] Datos formateados: ${finalData.hourly.length} horas, ${finalData.daily.length} días`);
+
         await WeatherCache.upsert({ 
             locationId: locationId, 
             data: JSON.stringify(finalData), 
             updatedAt: new Date() 
         });
 
+        console.log(`[API] ✅ Datos guardados en caché y enviados`);
         res.json(finalData);
 
     } catch (error) {
-        console.error("WeatherAPI Error:", error.message);
-        res.status(500).json({ error: "Error conectando con WeatherAPI" });
+        console.error("[API] ❌ Error:", error.message);
+        res.status(500).json({ error: "Error conectando con WeatherAPI", details: error.message });
     }
+});
+
+// ENDPOINT TEST
+app.get('/api/test', (req, res) => {
+    res.json({
+        status: "ok",
+        apiKeySet: !!process.env.WEATHER_API_KEY,
+        citiesLoaded: CITIES_DB.length
+    });
 });
 
 const PORT = process.env.PORT || 3000;
