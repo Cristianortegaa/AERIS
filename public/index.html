@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AERIS</title>
+    <title>AERIS - Tu App del Tiempo</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -18,6 +18,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
+        /* --- VARIABLES DE COLOR --- */
         /* MODO CLARO */
         :root { 
             --bg-1: #bae6fd; 
@@ -26,22 +27,25 @@
             --glass-border: rgba(255, 255, 255, 0.4);
             --text: #0c4a6e; 
             --text-sec: #475569;
-            --accent: #0284c7; 
+            --accent: #0284c7;
+            --accent-rgb: 2, 132, 199;
             --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
         }
 
-        /* MODO OSCURO "PERFECTO" */
+        /* MODO OSCURO PREMIUM */
         [data-theme="dark"] { 
-            --bg-1: #0f172a; /* Azul noche profundo */
-            --bg-2: #020617; /* Casi negro */
-            --glass: rgba(30, 41, 59, 0.70); /* Gris azulado translúcido */
-            --glass-border: rgba(255, 255, 255, 0.1); /* Borde sutil */
-            --text: #f8fafc; /* Blanco puro */
-            --text-sec: #cbd5e1; /* Gris claro */
-            --accent: #38bdf8; /* Cian eléctrico */
+            --bg-1: #0f172a; 
+            --bg-2: #020617; 
+            --glass: rgba(30, 41, 59, 0.70); 
+            --glass-border: rgba(255, 255, 255, 0.1); 
+            --text: #f8fafc; 
+            --text-sec: #cbd5e1; 
+            --accent: #38bdf8;
+            --accent-rgb: 56, 189, 248;
             --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
         }
 
+        /* --- ESTILOS GENERALES --- */
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             color: var(--text); 
@@ -68,34 +72,14 @@
         .search-group { flex-grow: 1; position: relative; }
         
         .search-input { 
-            width: 100%; 
-            border: none; 
-            background: var(--glass); 
-            padding: 12px 20px; 
-            border-radius: 50px; 
-            outline: none; 
-            color: var(--text); 
-            font-weight: 600; 
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--glass-border);
+            width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; 
+            box-shadow: var(--card-shadow); border: 1px solid var(--glass-border);
         }
         
         .btn-icon { 
-            background: var(--glass); 
-            border: 1px solid var(--glass-border); 
-            width: 45px; 
-            height: 45px; 
-            border-radius: 50%; 
-            color: var(--text); 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            cursor: pointer; 
-            transition: 0.2s; 
-            flex-shrink: 0; 
-            box-shadow: var(--card-shadow);
+            background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); 
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow);
         }
-        
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         .btn-icon:active { transform: scale(0.95); }
         
@@ -103,6 +87,7 @@
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         
+        /* BUSCADOR */
         .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .suggestions-list.show { display: block; }
@@ -117,17 +102,96 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* SIDEBAR FAVORITOS */
-        .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); z-index: 2000; box-shadow: 5px 0 30px rgba(0,0,0,0.2); transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; border-right: 1px solid var(--glass-border); }
+        /* --- SIDEBAR FAVORITOS MODERNIZADO --- */
+        .fav-sidebar { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            height: 100%; 
+            width: 320px; 
+            background: rgba(255, 255, 255, 0.85); /* Vidrio Claro */
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            z-index: 2000; 
+            box-shadow: 10px 0 40px rgba(0,0,0,0.1); 
+            transform: translateX(-105%); 
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            display: flex; 
+            flex-direction: column; 
+            border-right: 1px solid rgba(255,255,255,0.5);
+        }
+
+        [data-theme="dark"] .fav-sidebar {
+            background: rgba(15, 23, 42, 0.85); /* Vidrio Oscuro */
+            border-right: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 10px 0 40px rgba(0,0,0,0.5);
+        }
+
         .fav-sidebar.open { transform: translateX(0); }
-        .fav-header { padding: 25px 20px; font-weight: 800; font-size: 1.2rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; color: var(--text); }
-        .fav-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
-        .fav-item { padding: 15px 20px; border-bottom: 1px solid var(--glass-border); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; color: var(--text); }
-        .fav-item:hover { background: rgba(255,255,255,0.1); }
-        .fav-item-info { display: flex; flex-direction: column; }
-        .fav-delete { opacity: 0.5; font-size: 1.2rem; padding: 5px; color: var(--text); }
-        .fav-delete:hover { opacity: 1; color: #ef4444; }
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+
+        .fav-header { 
+            padding: 30px 25px; 
+            font-weight: 800; 
+            font-size: 1.5rem; 
+            letter-spacing: -0.5px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            color: var(--text);
+        }
+
+        .fav-list { 
+            list-style: none; 
+            padding: 10px 15px; 
+            margin: 0; 
+            overflow-y: auto; 
+            flex-grow: 1; 
+        }
+
+        .fav-item { 
+            padding: 16px 20px; 
+            margin-bottom: 8px;
+            border-radius: 16px;
+            cursor: pointer; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            transition: all 0.2s ease; 
+            color: var(--text);
+            background: transparent;
+            border: 1px solid transparent;
+        }
+
+        .fav-item:hover { 
+            background: rgba(var(--accent-rgb), 0.1); 
+            transform: translateX(5px);
+            border-color: rgba(var(--accent-rgb), 0.2);
+        }
+        [data-theme="light"] .fav-item:hover { background: rgba(0,0,0,0.03); }
+        [data-theme="dark"] .fav-item:hover { background: rgba(255,255,255,0.05); }
+
+        .fav-item-info { display: flex; flex-direction: column; gap: 2px; }
+        .fav-name { font-weight: 700; font-size: 1.05rem; }
+        .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; }
+
+        .fav-delete { 
+            width: 32px; 
+            height: 32px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            border-radius: 50%;
+            opacity: 0; 
+            transition: all 0.2s;
+            color: #ef4444;
+        }
+
+        .fav-item:hover .fav-delete { opacity: 0.6; }
+        .fav-delete:hover { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(1.1); }
+
+        .overlay { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; 
+        }
         .overlay.show { opacity: 1; pointer-events: all; }
         
         .bi-heart-fill { animation: heartBeat 0.3s ease-in-out; color: #ef4444 !important; }
@@ -141,11 +205,18 @@
     <div class="overlay" id="overlay"></div>
     <div class="fav-sidebar" id="favSidebar">
         <div class="fav-header">
-            <span>Mis Ciudades</span>
-            <i class="bi bi-x-lg" style="cursor:pointer" id="closeSidebar"></i>
+            <span>Mis Lugares</span>
+            <button class="btn btn-sm btn-light rounded-circle d-flex align-items-center justify-content-center" style="width:32px; height:32px; opacity:0.7; background:rgba(150,150,150,0.2); border:none; color:var(--text)" id="closeSidebar">
+                <i class="bi bi-x-lg"></i>
+            </button>
         </div>
-        <ul class="fav-list" id="favList"></ul>
-        <div class="p-3 opacity-50 small text-center" style="color:var(--text)">Toca para cargar</div>
+        
+        <ul class="fav-list" id="favList">
+            </ul>
+        
+        <div class="p-4 text-center">
+            <small class="opacity-50 fw-bold" style="font-size:0.7rem; letter-spacing:1px; color:var(--text)">AERIS WEATHER</small>
+        </div>
     </div>
 
     <div class="container pt-3">
@@ -192,16 +263,6 @@
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
-            <div class="hourly-scroll" id="hourly"></div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
-            <div id="daily"></div>
-        </div>
-
-        <div class="glass-card">
             <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
             <div class="d-flex align-items-end justify-content-between mt-2">
                 <div class="fw-bold fs-2" id="aqi-val">--</div>
@@ -212,6 +273,16 @@
                 <span>PM2.5: <span id="pm25">--</span></span>
                 <span>PM10: <span id="pm10">--</span></span>
             </div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
+            <div class="hourly-scroll" id="hourly"></div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
+            <div id="daily"></div>
         </div>
 
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
@@ -235,6 +306,7 @@
         const updateHeartUI = () => {
             const heart = document.getElementById('favHeart');
             if(!heart) return;
+            // Comparación robusta texto/texto
             const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id));
             heart.className = exists ? 'bi bi-heart-fill fs-4 ms-2 text-danger' : 'bi bi-heart fs-4 ms-2';
         };
@@ -255,14 +327,28 @@
             const list = document.getElementById('favList');
             if(!list) return;
             list.innerHTML = '';
+            
             if(favorites.length === 0) {
-                list.innerHTML = '<li class="p-3 text-center opacity-50" style="color:var(--text)">No hay favoritos guardados</li>';
+                list.innerHTML = `
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 opacity-50 mt-5" style="color:var(--text)">
+                        <i class="bi bi-bookmark-star display-4 mb-3"></i>
+                        <span>Aún no tienes favoritos</span>
+                    </div>`;
                 return;
             }
+
             favorites.forEach(city => {
                 const li = document.createElement('li');
                 li.className = 'fav-item';
-                li.innerHTML = `<div class="fav-item-info"><span class="fw-bold">${city.name}</span><small class="d-block opacity-50" style="font-size:0.7rem">${city.region}</small></div><i class="bi bi-trash fav-delete"></i>`;
+                li.innerHTML = `
+                    <div class="fav-item-info">
+                        <span class="fav-name">${city.name}</span>
+                        <span class="fav-region text-uppercase">${city.region}</span>
+                    </div>
+                    <div class="fav-delete" title="Borrar">
+                        <i class="bi bi-trash3-fill"></i>
+                    </div>
+                `;
                 
                 li.querySelector('.fav-item-info').onclick = () => {
                     closeSidebar();
