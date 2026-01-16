@@ -424,42 +424,74 @@
             document.getElementById('moon-text').innerText = phase.text;
             document.getElementById('moon-icon').className = `bi ${phase.icon} fs-1 mb-2 opacity-75`;
 
-            // 7. SEMANAL (Barras de Lluvia)
+            // 7. SEMANAL (CORREGIDO PARA MOSTRAR DATOS REALES)
             const accordion = document.getElementById('forecastAccordion');
             accordion.innerHTML = '';
-            data.daily.slice(1).forEach((day, index) => {
-                const dateStr = new Date(day.fecha).toLocaleDateString('es-ES', {weekday:'long', day:'numeric'});
-                const mRain = Math.max(...day.periodos.map(p => p.probLluvia));
-                const rainWidth = mRain + '%';
-                const rainColor = mRain > 0 ? 'var(--rain-text)' : 'transparent';
-                
-                accordion.innerHTML += `
-                <div class="accordion-item">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c${index}">
-                            <div class="d-flex align-items-center w-100 pe-2">
-                                <div style="width:35%" class="text-capitalize small text-start">${dateStr.split(',')[0]}</div>
-                                <div style="width:25%; display:flex; flex-direction:column; justify-content:center; padding:0 10px;">
-                                    <div style="font-size:0.6rem; opacity:0.7; text-align:center; margin-bottom:2px">${mRain > 0 ? mRain+'%' : ''}</div>
-                                    <div class="rain-bar-container"><div class="rain-bar-fill" style="width:${rainWidth}; background:${rainColor}"></div></div>
+            
+            // Verificamos que 'data.daily' existe y tiene datos
+            if (data.daily && data.daily.length > 0) {
+                // Empezamos desde el índice 1 (mañana) hasta el final, o mostramos todos si prefieres incluir hoy
+                // AEMET suele dar predicción para hoy (índice 0) y los siguientes días.
+                // Si quieres "Próximos días" sin contar hoy, usa .slice(1). Si quieres incluir hoy, quita el .slice(1).
+                const weeklyData = data.daily.length > 1 ? data.daily.slice(1) : data.daily;
+
+                weeklyData.forEach((day, index) => {
+                    // Formatear fecha (ej: "Sábado 17")
+                    const dateObj = new Date(day.fecha);
+                    const daysOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                    const dayName = daysOfWeek[dateObj.getDay()];
+                    const dayNumber = dateObj.getDate();
+                    const dateStr = `${dayName} ${dayNumber}`;
+
+                    // Calcular lluvia máxima del día
+                    const mRain = Math.max(...day.periodos.map(p => p.probLluvia));
+                    const rainWidth = mRain + '%';
+                    const rainColor = mRain > 0 ? 'var(--rain-text)' : 'transparent';
+                    
+                    // HTML del Item
+                    const itemHtml = `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c${index}">
+                                <div class="d-flex align-items-center w-100 pe-2">
+                                    <div style="width:35%" class="text-capitalize small text-start fw-bold">${dateStr}</div>
+                                    
+                                    <div style="width:25%; display:flex; flex-direction:column; justify-content:center; padding:0 10px;">
+                                        <div style="font-size:0.6rem; opacity:0.7; text-align:center; margin-bottom:2px; min-height:10px">
+                                            ${mRain > 0 ? mRain + '%' : ''}
+                                        </div>
+                                        <div class="rain-bar-container">
+                                            <div class="rain-bar-fill" style="width:${rainWidth}; background:${rainColor}"></div>
+                                        </div>
+                                    </div>
+
+                                    <i class="bi ${day.iconoGeneral} fs-5 mx-auto text-primary" style="width:10%; text-align:center;"></i>
+
+                                    <div class="text-end fw-bold" style="width:30%">
+                                        <span class="small" style="color:var(--max-temp-color)">${day.tempMax}°</span> 
+                                        <span class="text-secondary opacity-50 small mx-1">/</span> 
+                                        <span class="small" style="color:var(--min-temp-color)">${day.tempMin}°</span>
+                                    </div>
                                 </div>
-                                <i class="bi ${day.iconoGeneral} fs-5 mx-auto text-primary" style="width:10%"></i>
-                                <div class="text-end fw-bold" style="width:30%">
-                                    <span class="small" style="color:var(--max-temp-color)">${day.tempMax}°</span> 
-                                    <span class="text-secondary opacity-50 small">/</span> 
-                                    <span class="small" style="color:var(--min-temp-color)">${day.tempMin}°</span>
+                            </button>
+                        </h2>
+                        <div id="c${index}" class="accordion-collapse collapse" data-bs-parent="#forecastAccordion">
+                            <div class="accordion-body pt-0 text-center small opacity-75">
+                                <div class="mb-2">${day.descripcionGeneral || 'Sin descripción detallada.'}</div>
+                                <div class="d-flex justify-content-center gap-3">
+                                    <span><i class="bi bi-umbrella"></i> ${mRain}%</span>
+                                    <span><i class="bi bi-sun"></i> UV: ${day.uv || '-'}</span>
                                 </div>
                             </div>
-                        </button>
-                    </h2>
-                    <div id="c${index}" class="accordion-collapse collapse" data-bs-parent="#forecastAccordion">
-                        <div class="accordion-body pt-0 text-center small opacity-75">
-                            ${day.descripcionGeneral}
                         </div>
-                    </div>
-                </div>`;
-            });
-
+                    </div>`;
+                    
+                    accordion.innerHTML += itemHtml;
+                });
+            } else {
+                accordion.innerHTML = '<div class="p-3 text-center opacity-50">No hay datos de previsión disponibles.</div>';
+            }
+            
             // 8. TEMA
             const currentRainProb = (hourly && hourly.length > 0) ? hourly[0].rainProb : 0;
             updateThemeByWeather(current.icon, currentRainProb);
