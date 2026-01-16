@@ -18,25 +18,96 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
-        :root { --bg-1:#bae6fd; --bg-2:#e0f2fe; --glass:rgba(255,255,255,0.65); --text:#0c4a6e; --accent:#0284c7; }
-        [data-theme="dark"] { --bg-1:#0f172a; --bg-2:#1e293b; --glass:rgba(15,23,42,0.70); --text:#f8fafc; --accent:#38bdf8; }
-        body { font-family:'Plus Jakarta Sans',sans-serif; color:var(--text); background:linear-gradient(180deg,var(--bg-1),var(--bg-2)); min-height:100vh; padding-bottom:80px; transition:background 1s; overflow-x: hidden; }
-        .glass-card { background:var(--glass); backdrop-filter:blur(20px); border-radius:24px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.1); }
+        /* MODO CLARO */
+        :root { 
+            --bg-1: #bae6fd; 
+            --bg-2: #e0f2fe; 
+            --glass: rgba(255, 255, 255, 0.65); 
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --text: #0c4a6e; 
+            --text-sec: #475569;
+            --accent: #0284c7; 
+            --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        /* MODO OSCURO "PERFECTO" */
+        [data-theme="dark"] { 
+            --bg-1: #0f172a; /* Azul noche profundo */
+            --bg-2: #020617; /* Casi negro */
+            --glass: rgba(30, 41, 59, 0.70); /* Gris azulado translúcido */
+            --glass-border: rgba(255, 255, 255, 0.1); /* Borde sutil */
+            --text: #f8fafc; /* Blanco puro */
+            --text-sec: #cbd5e1; /* Gris claro */
+            --accent: #38bdf8; /* Cian eléctrico */
+            --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            color: var(--text); 
+            background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); 
+            min-height: 100vh; 
+            padding-bottom: 80px; 
+            transition: background 0.8s ease, color 0.5s ease; 
+            overflow-x: hidden; 
+        }
+
+        .glass-card { 
+            background: var(--glass); 
+            backdrop-filter: blur(25px); 
+            -webkit-backdrop-filter: blur(25px);
+            border-radius: 24px; 
+            padding: 20px; 
+            margin-bottom: 16px; 
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--card-shadow);
+            transition: transform 0.2s, background 0.5s;
+        }
         
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
         .search-group { flex-grow: 1; position: relative; }
-        .search-input { width:100%; border:none; background:var(--glass); padding:10px 20px; border-radius:50px; outline:none; color:var(--text); font-weight: 600; }
-        .btn-icon { background: var(--glass); border: none; width: 40px; height: 40px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
-        .btn-icon:hover { background: var(--accent); color: white; }
         
-        .temp-big { font-family:'Outfit'; font-weight:700; font-size:4rem; line-height:1; }
+        .search-input { 
+            width: 100%; 
+            border: none; 
+            background: var(--glass); 
+            padding: 12px 20px; 
+            border-radius: 50px; 
+            outline: none; 
+            color: var(--text); 
+            font-weight: 600; 
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--glass-border);
+        }
+        
+        .btn-icon { 
+            background: var(--glass); 
+            border: 1px solid var(--glass-border); 
+            width: 45px; 
+            height: 45px; 
+            border-radius: 50%; 
+            color: var(--text); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            flex-shrink: 0; 
+            box-shadow: var(--card-shadow);
+        }
+        
+        .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
+        .btn-icon:active { transform: scale(0.95); }
+        
+        .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         
-        .suggestions-list { position: absolute; top: 115%; left: 0; width: 100%; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 10px 40px -10px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.5); max-height: 300px; overflow-y: auto; animation: fadeIn 0.2s ease-out; }
+        .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .suggestions-list.show { display: block; }
-        .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; }
+        .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; color: var(--text); }
+        .suggestion-item:last-child { border-bottom: none; }
         .suggestion-item:hover { background: var(--accent); color: white; }
         .suggestion-item small { font-size: 0.75rem; opacity: 0.7; font-weight: 500; }
         
@@ -44,19 +115,19 @@
         .hidden { opacity:0; pointer-events:none; }
 
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
-        .aqi-dot { width: 10px; height: 10px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -2px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
         /* SIDEBAR FAVORITOS */
-        .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--glass); backdrop-filter: blur(30px); z-index: 2000; box-shadow: 5px 0 30px rgba(0,0,0,0.2); transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; }
+        .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); z-index: 2000; box-shadow: 5px 0 30px rgba(0,0,0,0.2); transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; border-right: 1px solid var(--glass-border); }
         .fav-sidebar.open { transform: translateX(0); }
-        .fav-header { padding: 20px; font-weight: 800; font-size: 1.2rem; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .fav-header { padding: 25px 20px; font-weight: 800; font-size: 1.2rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; color: var(--text); }
         .fav-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
-        .fav-item { padding: 15px 20px; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
-        .fav-item:hover { background: rgba(255,255,255,0.2); }
+        .fav-item { padding: 15px 20px; border-bottom: 1px solid var(--glass-border); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; color: var(--text); }
+        .fav-item:hover { background: rgba(255,255,255,0.1); }
         .fav-item-info { display: flex; flex-direction: column; }
-        .fav-delete { opacity: 0.5; font-size: 1.2rem; padding: 5px; }
-        .fav-delete:hover { opacity: 1; color: var(--accent); }
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .fav-delete { opacity: 0.5; font-size: 1.2rem; padding: 5px; color: var(--text); }
+        .fav-delete:hover { opacity: 1; color: #ef4444; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
         .overlay.show { opacity: 1; pointer-events: all; }
         
         .bi-heart-fill { animation: heartBeat 0.3s ease-in-out; color: #ef4444 !important; }
@@ -74,66 +145,66 @@
             <i class="bi bi-x-lg" style="cursor:pointer" id="closeSidebar"></i>
         </div>
         <ul class="fav-list" id="favList"></ul>
-        <div class="p-3 opacity-50 small text-center">Toca para cargar</div>
+        <div class="p-3 opacity-50 small text-center" style="color:var(--text)">Toca para cargar</div>
     </div>
 
     <div class="container pt-3">
         <div class="nav-bar">
-            <button class="btn-icon" id="favMenuBtn"><i class="bi bi-list-stars"></i></button>
+            <button class="btn-icon" id="favMenuBtn"><i class="bi bi-list-stars fs-5"></i></button>
             <div class="search-group">
-                <input type="text" class="search-input" id="citySearch" placeholder="Buscar..." autocomplete="off">
+                <input type="text" class="search-input" id="citySearch" placeholder="Buscar ciudad..." autocomplete="off">
                 <ul class="suggestions-list" id="suggestions"></ul>
             </div>
-            <button class="btn-icon" id="geoBtn"><i class="bi bi-geo-alt-fill"></i></button>
-            <button class="btn-icon" id="themeBtn"><i class="bi bi-palette-fill"></i></button>
+            <button class="btn-icon" id="geoBtn"><i class="bi bi-geo-alt-fill fs-5"></i></button>
+            <button class="btn-icon" id="themeBtn"><i class="bi bi-moon-stars-fill fs-5"></i></button>
         </div>
 
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div class="d-flex align-items-center gap-2">
                     <div>
-                        <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0">...</h5>
+                        <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0" style="color:var(--accent); letter-spacing:1px">...</h5>
                         <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
                     </div>
                     <i id="favHeart" class="bi bi-heart fs-4 ms-2" style="cursor:pointer; transition:0.2s"></i>
                 </div>
-                <i id="icon" class="bi bi-cloud display-1 text-primary"></i>
+                <i id="icon" class="bi bi-cloud display-1" style="color:var(--accent)"></i>
             </div>
             
-            <div class="mt-2 d-flex align-items-end">
-                <div id="temp" class="temp-big" style="line-height: 0.9;">--</div>
-                <div class="ms-3 mb-2 small fw-bold opacity-75 d-flex flex-column">
-                    <span class="text-danger"><i class="bi bi-arrow-up"></i> <span id="max-temp">--</span>°</span>
-                    <span class="text-primary"><i class="bi bi-arrow-down"></i> <span id="min-temp">--</span>°</span>
+            <div class="mt-1 d-flex align-items-end">
+                <div id="temp" class="temp-big">--</div>
+                <div class="ms-3 mb-3 small fw-bold opacity-75 d-flex flex-column">
+                    <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp">--</span>°</span>
+                    <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp">--</span>°</span>
                 </div>
             </div>
 
-            <div class="d-flex gap-3 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3">
-                <span><i class="bi bi-droplet"></i> <span id="hum">--</span>%</span>
-                <span><i class="bi bi-wind"></i> <span id="wind">--</span> km/h</span>
-                <span><i class="bi bi-sun"></i> UV: <span id="uv">--</span></span>
+            <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
+                <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum">--</span>%</span>
+                <span><i class="bi bi-wind text-info"></i> <span id="wind">--</span> km/h</span>
+                <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv">--</span></span>
             </div>
 
-            <div class="d-flex justify-content-end align-items-center mt-2 pt-1 gap-2" style="opacity: 0.8;">
-                <span id="tip-text" class="text-end fst-italic fw-bold" style="font-size: 0.75rem; line-height: 1.2; max-width: 70%;">Cargando...</span>
-                <span id="tip-icon" class="fs-5">🤖</span>
+            <div class="d-flex justify-content-end align-items-center mt-2 pt-2 gap-2" style="opacity: 0.9;">
+                <span id="tip-text" class="text-end fst-italic fw-bold" style="font-size: 0.8rem; line-height: 1.2; max-width: 75%;">Cargando...</span>
+                <span id="tip-icon" class="fs-4">🤖</span>
             </div>
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 mb-3">PRÓXIMAS 24H</h6>
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly"></div>
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 mb-3">PRÓXIMOS DÍAS</h6>
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
             <div id="daily"></div>
         </div>
 
         <div class="glass-card">
-            <span class="label-sm text-uppercase fw-bold opacity-75 small"><i class="bi bi-wind"></i> Calidad Aire</span>
+            <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
             <div class="d-flex align-items-end justify-content-between mt-2">
-                <div class="metric-value fw-bold fs-2" id="aqi-val">--</div>
+                <div class="fw-bold fs-2" id="aqi-val">--</div>
                 <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
             </div>
             <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
@@ -145,7 +216,7 @@
 
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
             <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none;"></iframe>
-            <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none;">RADAR EN VIVO</div>
+            <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none; backdrop-filter:blur(4px)">RADAR EN VIVO</div>
         </div>
     </div>
 
@@ -160,17 +231,15 @@
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
 
-        // --- FAVORITES LOGIC (CORREGIDA) ---
+        // --- FAVORITES LOGIC ---
         const updateHeartUI = () => {
             const heart = document.getElementById('favHeart');
             if(!heart) return;
-            // Comparar siempre como TEXTO para evitar fallos número/string
             const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id));
             heart.className = exists ? 'bi bi-heart-fill fs-4 ms-2 text-danger' : 'bi bi-heart fs-4 ms-2';
         };
 
         const toggleFavorite = () => {
-            // Comparar siempre como TEXTO
             const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id));
             if (index > -1) {
                 favorites.splice(index, 1);
@@ -187,13 +256,13 @@
             if(!list) return;
             list.innerHTML = '';
             if(favorites.length === 0) {
-                list.innerHTML = '<li class="p-3 text-center opacity-50">No hay favoritos guardados</li>';
+                list.innerHTML = '<li class="p-3 text-center opacity-50" style="color:var(--text)">No hay favoritos guardados</li>';
                 return;
             }
             favorites.forEach(city => {
                 const li = document.createElement('li');
                 li.className = 'fav-item';
-                li.innerHTML = `<div class="fav-item-info"><span class="fw-bold">${city.name}</span><small class="d-block opacity-50" style="font-size:0.7rem">${city.region}</small></div><i class="bi bi-trash fav-delete text-danger"></i>`;
+                li.innerHTML = `<div class="fav-item-info"><span class="fw-bold">${city.name}</span><small class="d-block opacity-50" style="font-size:0.7rem">${city.region}</small></div><i class="bi bi-trash fav-delete"></i>`;
                 
                 li.querySelector('.fav-item-info').onclick = () => {
                     closeSidebar();
@@ -201,7 +270,6 @@
                 };
                 li.querySelector('.fav-delete').onclick = (e) => {
                     e.stopPropagation();
-                    // Filtro robusto (String vs String)
                     favorites = favorites.filter(f => String(f.id) !== String(city.id));
                     localStorage.setItem('aeris_favs', JSON.stringify(favorites));
                     renderFavorites();
@@ -292,7 +360,7 @@
                 const cur = data.current;
                 const loc = data.location;
                 
-                // Actualizar info global para favoritos
+                // Actualizar info global
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 updateHeartUI();
 
@@ -300,7 +368,7 @@
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
-                document.getElementById('icon').className = `bi ${cur.icon} display-1 text-primary`;
+                document.getElementById('icon').className = `bi ${cur.icon} display-1`;
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
@@ -349,9 +417,9 @@
                         .map(h => `
                             <div class="hourly-item">
                                 <div class="small opacity-75 fw-bold mb-1">${new Date(h.fullDate).getHours()}:00</div>
-                                <i class="bi ${h.icon} fs-4 my-1"></i>
+                                <i class="bi ${h.icon} fs-4" style="color:var(--text)"></i>
                                 <div class="fw-bold fs-5">${h.temp}°</div>
-                                <div class="small text-primary fw-bold" style="font-size:0.7rem">${h.rainProb>0?h.rainProb+'%':''}</div>
+                                <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">${h.rainProb>0?h.rainProb+'%':''}</div>
                             </div>
                         `).join('');
                 }
@@ -360,17 +428,24 @@
                 const dCont = document.getElementById('daily');
                 if(dCont) {
                     dCont.innerHTML = data.daily.map(d => `
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom border-light">
+                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
                             <div style="width:35%" class="fw-bold text-capitalize">${new Date(d.fecha).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div>
-                            <div style="width:15%"><i class="bi ${d.icon} fs-5 text-primary"></i></div>
+                            <div style="width:15%"><i class="bi ${d.icon} fs-5" style="color:var(--accent)"></i></div>
                             <div class="text-end fw-bold" style="width:40%">
-                                <span class="text-danger">${d.tempMax}°</span> <span class="opacity-50 mx-1">/</span> <span class="text-primary">${d.tempMin}°</span>
+                                <span style="color:#ef4444">${d.tempMax}°</span> <span class="opacity-50 mx-1">/</span> <span style="color:#3b82f6">${d.tempMin}°</span>
                             </div>
                         </div>
                     `).join('');
                 }
 
-                document.body.setAttribute('data-theme', cur.isDay ? 'light' : 'dark');
+                // 🔥 CAMBIO DE TEMA AUTOMÁTICO 🔥
+                const newTheme = cur.isDay ? 'light' : 'dark';
+                document.body.setAttribute('data-theme', newTheme);
+                // Actualizar icono del botón
+                const themeBtn = document.getElementById('themeBtn');
+                if(themeBtn) {
+                    themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>';
+                }
 
             } catch (e) {
                 console.error(e);
@@ -386,7 +461,9 @@
         const themeBtn = document.getElementById('themeBtn');
         if(themeBtn) themeBtn.addEventListener('click', () => {
             const current = document.body.getAttribute('data-theme');
-            document.body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-theme', newTheme);
+            themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>';
         });
 
         const geoBtn = document.getElementById('geoBtn');
