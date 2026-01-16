@@ -56,9 +56,7 @@ const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
 };
 
 // --- MAPEO DE ICONOS DE WEATHERAPI A BOOTSTRAP ---
-// WeatherAPI da códigos numéricos. Los mapeamos a tus iconos.
 const mapIcon = (code, isDay) => {
-    // Códigos simplificados. WeatherAPI tiene muchos, agrupamos los principales.
     const c = parseInt(code);
     if (c === 1000) return isDay ? 'bi-sun' : 'bi-moon'; // Despejado
     if (c === 1003) return isDay ? 'bi-cloud-sun' : 'bi-cloud-moon'; // Parcialmente nublado
@@ -71,7 +69,6 @@ const mapIcon = (code, isDay) => {
     return 'bi-cloud'; // Por defecto
 };
 
-// --- CARGAR CIUDADES (Igual que antes) ---
 const loadAllCities = async () => {
     const filePath = './cities_full.json';
     if (fs.existsSync(filePath)) {
@@ -116,17 +113,15 @@ app.get('/api/weather/:id', async (req, res) => {
             return res.json(JSON.parse(cache.data));
         }
 
-        if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key de WeatherAPI");
+        if (!process.env.WEATHER_API_KEY) throw new Error("Falta WEATHER_API_KEY en .env");
 
-        console.log(`[API] Llamando a WeatherAPI para ${city.name} (${city.lat},${city.lon})...`);
+        console.log(`[API] Llamando a WeatherAPI para ${city.name}...`);
 
         // 🔥 LLAMADA A WEATHERAPI.COM 🔥
         const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${city.lat},${city.lon}&days=7&aqi=no&alerts=no&lang=es`;
         
         const response = await axios.get(url);
         const data = response.data;
-
-        console.log(`[API] Respuesta recibida. Forecast days: ${data.forecast.forecastday.length}`);
 
         // Formatear datos para nuestro Frontend
         const current = data.current;
@@ -169,7 +164,7 @@ app.get('/api/weather/:id', async (req, res) => {
             }))
         };
 
-        console.log(`[API] Datos formateados: ${finalData.hourly.length} horas, ${finalData.daily.length} días`);
+        console.log(`[API] Datos obtenidos correctamente.`);
 
         await WeatherCache.upsert({ 
             locationId: locationId, 
@@ -177,22 +172,15 @@ app.get('/api/weather/:id', async (req, res) => {
             updatedAt: new Date() 
         });
 
-        console.log(`[API] ✅ Datos guardados en caché y enviados`);
         res.json(finalData);
 
     } catch (error) {
         console.error("[API] ❌ Error:", error.message);
-        res.status(500).json({ error: "Error conectando con WeatherAPI", details: error.message });
+        if (error.response) {
+            console.error("Detalle Error API:", error.response.data);
+        }
+        res.status(500).json({ error: "Error conectando con WeatherAPI" });
     }
-});
-
-// ENDPOINT TEST
-app.get('/api/test', (req, res) => {
-    res.json({
-        status: "ok",
-        apiKeySet: !!process.env.WEATHER_API_KEY,
-        citiesLoaded: CITIES_DB.length
-    });
 });
 
 const PORT = process.env.PORT || 3000;
