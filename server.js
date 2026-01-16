@@ -3,7 +3,6 @@ const express = require('express');
 const axios = require('axios');
 const { Sequelize, DataTypes } = require('sequelize');
 const cors = require('cors');
-const fs = require('fs');
 
 const app = express();
 app.use(cors());
@@ -14,10 +13,10 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- BASE DE DATOS LIMPIA (V22) ---
+// --- BASE DE DATOS CACHÉ (V23 - Search API) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v22.sqlite', // Nombre nuevo para forzar limpieza
+    storage: './weather_db_v23.sqlite', 
     logging: false
 });
 
@@ -27,25 +26,7 @@ const WeatherCache = sequelize.define('WeatherCache', {
     updatedAt: { type: DataTypes.DATE }
 });
 
-// --- LISTA DE CIUDADES SEGURA (Para que no falle al cargar) ---
-let CITIES_DB = [
-    { id: '28079', name: 'Madrid', lat: 40.4168, lon: -3.7038 },
-    { id: '08019', name: 'Barcelona', lat: 41.3851, lon: 2.1734 },
-    { id: '46250', name: 'Valencia', lat: 39.4699, lon: -0.3763 },
-    { id: '41091', name: 'Sevilla', lat: 37.3891, lon: -5.9845 },
-    { id: '28065', name: 'Getafe', lat: 40.3083, lon: -3.7327 },
-    { id: '28092', name: 'Móstoles', lat: 40.3224, lon: -3.8695 },
-    { id: '29067', name: 'Málaga', lat: 36.7213, lon: -4.4216 },
-    { id: '48020', name: 'Bilbao', lat: 43.2630, lon: -2.9350 },
-    { id: '50297', name: 'Zaragoza', lat: 41.6488, lon: -0.8891 },
-    { id: '03014', name: 'Alicante', lat: 38.3452, lon: -0.4810 },
-    { id: '14021', name: 'Córdoba', lat: 37.8882, lon: -4.7794 },
-    { id: '47186', name: 'Valladolid', lat: 41.6523, lon: -4.7245 },
-    { id: '36057', name: 'Vigo', lat: 42.2406, lon: -8.7207 },
-    { id: '33044', name: 'Gijón', lat: 43.5322, lon: -5.6611 }
-];
-
-// ICONOS
+// --- ICONOS ---
 const mapIcon = (code, isDay) => {
     const c = parseInt(code);
     if (c === 1000) return isDay ? 'bi-sun' : 'bi-moon';
@@ -59,23 +40,65 @@ const mapIcon = (code, isDay) => {
     return 'bi-cloud';
 };
 
-app.get('/api/search/:query', (req, res) => {
-    const q = req.params.query.toLowerCase();
-    res.json(CITIES_DB.filter(c => c.name.toLowerCase().includes(q)).slice(0, 10));
+// --- ENDPOINT 1: BÚSQUEDA REAL (Cualquier pueblo de España) ---
+app.get('/api/search/:query', async (req, res) => {
+    const query = req.params.query;
+    if (!process.env.WEATHER_API_KEY) return res.status(500).json([]);
+
+    try {
+        // Buscamos directamente en la API de WeatherAPI
+        const url = `http://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${encodeURIComponent(query)}`;
+        const response = await axios.get(url);
+        
+        // Devolvemos la lista de ciudades encontradas
+        // Filtramos para limpiar un poco y asegurar formato
+        const results = response.data.map(city => ({
+            id: String(city.id), // WeatherAPI devuelve un ID único
+            name: city.name,
+            region: city.region, // Provincia/Comunidad
+            country: city.country,
+            lat: city.lat,
+            lon: city.lon,
+            url: city.url // Slug útil
+        }));
+        
+        res.json(results);
+    } catch (error) {
+        console.error("Search Error:", error.message);
+        res.json([]); // Devolver array vacío si falla para no romper front
+    }
 });
 
-app.get('/api/geo', (req, res) => {
+// --- ENDPOINT 2: GEOLOCALIZACIÓN INVERSA ---
+app.get('/api/geo', async (req, res) => {
     const { lat, lon } = req.query;
-    if(!lat || !lon) return res.status(400).json({error:"Faltan datos"});
-    // Simple mock: devuelve Madrid si no encuentra nada cercano para no romper
-    res.json(CITIES_DB[0]); 
+    if (!lat || !lon) return res.status(400).json({ error: "Faltan coordenadas" });
+
+    try {
+        // Usamos la API Search con coordenadas ("q=lat,lon") para saber qué ciudad es
+        const url = `http://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${lat},${lon}`;
+        const response = await axios.get(url);
+        
+        if (response.data && response.data.length > 0) {
+            const city = response.data[0];
+            res.json({
+                id: String(city.id),
+                name: city.name,
+                region: city.region,
+                lat: city.lat,
+                lon: city.lon
+            });
+        } else {
+            res.status(404).json({ error: "No encontrado" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Error Geo API" });
+    }
 });
 
+// --- ENDPOINT 3: PREVISIÓN ---
 app.get('/api/weather/:id', async (req, res) => {
     const locationId = req.params.id;
-    const city = CITIES_DB.find(c => c.id === locationId);
-    
-    if(!city) return res.status(404).json({error: "Ciudad no encontrada (Usa las de la lista por ahora)"});
 
     try {
         await sequelize.sync();
@@ -86,29 +109,37 @@ app.get('/api/weather/:id', async (req, res) => {
             return res.json(JSON.parse(cache.data));
         }
 
-        if (!process.env.WEATHER_API_KEY) throw new Error("Falta WEATHER_API_KEY en .env");
+        if (!process.env.WEATHER_API_KEY) throw new Error("Falta WEATHER_API_KEY");
 
-        // PETICIÓN A WEATHERAPI
-        const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${city.lat},${city.lon}&days=3&aqi=no&alerts=no&lang=es`;
+        // Usamos "id:NUMERO" para buscar por ID exacto en WeatherAPI
+        const query = locationId.startsWith('id:') ? locationId : `id:${locationId}`;
+        
+        const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${query}&days=3&aqi=no&alerts=no&lang=es`;
         const response = await axios.get(url);
         const data = response.data;
 
-        // FORMATO PARA FRONTEND
+        const current = data.current;
+        const forecast = data.forecast.forecastday;
+
         const finalData = {
+            location: {
+                name: data.location.name,
+                region: data.location.region
+            },
             current: {
-                temp: Math.round(data.current.temp_c),
-                feelsLike: Math.round(data.current.feelslike_c),
-                humidity: data.current.humidity,
-                pressure: data.current.pressure_mb,
-                windSpeed: Math.round(data.current.wind_kph),
-                desc: data.current.condition.text,
-                icon: mapIcon(data.current.condition.code, data.current.is_day),
-                isDay: data.current.is_day,
-                uv: data.current.uv
+                temp: Math.round(current.temp_c),
+                feelsLike: Math.round(current.feelslike_c),
+                humidity: current.humidity,
+                pressure: current.pressure_mb,
+                windSpeed: Math.round(current.wind_kph),
+                desc: current.condition.text,
+                icon: mapIcon(current.condition.code, current.is_day),
+                isDay: current.is_day === 1,
+                uv: current.uv
             },
             hourly: [
-                ...data.forecast.forecastday[0].hour,
-                ...data.forecast.forecastday[1].hour
+                ...forecast[0].hour,
+                ...(forecast[1] ? forecast[1].hour : [])
             ].map(h => ({
                 fullDate: h.time, 
                 epoch: h.time_epoch,
@@ -117,7 +148,7 @@ app.get('/api/weather/:id', async (req, res) => {
                 icon: mapIcon(h.condition.code, h.is_day),
                 desc: h.condition.text
             })),
-            daily: data.forecast.forecastday.map(d => ({
+            daily: forecast.map(d => ({
                 fecha: d.date,
                 tempMax: Math.round(d.day.maxtemp_c),
                 tempMin: Math.round(d.day.mintemp_c),
@@ -130,16 +161,21 @@ app.get('/api/weather/:id', async (req, res) => {
             }))
         };
 
-        await WeatherCache.upsert({ locationId: locationId, data: JSON.stringify(finalData), updatedAt: new Date() });
+        await WeatherCache.upsert({ 
+            locationId: locationId, 
+            data: JSON.stringify(finalData), 
+            updatedAt: new Date() 
+        });
+
         res.json(finalData);
 
     } catch (error) {
-        console.error("Error:", error.message);
-        res.status(500).json({ error: "Error de servidor o API Key inválida" });
+        console.error("API Error:", error.message);
+        res.status(500).json({ error: "Error WeatherAPI" });
     }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
-    console.log(`🚀 Aeris V22 (Final Fix) en puerto ${PORT}`);
+    console.log(`🚀 Aeris V23 (Global Search) en puerto ${PORT}`);
 });
