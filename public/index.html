@@ -307,6 +307,41 @@
             return Math.round(min + (max - min) * weight);
         };
 
+        // ⭐ UTILITY: Obtener hora actual en zona horaria Madrid (igual que en backend)
+        const getCurrentTimeInMadrid = () => {
+            const formatter = new Intl.DateTimeFormat('es-ES', {
+                timeZone: 'Europe/Madrid',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+            const parts = formatter.formatToParts(new Date());
+            const result = {};
+            parts.forEach(({ type, value }) => {
+                result[type] = value;
+            });
+            const dateStr = `${result.year}-${result.month}-${result.day}`;
+            const hour = parseInt(result.hour);
+            return { dateStr, hour, formattedStr: `${result.hour}:${result.minute}` };
+        };
+
+        // ⭐ UTILITY: Determinar icono basado en estado cielo + probabilidad lluvia
+        const getDisplayIcon = (baseIcon, rainProb) => {
+            // Si probabilidad de lluvia > 50%, forzar icono de lluvia
+            if (rainProb > 50) {
+                if (rainProb > 80) return 'bi-cloud-rain-heavy-fill'; // Lluvia fuerte
+                return 'bi-cloud-rain-fill'; // Lluvia moderada
+            }
+            // Si lluvia 30-50%, ajustar a un icono nuboso con lluvia
+            if (rainProb > 30) return 'bi-cloud-drizzle-fill';
+            // Si lluvia 0-30%, usar el icono base del estado del cielo
+            return baseIcon;
+        };
+
         async function fetchWeather(cityId, msg = null) {
             const loader = document.getElementById('loader');
             loader.style.display = 'flex'; loader.style.opacity = '1';
@@ -338,26 +373,36 @@
                 return;
             }
 
+            // ⭐ Obtener hora actual en Madrid para marcar "Ahora"
+            const madrid = getCurrentTimeInMadrid();
+
             // Generar frase resumen inteligente
             const nextRain = hourlyData.find(h => h.rainProb > 0);
             if(nextRain) {
-                summary.innerText = `Se prevé lluvia (${nextRain.rainProb}%) a las ${nextRain.hour}:00.`;
+                summary.innerText = `Se prevé lluvia (${nextRain.rainProb}%) a las ${String(nextRain.hour).padStart(2, '0')}:00.`;
             } else {
                 summary.innerText = "No se esperan precipitaciones en las próximas 24h.";
             }
 
             hourlyData.forEach((hour, index) => {
+                // ⭐ Primera hora del array es "Ahora" (ya filtrado por backend en Madrid)
                 const isNow = index === 0;
-                const timeLabel = isNow ? 'Ahora' : `${hour.hour}`;
+                const timeLabel = isNow ? 'Ahora' : `${String(hour.hour).padStart(2, '0')}:00`;
+                
+                // ⭐ Solo mostrar lluvia si > 0
                 const rainHtml = hour.rainProb > 0 
                     ? `<div class="hourly-rain">${hour.rainProb}%</div>` 
                     : `<div class="hourly-rain"></div>`; // Espacio vacío para alinear
+                
+                // ⭐ Icono inteligente basado en lluvia
+                const displayIcon = getDisplayIcon(hour.icon, hour.rainProb);
 
                 const item = document.createElement('div');
                 item.className = 'hourly-item';
+                if (isNow) item.style.opacity = '1'; // Destacar "Ahora"
                 item.innerHTML = `
                     <div class="hourly-time">${timeLabel}</div>
-                    <div class="hourly-icon"><i class="bi ${hour.icon}"></i></div>
+                    <div class="hourly-icon"><i class="bi ${displayIcon}"></i></div>
                     ${rainHtml}
                     <div class="hourly-temp">${hour.temp}°</div>
                 `;
