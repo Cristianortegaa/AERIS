@@ -244,6 +244,16 @@
             return {text:t[b], icon:i[b]};
         };
 
+        const showToast = (msg) => {
+            const toast = document.getElementById('toast-notification');
+            const msgEl = document.getElementById('toast-msg');
+            if(toast && msgEl) {
+                msgEl.innerText = msg;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 4000);
+            }
+        };
+
         // --- RENDER ---
         const renderData = (data) => {
             if(!data || !data.current) {
@@ -393,14 +403,31 @@
 
         initEffects();
         async function fetchWeather(cityId) {
-            const loader = document.getElementById('loader'); loader.style.opacity = '1';
+            const loader = document.getElementById('loader'); 
+            loader.style.opacity = '1';
+            loader.style.display = 'flex';
             try {
+                console.log(`[fetchWeather] Pidiendo datos para cityId: ${cityId}`);
                 const res = await fetch(`/api/weather/${cityId}`);
-                if(!res.ok) throw new Error("API Error");
+                
+                if(!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || `HTTP ${res.status}`);
+                }
+                
                 const data = await res.json();
+                console.log("[fetchWeather] ✅ Datos recibidos:", data);
                 renderData(data);
-            } catch(e) { console.error(e); }
-            finally { setTimeout(() => { loader.style.opacity = '0'; setTimeout(()=>loader.style.display='none',500); }, 500); }
+            } catch(e) { 
+                console.error("[fetchWeather] ❌ Error:", e.message);
+                showToast(`Error: ${e.message}`);
+            }
+            finally { 
+                setTimeout(() => { 
+                    loader.style.opacity = '0'; 
+                    setTimeout(()=>loader.style.display='none',500); 
+                }, 500); 
+            }
         }
 
         // Buscador
