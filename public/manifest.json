@@ -1,0 +1,21 @@
+{
+  "name": "AERIS Weather",
+  "short_name": "AERIS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#bae6fd",
+  "theme_color": "#bae6fd",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
