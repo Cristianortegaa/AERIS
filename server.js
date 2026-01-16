@@ -14,10 +14,10 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- BASE DE DATOS (Caché v16 - Nueva estructura) ---
+// --- BASE DE DATOS (Caché V16) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v16.sqlite',
+    storage: './weather_db_v16.sqlite', 
     logging: false
 });
 
@@ -141,7 +141,7 @@ const parseAemetData = (rawData) => {
     });
 };
 
-// --- 🔥 PARSEADOR HORARIO (EXTRAE MÁS DATOS) 🔥 ---
+// --- 🔥 PARSEADOR HORARIO NIVEL DIOS 🔥 ---
 const parseAemetHourly = (hourlyRaw, dailyClean) => {
     if (!hourlyRaw || !hourlyRaw[0] || !hourlyRaw[0].prediccion) return [];
     
@@ -158,11 +158,10 @@ const parseAemetHourly = (hourlyRaw, dailyClean) => {
                 if(!horaStr) return;
                 const horaInt = parseInt(horaStr);
 
-                // --- EXTRACCIÓN DE DATOS PRECISOS ---
+                // Extracción de datos precisos
                 const tempObj = diaH.temperatura.find(t => t.periodo === horaStr);
                 const sensObj = diaH.sensTermica ? diaH.sensTermica.find(t => t.periodo === horaStr) : null;
                 const humObj = diaH.humedadRelativa ? diaH.humedadRelativa.find(t => t.periodo === horaStr) : null;
-                // AEMET no da presión horaria exacta en este endpoint, usaremos una simulación lógica en front o dato diario si hubiese
                 
                 let probRain = 0;
                 if(dailyMatch) {
@@ -180,8 +179,8 @@ const parseAemetHourly = (hourlyRaw, dailyClean) => {
                     date: fechaBase,
                     hour: horaInt,
                     temp: tempObj ? parseInt(tempObj.value) : 0,
-                    feelsLike: sensObj ? parseInt(sensObj.value) : (tempObj ? parseInt(tempObj.value) : 0), // Nuevo
-                    humidity: humObj ? parseInt(humObj.value) : 50, // Nuevo
+                    feelsLike: sensObj ? parseInt(sensObj.value) : (tempObj ? parseInt(tempObj.value) : 0),
+                    humidity: humObj ? parseInt(humObj.value) : 50,
                     rainProb: probRain, 
                     icon: getIcon(item.value),
                     desc: item.descripcion
