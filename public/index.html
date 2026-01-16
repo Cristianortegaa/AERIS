@@ -249,8 +249,14 @@
             </div>
             
             <div class="mt-1 d-flex align-items-end">
-                <div id="temp" class="temp-big">--</div>
-                <div class="ms-3 mb-3 small fw-bold opacity-75 d-flex flex-column">
+                <div class="d-flex flex-column">
+                    <div id="temp" class="temp-big" style="line-height:0.9">--</div>
+                    <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
+                        Sensación: <span id="feels-like">--</span>°
+                    </div>
+                </div>
+                
+                <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
                     <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp">--</span>°</span>
                     <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp">--</span>°</span>
                 </div>
@@ -470,6 +476,9 @@
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
+                
+                // 🔥 SENSACIÓN TÉRMICA 🔥
+                document.getElementById('feels-like').innerText = cur.feelsLike;
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
