@@ -75,13 +75,37 @@
                 </div>
                 <i id="icon" class="bi bi-cloud display-1 text-primary"></i>
             </div>
-            <div class="mt-2">
-                <div id="temp" class="temp-big">--</div>
-                <div class="d-flex gap-3 mt-3 small fw-bold opacity-75">
-                    <span><i class="bi bi-droplet"></i> <span id="hum">--</span>%</span>
-                    <span><i class="bi bi-wind"></i> <span id="wind">--</span> km/h</span>
-                    <span><i class="bi bi-sun"></i> UV: <span id="uv">--</span></span>
+            
+            <div class="mt-2 d-flex align-items-end">
+                <div id="temp" class="temp-big" style="line-height: 0.9;">--</div>
+                <div class="ms-3 mb-2 small fw-bold opacity-75 d-flex flex-column">
+                    <span class="text-danger"><i class="bi bi-arrow-up"></i> <span id="max-temp">--</span>°</span>
+                    <span class="text-primary"><i class="bi bi-arrow-down"></i> <span id="min-temp">--</span>°</span>
                 </div>
+            </div>
+
+            <div class="d-flex gap-3 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3">
+                <span><i class="bi bi-droplet"></i> <span id="hum">--</span>%</span>
+                <span><i class="bi bi-wind"></i> <span id="wind">--</span> km/h</span>
+                <span><i class="bi bi-sun"></i> UV: <span id="uv">--</span></span>
+            </div>
+
+            <div class="d-flex justify-content-end align-items-center mt-2 pt-1 gap-2" style="opacity: 0.8;">
+                <span id="tip-text" class="text-end fst-italic fw-bold" style="font-size: 0.75rem; line-height: 1.2; max-width: 70%;">Cargando...</span>
+                <span id="tip-icon" class="fs-5">🤖</span>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <span class="label-sm text-uppercase fw-bold opacity-75 small"><i class="bi bi-wind"></i> Calidad Aire</span>
+            <div class="d-flex align-items-end justify-content-between mt-2">
+                <div class="metric-value fw-bold fs-2" id="aqi-val">--</div>
+                <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
+            </div>
+            <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
+            <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
+                <span>PM2.5: <span id="pm25">--</span></span>
+                <span>PM10: <span id="pm10">--</span></span>
             </div>
         </div>
 
@@ -95,30 +119,6 @@
             <div id="daily"></div>
         </div>
 
-        <div class="glass-card d-flex align-items-center gap-3 py-3" id="lifestyle-card" style="background: rgba(255,255,255,0.8);">
-            <div class="fs-1" id="tip-icon">🤖</div>
-            <div style="flex-grow: 1;">
-                <div class="label-sm opacity-50 mb-1 fw-bold" style="font-size:0.65rem; letter-spacing:1px">CONSEJO DEL DÍA</div>
-                <div id="tip-text" class="fw-bold lh-sm" style="font-size: 0.95rem; color: var(--text);">Analizando atmósfera...</div>
-            </div>
-        </div>
-
-        <div class="glass-card">
-            <div class="d-flex justify-content-between align-items-center">
-                <span class="label-sm text-uppercase fw-bold opacity-75 small"><i class="bi bi-wind"></i> Calidad Aire</span>
-                <span class="badge bg-white text-dark opacity-75" id="aqi-badge">...</span>
-            </div>
-            <div class="d-flex align-items-end justify-content-between mt-2">
-                <div class="metric-value fw-bold fs-2" id="aqi-val">--</div>
-                <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
-            </div>
-            <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
-            <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
-                <span>PM2.5: <span id="pm25">--</span></span>
-                <span>PM10: <span id="pm10">--</span></span>
-            </div>
-        </div>
-
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
             <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none;"></iframe>
             <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none;">RADAR EN VIVO</div>
@@ -128,79 +128,44 @@
     <script>
         let currentId = localStorage.getItem('lastId') || 'Madrid';
 
-        // --- GENERADOR DE FRASES GRACIOSAS ---
+        // --- GENERADOR DE FRASES ---
         const getFunnyTip = (temp, rainProb, wind, uv, aqi, descLower) => {
             const tips = [];
             let icon = "🤔";
 
-            // 1. LLUVIA (Prioridad Alta)
             if (rainProb > 40 || descLower.includes('lluvia') || descLower.includes('tormenta')) {
                 icon = "☔";
                 tips.push("Si te alisas el pelo hoy, pierdes el tiempo.");
                 tips.push("Paraguas o ducha gratis, tú eliges.");
                 tips.push("Día perfecto para fingir que trabajas desde la cama.");
-                tips.push("Cuidado con los charcos, algunos son portales a Narnia.");
-                tips.push("El cielo está llorando, probablemente por tu historial de búsqueda.");
-            }
-            
-            // 2. CALOR EXTREMO (>30)
-            else if (temp > 30) {
+            } else if (temp > 30) {
                 icon = "🥵";
                 tips.push("El asfalto es lava. Literalmente.");
                 tips.push("No respires muy fuerte o te quemarás los pulmones.");
-                tips.push("Hidrátate, que no eres un cactus.");
                 tips.push("Suda, que es gratis (el desodorante no).");
-                tips.push("Si sales a correr ahora, eres un psicópata.");
-            }
-
-            // 3. FRÍO EXTREMO (<5)
-            else if (temp < 5) {
+            } else if (temp < 5) {
                 icon = "🥶";
                 tips.push("Hace un frío que se le congelan los mocos a las estatuas.");
                 tips.push("Ponte 8 capas o rueda hasta tu destino.");
-                tips.push("Abraza a quien sea, aunque te caiga mal, por calor corporal.");
-                tips.push("Día oficial de batamanta y Netflix.");
-                tips.push("Cuidado, se te pueden congelar las ideas.");
-            }
-
-            // 4. VIENTO (>25)
-            else if (wind > 25) {
+                tips.push("Abraza a quien sea por calor corporal.");
+            } else if (wind > 25) {
                 icon = "💨";
                 tips.push("Agárrate los empastes, que vuelan.");
                 tips.push("No es buen día para llevar peluquín.");
-                tips.push("Tu peinado estilo 'dedos en el enchufe' está garantizado.");
-                tips.push("Cuidado con las macetas voladoras.");
-            }
-
-            // 5. UV EXTREMO (>7)
-            else if (uv > 7) {
+            } else if (uv > 7) {
                 icon = "🧴";
-                tips.push("El sol muerde hoy. Ponte crema o parecerás una gamba.");
-                tips.push("Eres un vampiro? Si la respuesta es no, busca sombra.");
-                tips.push("Gafas de sol obligatorias si aprecias tus retinas.");
-                tips.push("Factor 50 o envejecerás 10 años en 10 minutos.");
-            }
-
-            // 6. AIRE MALO (AQI > 3)
-            else if (aqi > 3) {
+                tips.push("El sol muerde hoy. Ponte crema.");
+                tips.push("¿Eres un vampiro? Si no, busca sombra.");
+            } else if (aqi > 3) {
                 icon = "😷";
-                tips.push("El aire se mastica hoy. Evita respirar fuerte.");
-                tips.push("Si tienes branquias, es buen momento para usarlas.");
-                tips.push("No es niebla, es la boina de contaminación.");
-            }
-
-            // 7. BUEN TIEMPO (Genérico)
-            else {
+                tips.push("El aire se mastica hoy.");
+                tips.push("Si tienes branquias, úsalas.");
+            } else {
                 icon = "😎";
                 tips.push("Hace bueno. Raro, ¿verdad?");
-                tips.push("Si no sales hoy, no tienes perdón de Dios.");
+                tips.push("Si no sales hoy, no tienes perdón.");
                 tips.push("El día está para una cervecita en terraza.");
-                tips.push("Disfruta antes de que el clima recuerde que te odia.");
-                tips.push("Temperatura perfecta para hacer absolutamente nada.");
-                tips.push("Ni frío ni calor, 0 excusas para no hacer deporte.");
             }
-
-            // Elegir una frase aleatoria del grupo seleccionado
             const randomTip = tips[Math.floor(Math.random() * tips.length)];
             return { text: randomTip, icon: icon };
         };
@@ -252,7 +217,7 @@
                 const cur = data.current;
                 const loc = data.location;
                 
-                // UI UPDATE
+                // UI UPDATE MAIN
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
@@ -260,6 +225,12 @@
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
+
+                // MAX / MIN
+                if (data.daily && data.daily.length > 0) {
+                    document.getElementById('max-temp').innerText = data.daily[0].tempMax;
+                    document.getElementById('min-temp').innerText = data.daily[0].tempMin;
+                }
 
                 // RADAR
                 if(loc.lat && loc.lon) {
@@ -272,22 +243,18 @@
                 const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
                 const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
                 const aqiLabels = {1: "Buena", 2: "Moderada", 3: "Dañina (S)", 4: "Dañina", 5: "Muy Dañina", 6: "Peligrosa"};
-                
                 document.getElementById('aqi-val').innerText = aqi;
                 document.getElementById('aqi-text').innerText = aqiLabels[aqi] || "Buena";
-                document.getElementById('aqi-badge').innerText = `Índice ${aqi}`;
                 document.getElementById('pm25').innerText = pm25;
                 document.getElementById('pm10').innerText = pm10;
-                
                 const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
-                // 🔥 SMART LIFESTYLE LOGIC 🔥
-                // Calculamos si llueve en las próximas horas
+                // SMART TIP (Ahora dentro de la Main Card)
                 const nextRain = data.hourly.find(h => h.rainProb > 40 && h.epoch > Math.floor(Date.now()/1000));
                 const rainProbNow = nextRain ? nextRain.rainProb : 0;
-                
                 const tip = getFunnyTip(cur.temp, rainProbNow, cur.windSpeed, cur.uv, aqi, cur.desc.toLowerCase());
+                
                 document.getElementById('tip-text').innerText = tip.text;
                 document.getElementById('tip-icon').innerText = tip.icon;
 
