@@ -375,6 +375,10 @@
 
             // ⭐ Obtener hora actual en Madrid para marcar "Ahora"
             const madrid = getCurrentTimeInMadrid();
+            console.log(`[Frontend] Hora Madrid: ${madrid.dateStr} ${madrid.hour}:00 | Datos recibidos: ${hourlyData.length} horas`);
+            if (hourlyData.length > 0) {
+                console.log(`[Frontend] Primera hora: ${hourlyData[0].date} ${hourlyData[0].hour}:00 | Lluvia: ${hourlyData[0].rainProb}% | Icon: ${hourlyData[0].icon}`);
+            }
 
             // Generar frase resumen inteligente
             const nextRain = hourlyData.find(h => h.rainProb > 0);

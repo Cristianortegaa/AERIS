@@ -216,7 +216,7 @@ const mergeAemetData = (dailyData, hourlyRawData) => {
                 }
 
                 hourlyCombined.push({
-                    fullDate: `${fechaBase}T${hora.padStart(2, '0')}:00:00`,
+                    fullDate: `${fechaBase}T${String(hInt).padStart(2, '0')}:00:00`,
                     hour: hInt,
                     date: fechaBase,
                     temp: tempObj ? parseInt(tempObj.value) : 0,
@@ -228,19 +228,33 @@ const mergeAemetData = (dailyData, hourlyRawData) => {
         }
     });
 
-    // 3. Filtrar por zona horaria Madrid: Solo próximas 24 horas
+    // 3. ⭐ FILTRAR POR ZONA HORARIA MADRID (Crítico)
     const madrid = getCurrentTimeInMadrid();
-    const currentDateStr = madrid.dateStr;
+    const currentDateStr = madrid.dateStr; // YYYY-MM-DD
     const currentHour = madrid.hour;
 
-    return hourlyCombined
-        .filter(h => {
-            // No incluir horas que ya pasaron
-            if (h.date < currentDateStr) return false;
-            if (h.date === currentDateStr && h.hour < currentHour) return false;
-            return true;
-        })
-        .slice(0, 24); // Solo próximas 24 horas
+    console.log(`[mergeAemetData] Hora Madrid: ${currentDateStr} ${currentHour}:00 | Total horas antes filtro: ${hourlyCombined.length}`);
+
+    const filtered = hourlyCombined.filter(h => {
+        const hDate = h.date;
+        const hHour = h.hour;
+        
+        // Descartar si la fecha es anterior
+        if (hDate < currentDateStr) {
+            return false;
+        }
+        
+        // Si es hoy, descartar horas pasadas
+        if (hDate === currentDateStr && hHour < currentHour) {
+            return false;
+        }
+        
+        return true;
+    }).slice(0, 24); // Solo próximas 24 horas
+
+    console.log(`[mergeAemetData] Después filtro: ${filtered.length} horas | Primera: ${filtered[0]?.hour}:00 ${filtered[0]?.date}`);
+
+    return filtered;
 };
 
 // --- ENDPOINTS ---
