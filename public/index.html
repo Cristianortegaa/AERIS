@@ -30,66 +30,22 @@
         .temp-big { font-family:'Outfit'; font-weight:700; font-size:4rem; line-height:1; }
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
-        /* LISTA DE SUGERENCIAS PREMIUM */
-        .suggestions-list { 
-            position: absolute; 
-            top: 115%; 
-            left: 0; 
-            width: 100%; 
-            background: rgba(255, 255, 255, 0.95); /* Casi opaco */
-            backdrop-filter: blur(20px); /* Efecto vidrio esmerilado */
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 16px; 
-            padding: 8px 0; 
-            margin: 0; 
-            list-style: none; 
-            display: none; 
-            z-index: 1000; /* Siempre encima */
-            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.25); /* Sombra flotante */
-            border: 1px solid rgba(255,255,255,0.5);
-            max-height: 300px; 
-            overflow-y: auto;
-            animation: fadeIn 0.2s ease-out;
-        }
-
+        
+        /* SUGGESTIONS LIST */
+        .suggestions-list { position: absolute; top: 115%; left: 0; width: 100%; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 10px 40px -10px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.5); max-height: 300px; overflow-y: auto; animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
         .suggestions-list.show { display: block; }
-
-        .suggestion-item { 
-            padding: 12px 20px; 
-            cursor: pointer; 
-            border-bottom: 1px solid rgba(0,0,0,0.05); 
-            display: flex; 
-            flex-direction: column; 
-            line-height: 1.3;
-            transition: background 0.2s;
-        }
-
-        .suggestion-item:last-child { border-bottom: none; }
-
-        .suggestion-item:hover { 
-            background: var(--accent); /* Azul al pasar el ratón */
-            color: white; 
-        }
-
-        /* Texto secundario (País/Región) más suave */
-        .suggestion-item small { 
-            font-size: 0.75rem; 
-            opacity: 0.7; 
-            font-weight: 500; 
-        }
-
-        /* Scrollbar invisible pero funcional */
-        .suggestions-list::-webkit-scrollbar { width: 6px; }
-        .suggestions-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
-                .suggestions.show { display:block; }
-                .s-item { padding:10px 20px; cursor:pointer; border-bottom:1px solid rgba(0,0,0,0.05); }
-                .s-item:hover { background:var(--accent); color:white; }
+        .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; }
+        .suggestion-item:hover { background: var(--accent); color: white; }
+        .suggestion-item small { font-size: 0.75rem; opacity: 0.7; font-weight: 500; }
         
         /* Loading */
         #loader { position:fixed; inset:0; background:var(--bg-1); z-index:999; display:flex; justify-content:center; align-items:center; transition:0.5s; }
         .hidden { opacity:0; pointer-events:none; }
+
+        /* AQI Bar */
+        .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
+        .aqi-dot { width: 10px; height: 10px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -2px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body data-theme="light">
@@ -100,7 +56,7 @@
         <div class="nav-bar">
             <div class="search-group">
                 <input type="text" class="search-input" id="citySearch" placeholder="Buscar ciudad..." autocomplete="off">
-                <div id="suggestions" class="suggestions"></div>
+                <ul class="suggestions-list" id="suggestions"></ul>
             </div>
             <button class="btn-icon" id="geoBtn"><i class="bi bi-geo-alt-fill"></i></button>
             <button class="btn-icon" id="themeBtn"><i class="bi bi-palette-fill"></i></button>
@@ -139,6 +95,19 @@
             <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none;"></iframe>
             <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none;">RADAR EN VIVO</div>
         </div>
+
+        <div class="glass-card">
+            <span class="label-sm text-uppercase fw-bold opacity-75 small"><i class="bi bi-wind"></i> Calidad Aire</span>
+            <div class="d-flex align-items-end justify-content-between mt-2">
+                <div class="metric-value fw-bold fs-2" id="aqi-val">--</div>
+                <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
+            </div>
+            <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
+            <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
+                <span>PM2.5: <span id="pm25">--</span></span>
+                <span>PM10: <span id="pm10">--</span></span>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -159,9 +128,9 @@
                     const cities = await res.json();
                     suggestionsList.innerHTML = '';
                     cities.forEach(c => {
-                        const li = document.createElement('div');
-                        li.className = 's-item';
-                        li.innerHTML = `<strong>${c.name}</strong> <small>(${c.region}, ${c.country})</small>`;
+                        const li = document.createElement('li');
+                        li.className = 'suggestion-item';
+                        li.innerHTML = `<span>${c.name}</span><small>${c.region}, ${c.country}</small>`;
                         li.onclick = () => selectCity(c);
                         suggestionsList.appendChild(li);
                     });
@@ -188,10 +157,10 @@
                 
                 if(data.error) throw new Error(data.error);
 
-                // UI Update
                 const cur = data.current;
                 const loc = data.location;
                 
+                // UI UPDATE
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
@@ -200,13 +169,24 @@
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
 
-                // RADAR Update
+                // RADAR
                 if(loc.lat && loc.lon) {
                     const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
                     document.getElementById('radar-frame').src = radarUrl;
                 }
 
-                // Hourly
+                // AQI (Lógica en el lugar correcto)
+                const aqi = cur.aqi || 1;
+                const aqiLabels = {1: "Buena", 2: "Moderada", 3: "Dañina (Sensibles)", 4: "Dañina", 5: "Muy Dañina", 6: "Peligrosa"};
+                document.getElementById('aqi-val').innerText = aqi;
+                document.getElementById('aqi-text').innerText = aqiLabels[aqi] || "Buena";
+                document.getElementById('pm25').innerText = cur.pm25;
+                document.getElementById('pm10').innerText = cur.pm10;
+                // Barra color
+                const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
+                document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
+
+                // HOURLY
                 const nowEpoch = Math.floor(Date.now()/1000);
                 const hCont = document.getElementById('hourly');
                 hCont.innerHTML = data.hourly
@@ -221,7 +201,7 @@
                         </div>
                     `).join('');
 
-                // Daily
+                // DAILY
                 const dCont = document.getElementById('daily');
                 dCont.innerHTML = data.daily.map(d => `
                     <div class="d-flex justify-content-between align-items-center py-3 border-bottom border-light">
@@ -233,7 +213,6 @@
                     </div>
                 `).join('');
 
-                // Theme
                 document.body.setAttribute('data-theme', cur.isDay ? 'light' : 'dark');
 
             } catch (e) {
@@ -243,14 +222,12 @@
             }
         }
 
-        // --- BUTTONS ---
+        // Listeners
         document.getElementById('refreshBtn').addEventListener('click', () => getWeather(localStorage.getItem('lastId') || 'Madrid'));
-        
         document.getElementById('themeBtn').addEventListener('click', () => {
             const current = document.body.getAttribute('data-theme');
             document.body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
         });
-
         document.getElementById('geoBtn').addEventListener('click', () => {
              if(!navigator.geolocation) return;
              navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -260,17 +237,19 @@
              });
         });
 
+        // INIT
         getWeather(currentId);
     </script>
+    
     <script>
-    // Registro del Service Worker para PWA
+    // PWA Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js')
-                .then(reg => console.log('SW registrado: ', reg.scope))
-                .catch(err => console.log('SW error: ', err));
+                .then(reg => console.log('SW registrado'))
+                .catch(err => console.log('SW error', err));
         });
     }
-</script>
+    </script>
 </body>
 </html>

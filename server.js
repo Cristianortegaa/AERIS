@@ -11,7 +11,7 @@ app.use(express.static('public'));
 // --- BASE DE DATOS (V26) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v26.sqlite', // Nueva versión
+    storage: './weather_db_v26.sqlite',
     logging: false
 });
 
@@ -60,7 +60,7 @@ app.get('/api/geo', async (req, res) => {
     }
 });
 
-// --- API PREVISIÓN ---
+// --- API PREVISIÓN (ÚNICA Y CORRECTA) ---
 app.get('/api/weather/:id', async (req, res) => {
     const locationId = req.params.id;
     try {
@@ -73,17 +73,21 @@ app.get('/api/weather/:id', async (req, res) => {
         }
 
         const q = isNaN(locationId) ? locationId : `id:${locationId}`;
-        const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=3&aqi=no&alerts=no&lang=es`;
+        const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=3&aqi=yes&alerts=no&lang=es`;
         
         const response = await axios.get(url);
         const data = response.data;
+
+        // Extraer datos AQI
+        const aqiData = data.current.air_quality || {};
+        const usEpaIndex = aqiData['us-epa-index'] || 1; 
 
         const finalData = {
             location: { 
                 name: data.location.name, 
                 region: data.location.region,
-                lat: data.location.lat, // AÑADIDO PARA EL RADAR
-                lon: data.location.lon  // AÑADIDO PARA EL RADAR
+                lat: data.location.lat,
+                lon: data.location.lon
             },
             current: {
                 temp: Math.round(data.current.temp_c),
@@ -94,7 +98,10 @@ app.get('/api/weather/:id', async (req, res) => {
                 desc: data.current.condition.text,
                 icon: mapIcon(data.current.condition.code, data.current.is_day),
                 isDay: data.current.is_day === 1,
-                uv: data.current.uv
+                uv: data.current.uv,
+                aqi: usEpaIndex,
+                pm25: Math.round(aqiData.pm2_5 || 0),
+                pm10: Math.round(aqiData.pm10 || 0)
             },
             hourly: [
                 ...data.forecast.forecastday[0].hour,
