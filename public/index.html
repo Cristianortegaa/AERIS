@@ -85,8 +85,19 @@
             </div>
         </div>
 
+        <div class="glass-card d-flex align-items-center gap-3 py-3" id="lifestyle-card" style="background: rgba(255,255,255,0.8);">
+            <div class="fs-1" id="tip-icon">🤖</div>
+            <div style="flex-grow: 1;">
+                <div class="label-sm opacity-50 mb-1 fw-bold" style="font-size:0.65rem; letter-spacing:1px">CONSEJO DEL DÍA</div>
+                <div id="tip-text" class="fw-bold lh-sm" style="font-size: 0.95rem; color: var(--text);">Analizando atmósfera...</div>
+            </div>
+        </div>
+
         <div class="glass-card">
-            <span class="label-sm text-uppercase fw-bold opacity-75 small"><i class="bi bi-wind"></i> Calidad Aire</span>
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="label-sm text-uppercase fw-bold opacity-75 small"><i class="bi bi-wind"></i> Calidad Aire</span>
+                <span class="badge bg-white text-dark opacity-75" id="aqi-badge">...</span>
+            </div>
             <div class="d-flex align-items-end justify-content-between mt-2">
                 <div class="metric-value fw-bold fs-2" id="aqi-val">--</div>
                 <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
@@ -116,6 +127,83 @@
 
     <script>
         let currentId = localStorage.getItem('lastId') || 'Madrid';
+
+        // --- GENERADOR DE FRASES GRACIOSAS ---
+        const getFunnyTip = (temp, rainProb, wind, uv, aqi, descLower) => {
+            const tips = [];
+            let icon = "🤔";
+
+            // 1. LLUVIA (Prioridad Alta)
+            if (rainProb > 40 || descLower.includes('lluvia') || descLower.includes('tormenta')) {
+                icon = "☔";
+                tips.push("Si te alisas el pelo hoy, pierdes el tiempo.");
+                tips.push("Paraguas o ducha gratis, tú eliges.");
+                tips.push("Día perfecto para fingir que trabajas desde la cama.");
+                tips.push("Cuidado con los charcos, algunos son portales a Narnia.");
+                tips.push("El cielo está llorando, probablemente por tu historial de búsqueda.");
+            }
+            
+            // 2. CALOR EXTREMO (>30)
+            else if (temp > 30) {
+                icon = "🥵";
+                tips.push("El asfalto es lava. Literalmente.");
+                tips.push("No respires muy fuerte o te quemarás los pulmones.");
+                tips.push("Hidrátate, que no eres un cactus.");
+                tips.push("Suda, que es gratis (el desodorante no).");
+                tips.push("Si sales a correr ahora, eres un psicópata.");
+            }
+
+            // 3. FRÍO EXTREMO (<5)
+            else if (temp < 5) {
+                icon = "🥶";
+                tips.push("Hace un frío que se le congelan los mocos a las estatuas.");
+                tips.push("Ponte 8 capas o rueda hasta tu destino.");
+                tips.push("Abraza a quien sea, aunque te caiga mal, por calor corporal.");
+                tips.push("Día oficial de batamanta y Netflix.");
+                tips.push("Cuidado, se te pueden congelar las ideas.");
+            }
+
+            // 4. VIENTO (>25)
+            else if (wind > 25) {
+                icon = "💨";
+                tips.push("Agárrate los empastes, que vuelan.");
+                tips.push("No es buen día para llevar peluquín.");
+                tips.push("Tu peinado estilo 'dedos en el enchufe' está garantizado.");
+                tips.push("Cuidado con las macetas voladoras.");
+            }
+
+            // 5. UV EXTREMO (>7)
+            else if (uv > 7) {
+                icon = "🧴";
+                tips.push("El sol muerde hoy. Ponte crema o parecerás una gamba.");
+                tips.push("Eres un vampiro? Si la respuesta es no, busca sombra.");
+                tips.push("Gafas de sol obligatorias si aprecias tus retinas.");
+                tips.push("Factor 50 o envejecerás 10 años en 10 minutos.");
+            }
+
+            // 6. AIRE MALO (AQI > 3)
+            else if (aqi > 3) {
+                icon = "😷";
+                tips.push("El aire se mastica hoy. Evita respirar fuerte.");
+                tips.push("Si tienes branquias, es buen momento para usarlas.");
+                tips.push("No es niebla, es la boina de contaminación.");
+            }
+
+            // 7. BUEN TIEMPO (Genérico)
+            else {
+                icon = "😎";
+                tips.push("Hace bueno. Raro, ¿verdad?");
+                tips.push("Si no sales hoy, no tienes perdón de Dios.");
+                tips.push("El día está para una cervecita en terraza.");
+                tips.push("Disfruta antes de que el clima recuerde que te odia.");
+                tips.push("Temperatura perfecta para hacer absolutamente nada.");
+                tips.push("Ni frío ni calor, 0 excusas para no hacer deporte.");
+            }
+
+            // Elegir una frase aleatoria del grupo seleccionado
+            const randomTip = tips[Math.floor(Math.random() * tips.length)];
+            return { text: randomTip, icon: icon };
+        };
 
         // --- BUSCADOR ---
         const searchInput = document.getElementById('citySearch');
@@ -179,17 +267,29 @@
                     document.getElementById('radar-frame').src = radarUrl;
                 }
 
-                // AQI - UPDATE DATA
-                const aqi = cur.aqi || 1;
-                const aqiLabels = {1: "Buena", 2: "Moderada", 3: "Dañina (Sensibles)", 4: "Dañina", 5: "Muy Dañina", 6: "Peligrosa"};
+                // AQI
+                const aqi = (cur.aqi !== undefined) ? cur.aqi : 1; 
+                const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
+                const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
+                const aqiLabels = {1: "Buena", 2: "Moderada", 3: "Dañina (S)", 4: "Dañina", 5: "Muy Dañina", 6: "Peligrosa"};
+                
                 document.getElementById('aqi-val').innerText = aqi;
                 document.getElementById('aqi-text').innerText = aqiLabels[aqi] || "Buena";
-                document.getElementById('pm25').innerText = cur.pm25;
-                document.getElementById('pm10').innerText = cur.pm10;
+                document.getElementById('aqi-badge').innerText = `Índice ${aqi}`;
+                document.getElementById('pm25').innerText = pm25;
+                document.getElementById('pm10').innerText = pm10;
                 
-                // Mover barra de color
                 const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
+
+                // 🔥 SMART LIFESTYLE LOGIC 🔥
+                // Calculamos si llueve en las próximas horas
+                const nextRain = data.hourly.find(h => h.rainProb > 40 && h.epoch > Math.floor(Date.now()/1000));
+                const rainProbNow = nextRain ? nextRain.rainProb : 0;
+                
+                const tip = getFunnyTip(cur.temp, rainProbNow, cur.windSpeed, cur.uv, aqi, cur.desc.toLowerCase());
+                document.getElementById('tip-text').innerText = tip.text;
+                document.getElementById('tip-icon').innerText = tip.icon;
 
                 // HOURLY
                 const nowEpoch = Math.floor(Date.now()/1000);
@@ -249,9 +349,7 @@
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then(reg => console.log('SW registrado'))
-                .catch(err => console.log('SW error', err));
+            navigator.serviceWorker.register('/service-worker.js');
         });
     }
     </script>
