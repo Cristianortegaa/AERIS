@@ -228,33 +228,14 @@ const mergeAemetData = (dailyData, hourlyRawData) => {
         }
     });
 
-    // 3. ⭐ FILTRAR POR ZONA HORARIA MADRID (Crítico)
-    const madrid = getCurrentTimeInMadrid();
-    const currentDateStr = madrid.dateStr; // YYYY-MM-DD
-    const currentHour = madrid.hour;
-
-    console.log(`[mergeAemetData] Hora Madrid: ${currentDateStr} ${currentHour}:00 | Total horas antes filtro: ${hourlyCombined.length}`);
-
-    const filtered = hourlyCombined.filter(h => {
-        const hDate = h.date;
-        const hHour = h.hour;
-        
-        // Descartar si la fecha es anterior
-        if (hDate < currentDateStr) {
-            return false;
-        }
-        
-        // Si es hoy, descartar horas pasadas
-        if (hDate === currentDateStr && hHour < currentHour) {
-            return false;
-        }
-        
-        return true;
-    }).slice(0, 24); // Solo próximas 24 horas
-
-    console.log(`[mergeAemetData] Después filtro: ${filtered.length} horas | Primera: ${filtered[0]?.hour}:00 ${filtered[0]?.date}`);
-
-    return filtered;
+    // 3. ⭐ NO FILTRAR EN BACKEND - Dejar que frontend filtre
+    // Esto evita problemas de zona horaria en servidores UTC
+    // El frontend tiene la zona horaria correcta del usuario
+    
+    console.log(`[mergeAemetData] Total horas devueltas: ${hourlyCombined.length} (sin filtro en backend, frontend lo hace)`);
+    
+    // Devolver todos los datos sin filtrar
+    return hourlyCombined;
 };
 
 // --- ENDPOINTS ---

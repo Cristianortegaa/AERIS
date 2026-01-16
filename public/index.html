@@ -373,23 +373,40 @@
                 return;
             }
 
-            // ⭐ Obtener hora actual en Madrid para marcar "Ahora"
+            // ⭐ Obtener hora actual en Madrid para FILTRAR en frontend
             const madrid = getCurrentTimeInMadrid();
-            console.log(`[Frontend] Hora Madrid: ${madrid.dateStr} ${madrid.hour}:00 | Datos recibidos: ${hourlyData.length} horas`);
-            if (hourlyData.length > 0) {
-                console.log(`[Frontend] Primera hora: ${hourlyData[0].date} ${hourlyData[0].hour}:00 | Lluvia: ${hourlyData[0].rainProb}% | Icon: ${hourlyData[0].icon}`);
+            const currentDateStr = madrid.dateStr; // YYYY-MM-DD
+            const currentHour = madrid.hour;
+            
+            // ⭐ FILTRAR: Solo mostrar desde hora actual hasta próximas 24h
+            const filtered = hourlyData.filter(h => {
+                // No mostrar fechas anteriores
+                if (h.date < currentDateStr) return false;
+                // Si es hoy, no mostrar horas pasadas
+                if (h.date === currentDateStr && h.hour < currentHour) return false;
+                return true;
+            }).slice(0, 24);
+            
+            console.log(`[Frontend] Hora Madrid: ${currentDateStr} ${currentHour}:00 | Total datos: ${hourlyData.length} | Después filtro: ${filtered.length} horas`);
+            if (filtered.length > 0) {
+                console.log(`[Frontend] Primera hora (Ahora): ${filtered[0].date} ${String(filtered[0].hour).padStart(2, '0')}:00 | Lluvia: ${filtered[0].rainProb}%`);
+            }
+
+            if (filtered.length === 0) {
+                summary.innerText = "No hay datos horarios disponibles.";
+                return;
             }
 
             // Generar frase resumen inteligente
-            const nextRain = hourlyData.find(h => h.rainProb > 0);
+            const nextRain = filtered.find(h => h.rainProb > 0);
             if(nextRain) {
                 summary.innerText = `Se prevé lluvia (${nextRain.rainProb}%) a las ${String(nextRain.hour).padStart(2, '0')}:00.`;
             } else {
                 summary.innerText = "No se esperan precipitaciones en las próximas 24h.";
             }
 
-            hourlyData.forEach((hour, index) => {
-                // ⭐ Primera hora del array es "Ahora" (ya filtrado por backend en Madrid)
+            filtered.forEach((hour, index) => {
+                // ⭐ Primera hora del array filtrado es "Ahora"
                 const isNow = index === 0;
                 const timeLabel = isNow ? 'Ahora' : `${String(hour.hour).padStart(2, '0')}:00`;
                 
