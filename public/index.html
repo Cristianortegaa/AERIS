@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AERIS - Tu App del Tiempo</title>
+    <title>AERIS</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -108,8 +108,9 @@
             top: 0; 
             left: 0; 
             height: 100%; 
-            width: 320px; 
-            background: rgba(255, 255, 255, 0.85); /* Vidrio Claro */
+            width: 85%; /* Ancho móvil mejorado */
+            max-width: 320px; 
+            background: rgba(255, 255, 255, 0.95); /* Más opaco para lectura */
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
             z-index: 2000; 
@@ -122,7 +123,7 @@
         }
 
         [data-theme="dark"] .fav-sidebar {
-            background: rgba(15, 23, 42, 0.85); /* Vidrio Oscuro */
+            background: rgba(15, 23, 42, 0.95);
             border-right: 1px solid rgba(255,255,255,0.05);
             box-shadow: 10px 0 40px rgba(0,0,0,0.5);
         }
@@ -138,19 +139,20 @@
             justify-content: space-between; 
             align-items: center; 
             color: var(--text);
+            border-bottom: 1px solid var(--glass-border);
         }
 
         .fav-list { 
             list-style: none; 
-            padding: 10px 15px; 
+            padding: 15px; 
             margin: 0; 
             overflow-y: auto; 
             flex-grow: 1; 
         }
 
         .fav-item { 
-            padding: 16px 20px; 
-            margin-bottom: 8px;
+            padding: 18px 20px; 
+            margin-bottom: 10px;
             border-radius: 16px;
             cursor: pointer; 
             display: flex; 
@@ -158,8 +160,12 @@
             align-items: center; 
             transition: all 0.2s ease; 
             color: var(--text);
-            background: transparent;
+            background: rgba(255, 255, 255, 0.5); 
             border: 1px solid transparent;
+        }
+
+        [data-theme="dark"] .fav-item {
+            background: rgba(255, 255, 255, 0.03); 
         }
 
         .fav-item:hover { 
@@ -167,31 +173,33 @@
             transform: translateX(5px);
             border-color: rgba(var(--accent-rgb), 0.2);
         }
-        [data-theme="light"] .fav-item:hover { background: rgba(0,0,0,0.03); }
-        [data-theme="dark"] .fav-item:hover { background: rgba(255,255,255,0.05); }
+        [data-theme="light"] .fav-item:hover { background: rgba(var(--accent-rgb), 0.08); }
+        [data-theme="dark"] .fav-item:hover { background: rgba(255,255,255,0.1); }
 
-        .fav-item-info { display: flex; flex-direction: column; gap: 2px; }
-        .fav-name { font-weight: 700; font-size: 1.05rem; }
-        .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; }
+        .fav-item-info { display: flex; flex-direction: column; gap: 4px; }
+        .fav-name { font-weight: 700; font-size: 1.1rem; }
+        .fav-region { font-size: 0.8rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
 
         .fav-delete { 
-            width: 32px; 
-            height: 32px; 
+            width: 36px; 
+            height: 36px; 
             display: flex; 
             align-items: center; 
             justify-content: center;
             border-radius: 50%;
-            opacity: 0; 
+            opacity: 0.4; 
             transition: all 0.2s;
-            color: #ef4444;
+            color: var(--text);
         }
 
-        .fav-item:hover .fav-delete { opacity: 0.6; }
-        .fav-delete:hover { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(1.1); }
-
-        .overlay { 
-            position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; 
+        /* Feedback táctil */
+        .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
+        @media (hover: hover) {
+            .fav-delete:hover { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(1.1); color: #ef4444; }
+            .fav-item:hover .fav-delete { opacity: 0.7; }
         }
+
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
         
         .bi-heart-fill { animation: heartBeat 0.3s ease-in-out; color: #ef4444 !important; }
@@ -206,7 +214,7 @@
     <div class="fav-sidebar" id="favSidebar">
         <div class="fav-header">
             <span>Mis Lugares</span>
-            <button class="btn btn-sm btn-light rounded-circle d-flex align-items-center justify-content-center" style="width:32px; height:32px; opacity:0.7; background:rgba(150,150,150,0.2); border:none; color:var(--text)" id="closeSidebar">
+            <button class="btn btn-sm rounded-circle d-flex align-items-center justify-content-center" style="width:32px; height:32px; opacity:0.7; background:rgba(150,150,150,0.2); border:none; color:var(--text)" id="closeSidebar">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
@@ -215,7 +223,7 @@
             </ul>
         
         <div class="p-4 text-center">
-            <small class="opacity-50 fw-bold" style="font-size:0.7rem; letter-spacing:1px; color:var(--text)">AERIS</small>
+            <small class="opacity-50 fw-bold" style="font-size:0.7rem; letter-spacing:1px; color:var(--text)">AERIS WEATHER</small>
         </div>
     </div>
 
@@ -232,12 +240,9 @@
 
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-start">
-                <div class="d-flex align-items-center gap-2">
-                    <div>
-                        <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0" style="color:var(--accent); letter-spacing:1px">...</h5>
-                        <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
-                    </div>
-                    <i id="favHeart" class="bi bi-heart fs-4 ms-2" style="cursor:pointer; transition:0.2s"></i>
+                <div>
+                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0" style="color:var(--accent); letter-spacing:1px">...</h5>
+                    <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
                 </div>
                 <i id="icon" class="bi bi-cloud display-1" style="color:var(--accent)"></i>
             </div>
@@ -256,20 +261,16 @@
                 <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv">--</span></span>
             </div>
 
-            <div class="d-flex justify-content-end align-items-center mt-2 pt-2 gap-2" style="opacity: 0.9;">
-                <span id="tip-text" class="text-end fst-italic fw-bold" style="font-size: 0.8rem; line-height: 1.2; max-width: 75%;">Cargando...</span>
-                <span id="tip-icon" class="fs-4">🤖</span>
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
+                <div>
+                    <i id="favHeart" class="bi bi-heart fs-3" style="cursor:pointer; transition:0.2s; color: var(--text-sec)"></i>
+                </div>
+
+                <div class="d-flex align-items-center gap-2" style="opacity: 0.9;">
+                    <span id="tip-text" class="text-end fst-italic fw-bold" style="font-size: 0.8rem; line-height: 1.2; max-width: 200px;">Cargando...</span>
+                    <span id="tip-icon" class="fs-4">🤖</span>
+                </div>
             </div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
-            <div class="hourly-scroll" id="hourly"></div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
-            <div id="daily"></div>
         </div>
 
         <div class="glass-card">
@@ -283,6 +284,16 @@
                 <span>PM2.5: <span id="pm25">--</span></span>
                 <span>PM10: <span id="pm10">--</span></span>
             </div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
+            <div class="hourly-scroll" id="hourly"></div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
+            <div id="daily"></div>
         </div>
 
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
@@ -308,7 +319,7 @@
             if(!heart) return;
             // Comparación robusta texto/texto
             const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id));
-            heart.className = exists ? 'bi bi-heart-fill fs-4 ms-2 text-danger' : 'bi bi-heart fs-4 ms-2';
+            heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3';
         };
 
         const toggleFavorite = () => {
