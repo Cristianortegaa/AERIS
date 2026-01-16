@@ -46,6 +46,7 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 10px; height: 10px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -2px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
+        /* SIDEBAR FAVORITOS */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--glass); backdrop-filter: blur(30px); z-index: 2000; box-shadow: 5px 0 30px rgba(0,0,0,0.2); transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; }
         .fav-sidebar.open { transform: translateX(0); }
         .fav-header { padding: 20px; font-weight: 800; font-size: 1.2rem; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
@@ -58,7 +59,7 @@
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
         .overlay.show { opacity: 1; pointer-events: all; }
         
-        .bi-heart-fill { animation: heartBeat 0.3s ease-in-out; color: #ef4444; }
+        .bi-heart-fill { animation: heartBeat 0.3s ease-in-out; color: #ef4444 !important; }
         @keyframes heartBeat { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
     </style>
 </head>
@@ -149,7 +150,7 @@
     </div>
 
     <script>
-        // --- FAILSAFE LOADER (Si en 3s no carga, quita el loader) ---
+        // --- FAILSAFE LOADER ---
         setTimeout(() => {
             const loader = document.getElementById('loader');
             if(loader) loader.classList.add('hidden');
@@ -159,16 +160,18 @@
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
 
-        // --- FAVORITES LOGIC ---
+        // --- FAVORITES LOGIC (CORREGIDA) ---
         const updateHeartUI = () => {
             const heart = document.getElementById('favHeart');
             if(!heart) return;
-            const exists = favorites.some(f => f.id === String(currentCityInfo.id));
-            heart.className = exists ? 'bi bi-heart-fill fs-4 ms-2' : 'bi bi-heart fs-4 ms-2';
+            // Comparar siempre como TEXTO para evitar fallos número/string
+            const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id));
+            heart.className = exists ? 'bi bi-heart-fill fs-4 ms-2 text-danger' : 'bi bi-heart fs-4 ms-2';
         };
 
         const toggleFavorite = () => {
-            const index = favorites.findIndex(f => f.id === String(currentCityInfo.id));
+            // Comparar siempre como TEXTO
+            const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id));
             if (index > -1) {
                 favorites.splice(index, 1);
             } else {
@@ -198,7 +201,8 @@
                 };
                 li.querySelector('.fav-delete').onclick = (e) => {
                     e.stopPropagation();
-                    favorites = favorites.filter(f => f.id !== city.id);
+                    // Filtro robusto (String vs String)
+                    favorites = favorites.filter(f => String(f.id) !== String(city.id));
                     localStorage.setItem('aeris_favs', JSON.stringify(favorites));
                     renderFavorites();
                     updateHeartUI();
@@ -288,7 +292,7 @@
                 const cur = data.current;
                 const loc = data.location;
                 
-                // Actualizar info global
+                // Actualizar info global para favoritos
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 updateHeartUI();
 
