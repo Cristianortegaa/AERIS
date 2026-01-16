@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AERIS | App del Tiempo</title>
+    <title>AERIS | Inmersivo</title>
     
     <meta property="og:title" content="AERIS Weather">
-    <meta property="og:description" content="Previsión meteorológica precisa y visual.">
+    <meta property="og:description" content="Previsión meteorológica inmersiva.">
     <meta property="og:image" content="/icons/icon-512.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,42 +18,102 @@
 
     <style>
         :root {
-            /* Colores por defecto (Día Claro) */
+            /* Colores Base */
             --bg-gradient-1: #bae6fd; --bg-gradient-2: #e0f2fe; --bg-gradient-3: #7dd3fc;
-            --glass-bg: rgba(255, 255, 255, 0.65); --glass-hover: rgba(255, 255, 255, 0.85); --glass-border: 2px solid #ffffff;
-            --text-main: #0c4a6e; --text-sec: #64748b; --accent: #0ea5e9;
-            --card-shadow: 0 10px 30px -5px rgba(14, 165, 233, 0.2);
+            --glass-bg: rgba(255, 255, 255, 0.60); 
+            --glass-border: 2px solid rgba(255,255,255,0.5);
+            --text-main: #0c4a6e; --text-sec: #475569; --accent: #0284c7;
+            --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
             --min-temp-color: #3b82f6; --max-temp-color: #ef4444;
-            --alert-bg: rgba(239, 68, 68, 0.15); --alert-text: #b91c1c; --alert-border: #f87171;
+            --rain-text: #2563eb;
         }
 
-        /* Tema Oscuro (Noche) */
+        /* TEMA NOCHE */
         [data-theme="dark"] {
-            --bg-gradient-1: #0f172a; --bg-gradient-2: #1e293b; --bg-gradient-3: #334155;
-            --glass-bg: rgba(30, 41, 59, 0.75); --glass-hover: rgba(51, 65, 85, 0.9); --glass-border: 1px solid rgba(255, 255, 255, 0.1);
-            --text-main: #f1f5f9; --text-sec: #94a3b8; --accent: #38bdf8;
-            --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+            --bg-gradient-1: #0f172a; --bg-gradient-2: #1e293b; --bg-gradient-3: #020617;
+            --glass-bg: rgba(15, 23, 42, 0.70); 
+            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc; --text-sec: #94a3b8; --accent: #38bdf8;
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
             --min-temp-color: #60a5fa; --max-temp-color: #f87171;
-            --alert-bg: rgba(127, 29, 29, 0.4); --alert-text: #fca5a5; --alert-border: #7f1d1d;
+            --rain-text: #60a5fa;
         }
 
-        /* Tema Lluvia (Gris/Azul oscuro) */
+        /* TEMA LLUVIA/NUBLADO */
         [data-theme="rain"] {
-            --bg-gradient-1: #334155; --bg-gradient-2: #475569; --bg-gradient-3: #64748b;
-            --glass-bg: rgba(30, 41, 59, 0.85); --glass-hover: rgba(51, 65, 85, 0.95); --glass-border: 1px solid rgba(255, 255, 255, 0.15);
-            --text-main: #f8fafc; --text-sec: #cbd5e1; --accent: #60a5fa;
-            --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6);
+            --bg-gradient-1: #334155; --bg-gradient-2: #475569; --bg-gradient-3: #1e293b;
+            --glass-bg: rgba(30, 41, 59, 0.75); 
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --text-main: #f1f5f9; --text-sec: #cbd5e1; --accent: #7dd3fc;
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            --rain-text: #93c5fd;
         }
 
-        body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text-main); min-height: 100vh; background-color: var(--bg-gradient-1); transition: background 1s ease, color 0.5s ease; background-image: radial-gradient(at 0% 0%, var(--bg-gradient-3) 0, transparent 50%), radial-gradient(at 100% 100%, var(--bg-gradient-2) 0, transparent 50%); background-size: 150% 150%; animation: bgFlow 15s ease infinite; padding-bottom: 80px; overflow-x: hidden; }
-        @keyframes bgFlow { 0% {background-position:0% 50%} 50% {background-position:100% 50%} 100% {background-position:0% 50%} }
-        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            color: var(--text-main); 
+            min-height: 100vh; 
+            background: linear-gradient(180deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 100%);
+            transition: background 1.5s ease;
+            padding-bottom: 80px; 
+            overflow-x: hidden; 
+            position: relative;
+        }
+
+        /* 🔥 CAPA DE FONDOS INMERSIVOS 🔥 */
+        #weather-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; pointer-events: none; overflow: hidden;
+        }
+
+        /* --- EFECTO SOL --- */
+        .sun-glow {
+            position: absolute; top: -10%; right: -10%;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%; opacity: 0; transition: opacity 2s;
+            animation: sunPulse 10s infinite alternate;
+        }
+        [data-weather="sunny"] .sun-glow { opacity: 1; }
+        @keyframes sunPulse { 0% {transform: scale(1);} 100% {transform: scale(1.1);} }
+
+        /* --- EFECTO LLUVIA --- */
+        .rain-drop {
+            position: absolute; background: rgba(255,255,255,0.5);
+            width: 2px; height: 15px; top: -20px;
+            animation: fall linear infinite;
+        }
+        @keyframes fall { to { transform: translateY(110vh); } }
+
+        /* --- EFECTO NUBES --- */
+        .cloud-shape {
+            position: absolute; background: rgba(255,255,255,0.15);
+            border-radius: 50%; filter: blur(20px);
+            animation: floatCloud linear infinite; opacity: 0; transition: opacity 2s;
+        }
+        [data-weather="cloudy"] .cloud-shape, [data-theme="rain"] .cloud-shape { opacity: 1; }
+        @keyframes floatCloud { from {transform: translateX(-100%);} to {transform: translateX(100vw);} }
+
+        /* --- EFECTO ESTRELLAS --- */
+        .star {
+            position: absolute; background: white; border-radius: 50%;
+            animation: twinkle ease-in-out infinite; opacity: 0;
+        }
+        [data-theme="dark"] .star { opacity: 0.8; }
+        @keyframes twinkle { 0%, 100% {opacity: 0.3;} 50% {opacity: 1;} }
+
+
+        /* ESTILOS DE UI (Igual que antes) */
         .container { max-width: 1200px; padding: 0 20px; }
         .bento-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
         @media (min-width: 768px) { .bento-grid { grid-template-columns: repeat(2, 1fr); } .span-2 { grid-column: span 2; } }
         @media (min-width: 1100px) { .bento-grid { grid-template-columns: repeat(4, 1fr); } .item-main { grid-column: span 2; grid-row: span 2; } .item-chart { grid-column: span 2; grid-row: span 1; } .span-full { grid-column: 1 / -1; } }
         
-        .glass-card { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: var(--glass-border); border-radius: 28px; padding: 24px; box-shadow: var(--card-shadow); transition: transform 0.3s; position: relative; overflow: hidden; }
+        .glass-card { 
+            background: var(--glass-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
+            border: var(--glass-border); border-radius: 28px; padding: 24px; 
+            box-shadow: var(--card-shadow); transition: transform 0.3s; position: relative; overflow: hidden; 
+        }
         
         /* NAVBAR */
         .navbar-content { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -91,9 +151,26 @@
         #loader { position: fixed; inset: 0; z-index: 2000; background: var(--bg-gradient-1); display: flex; justify-content: center; align-items: center; transition: opacity 0.5s; }
         #toast-notification { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--text-main); color: var(--bg-gradient-1); padding: 12px 24px; border-radius: 50px; font-weight: 600; z-index: 2000; opacity: 0; transition: all 0.4s; display: flex; gap: 10px; width: max-content; max-width: 90%; }
         #toast-notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* Hourly Scroll */
+        .hourly-scroll { display: flex; overflow-x: auto; gap: 20px; padding: 10px 5px; scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, transparent, black 10px, black 95%, transparent); -webkit-mask-image: linear-gradient(to right, transparent, black 10px, black 95%, transparent); }
+        .hourly-scroll::-webkit-scrollbar { display: none; }
+        .hourly-item { display: flex; flex-direction: column; align-items: center; min-width: 55px; text-align: center; }
+        .hourly-time { font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; opacity: 0.9; }
+        .hourly-icon { font-size: 1.5rem; margin-bottom: 5px; color: var(--text-main); }
+        .hourly-rain { font-size: 0.75rem; color: var(--rain-text); font-weight: 700; min-height: 1.2em; }
+        .hourly-temp { font-weight: 700; font-size: 1.1rem; }
+
     </style>
 </head>
 <body data-theme="light">
+
+    <div id="weather-background">
+        <div class="sun-glow"></div>
+        <div id="rain-container"></div>
+        <div id="cloud-container"></div>
+        <div id="star-container"></div>
+    </div>
 
     <div id="loader"><div class="spinner-border text-primary" role="status"></div></div>
     <div id="toast-notification"><i class="bi bi-info-circle-fill"></i><span id="toast-msg">Mensaje</span></div>
@@ -143,6 +220,18 @@
                 </div>
             </div>
 
+            <div class="glass-card span-full py-3">
+                 <div id="hourly-summary" class="small opacity-75 mb-3 border-bottom border-secondary border-opacity-25 pb-2">
+                    Cielos despejados las próximas horas.
+                 </div>
+                 <div class="hourly-scroll" id="hourly-container"></div>
+            </div>
+
+            <div class="glass-card span-full">
+                <span class="label-sm mb-3 d-block">Previsión Semanal</span>
+                <div class="accordion accordion-glass" id="forecastAccordion"></div>
+            </div>
+
             <div class="glass-card span-2 position-relative" style="padding: 0; height: 300px;">
                 <iframe id="radar-frame" 
                     width="100%" height="100%" 
@@ -151,13 +240,6 @@
                     style="border:none; border-radius: 28px;">
                 </iframe>
                 <div style="position:absolute; top:10px; left:15px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem;">Radar Tiempo Real</div>
-            </div>
-
-            <div class="glass-card item-chart span-2 position-relative">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="label-sm">Tendencia</span><span class="badge bg-primary bg-opacity-10 text-primary small">7 Días</span>
-                </div>
-                <div style="height: 180px; width: 100%;"><canvas id="weatherChart"></canvas></div>
             </div>
 
             <div class="glass-card item-uv text-center">
@@ -175,11 +257,6 @@
                 </div>
                 <div class="fw-bold fs-5"><span id="rain-prob">0</span>%</div>
             </div>
-
-            <div class="glass-card span-full">
-                <span class="label-sm mb-3 d-block">Previsión Semanal</span>
-                <div class="accordion accordion-glass" id="forecastAccordion"></div>
-            </div>
         </div>
     </div>
 
@@ -188,6 +265,61 @@
         let GLOBAL_DATA = [];
         let myChart = null;
         let currentCity = JSON.parse(localStorage.getItem('savedCity')) || { id: '28065', name: 'Getafe', lat: 40.3, lon: -3.7 };
+
+        // --- SISTEMA DE PARTÍCULAS (LLUVIA/NUBES/ESTRELLAS) ---
+        const initEffects = () => {
+            // Generar Lluvia
+            const rainCont = document.getElementById('rain-container');
+            rainCont.innerHTML = '';
+            for(let i=0; i<80; i++) { // 80 gotas
+                const drop = document.createElement('div');
+                drop.className = 'rain-drop';
+                drop.style.left = Math.random() * 100 + 'vw';
+                drop.style.animationDuration = (Math.random() * 1 + 0.5) + 's'; // 0.5s a 1.5s
+                drop.style.animationDelay = Math.random() * 2 + 's';
+                drop.style.opacity = 0; // Ocultas por defecto, CSS controla visibilidad global
+                if(i < 80) rainCont.appendChild(drop);
+            }
+
+            // Generar Nubes
+            const cloudCont = document.getElementById('cloud-container');
+            cloudCont.innerHTML = '';
+            for(let i=0; i<4; i++) {
+                const cloud = document.createElement('div');
+                cloud.className = 'cloud-shape';
+                cloud.style.width = (Math.random() * 200 + 150) + 'px';
+                cloud.style.height = (Math.random() * 60 + 40) + 'px';
+                cloud.style.top = (Math.random() * 30 + 5) + '%';
+                cloud.style.left = -300 + 'px';
+                cloud.style.animationDuration = (Math.random() * 40 + 30) + 's';
+                cloudCont.appendChild(cloud);
+            }
+
+            // Generar Estrellas
+            const starCont = document.getElementById('star-container');
+            starCont.innerHTML = '';
+            for(let i=0; i<50; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = Math.random() * 3 + 'px';
+                star.style.height = star.style.width;
+                star.style.top = Math.random() * 60 + '%'; // Solo mitad superior
+                star.style.left = Math.random() * 100 + '%';
+                star.style.animationDuration = (Math.random() * 2 + 1) + 's';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                starCont.appendChild(star);
+            }
+        };
+
+        const updateEffectsVisibility = (type) => {
+            const drops = document.querySelectorAll('.rain-drop');
+            // Reset
+            drops.forEach(d => d.style.opacity = 0);
+            
+            if(type === 'rain') {
+                drops.forEach(d => d.style.opacity = Math.random() * 0.5 + 0.2);
+            }
+        };
 
         const showToast = (msg) => {
             const toast = document.getElementById('toast-notification');
@@ -256,39 +388,31 @@
         };
 
         const updateRadar = (lat, lon) => {
-            // Embed de Windy centrado en la ciudad
             const src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&detailLat=${lat}&detailLon=${lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
             document.getElementById('radar-frame').src = src;
         };
 
         const updateThemeByWeather = (iconCode, maxRain) => {
             const body = document.body;
-            // Si el usuario no ha forzado un tema manualmente, usamos el automático
             if(localStorage.getItem('forcedTheme')) return;
-
-            // Detección automática
             const isNight = new Date().getHours() > 20 || new Date().getHours() < 7;
             
+            // Lógica de Atributos de Tema (Colores)
             if (maxRain > 50 || iconCode.includes('rain') || iconCode.includes('storm')) {
-                body.setAttribute('data-theme', 'rain'); // Tema Lluvia
+                body.setAttribute('data-theme', 'rain');
+                updateEffectsVisibility('rain');
+                body.setAttribute('data-weather', 'rainy');
             } else if (isNight) {
-                body.setAttribute('data-theme', 'dark'); // Tema Noche
+                body.setAttribute('data-theme', 'dark');
+                updateEffectsVisibility('none');
+                body.setAttribute('data-weather', 'clear-night');
             } else {
-                body.setAttribute('data-theme', 'light'); // Tema Día
+                body.setAttribute('data-theme', 'light');
+                updateEffectsVisibility('none');
+                // Si hay nubes
+                if(iconCode.includes('cloud')) body.setAttribute('data-weather', 'cloudy');
+                else body.setAttribute('data-weather', 'sunny');
             }
-        };
-
-        const checkAlerts = async (cityId) => {
-            const banner = document.getElementById('alert-banner');
-            try {
-                const res = await fetch(`/api/alerts/${cityId}`);
-                const data = await res.json();
-                if (data.alert) {
-                    banner.style.display = 'flex';
-                    document.getElementById('alert-text').innerText = data.alert.msg;
-                    document.getElementById('alert-icon').className = `bi ${data.alert.icon} fs-4`;
-                } else { banner.style.display = 'none'; }
-            } catch (e) { banner.style.display = 'none'; }
         };
 
         const estimateCurrentTemp = (min, max) => {
@@ -297,92 +421,17 @@
             return Math.round(min + (max - min) * weight);
         };
 
-        const renderChart = (data) => {
-            const ctx = document.getElementById('weatherChart').getContext('2d');
-            if(myChart) myChart.destroy();
-            const labels = data.map(d => new Date(d.fecha).toLocaleDateString('es-ES', {weekday:'short'}));
-            const maxs = data.map(d => d.tempMax);
-            const isDark = document.body.getAttribute('data-theme') === 'dark' || document.body.getAttribute('data-theme') === 'rain';
-            
-            const colorLine = isDark ? '#38bdf8' : '#0ea5e9';
-            
-            myChart = new Chart(ctx, {
-                type: 'line',
-                data: { labels: labels, datasets: [{ data: maxs, borderColor: colorLine, backgroundColor: (ctx) => { const grad = ctx.chart.ctx.createLinearGradient(0,0,0,200); grad.addColorStop(0, isDark ? 'rgba(56, 189, 248, 0.4)' : 'rgba(14, 165, 233, 0.4)'); grad.addColorStop(1, 'rgba(0,0,0,0)'); return grad; }, borderWidth: 3, tension: 0.4, fill: true, pointRadius: 3 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: {display:false}, ticks: {color: '#64748b', font:{size:10}} }, y: {display:false} } }
-            });
-        };
-
         async function fetchWeather(cityId, msg = null) {
             const loader = document.getElementById('loader');
             loader.style.display = 'flex'; loader.style.opacity = '1';
             try {
                 const res = await fetch(`/api/weather/${cityId}`);
                 if(!res.ok) throw new Error("Error API");
-                const data = await res.json();
-                GLOBAL_DATA = data;
-                const today = data[0];
-                updateCityDisplay(currentCity.name);
+                const fullData = await res.json();
                 
-                // Actualizar Radar
-                if(currentCity.lat) updateRadar(currentCity.lat, currentCity.lon);
-
-                // Datos Principales
-                document.getElementById('display-temp').innerText = estimateCurrentTemp(today.tempMin, today.tempMax);
-                document.getElementById('max-temp').innerText = today.tempMax;
-                document.getElementById('min-temp').innerText = today.tempMin;
-                document.getElementById('weather-desc').innerText = today.descripcionGeneral;
-                document.getElementById('main-icon').className = `bi ${today.iconoGeneral} display-icon filter-shadow`;
-
-                const currentPeriod = today.periodos.find(p => p.horario === '12-18') || today.periodos[0];
-                document.getElementById('wind-speed').innerText = currentPeriod ? currentPeriod.vientoVel : '--';
-                if(currentPeriod) document.getElementById('wind-arrow').style.transform = `rotate(${currentPeriod.vientoRot || 0}deg)`;
+                renderDailyData(fullData.daily);
+                renderHourlyData(fullData.hourly);
                 
-                const maxRain = Math.max(...today.periodos.map(p => p.probLluvia));
-                document.getElementById('rain-prob').innerText = maxRain;
-                document.getElementById('rain-bar').style.width = `${maxRain}%`;
-
-                // Tema Dinámico
-                updateThemeByWeather(today.iconoGeneral, maxRain);
-
-                renderChart(data);
-                const accordion = document.getElementById('forecastAccordion');
-                accordion.innerHTML = '';
-                
-                data.slice(1).forEach((day, index) => {
-                    const dateStr = new Date(day.fecha).toLocaleDateString('es-ES', {weekday:'long', day:'numeric'});
-                    const maxRainDay = Math.max(...day.periodos.map(p => p.probLluvia));
-                    const midDay = day.periodos.find(p => p.horario === '12-18') || day.periodos[0]; 
-                    
-                    const itemHtml = `
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}">
-                                <div class="d-flex align-items-center w-100 pe-2">
-                                    <div style="width: 40%" class="text-capitalize small text-start">${dateStr.split(',')[0]}</div>
-                                    <i class="bi ${day.iconoGeneral} fs-5 mx-auto text-primary"></i>
-                                    <div class="text-end fw-bold" style="width: 40%">
-                                        <span class="small" style="color: var(--max-temp-color)">${day.tempMax}°</span> 
-                                        <span class="text-secondary opacity-50 small">/</span> 
-                                        <span class="small" style="color: var(--min-temp-color)">${day.tempMin}°</span>
-                                    </div>
-                                </div>
-                            </button>
-                        </h2>
-                        <div id="collapse${index}" class="accordion-collapse collapse" data-bs-parent="#forecastAccordion">
-                            <div class="accordion-body pt-0">
-                                <div class="detail-grid">
-                                    <div class="detail-box"><div class="label-sm mb-1">Lluvia</div><i class="bi bi-cloud-drizzle text-info"></i> ${maxRainDay}%</div>
-                                    <div class="detail-box"><div class="label-sm mb-1">Viento</div><i class="bi bi-wind text-secondary"></i> ${midDay ? midDay.vientoVel : 0}</div>
-                                    <div class="detail-box"><div class="label-sm mb-1">UV</div><i class="bi bi-sun text-warning"></i> ${day.uv || '-'}</div>
-                                    <div class="detail-box"><div class="label-sm mb-1">Info</div><span class="small text-truncate d-block">${day.descripcionGeneral}</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
-                    accordion.innerHTML += itemHtml;
-                });
-                checkAlerts(cityId);
                 if(msg) showToast(msg);
             } catch (err) {
                 console.error(err);
@@ -392,14 +441,111 @@
             }
         }
 
-        // Botón Manual de Tema (Sobrescribe el automático)
+        const renderHourlyData = (hourlyData) => {
+            const container = document.getElementById('hourly-container');
+            const summary = document.getElementById('hourly-summary');
+            container.innerHTML = '';
+
+            if(!hourlyData || hourlyData.length === 0) {
+                summary.innerText = "Datos horarios no disponibles momentáneamente.";
+                return;
+            }
+
+            const nextRain = hourlyData.find(h => h.rainProb > 0);
+            if(nextRain) {
+                summary.innerText = `Se prevé lluvia (${nextRain.rainProb}%) a las ${nextRain.hour}:00.`;
+            } else {
+                summary.innerText = "No se esperan precipitaciones en las próximas 24h.";
+            }
+
+            hourlyData.forEach((hour, index) => {
+                const isNow = index === 0;
+                const timeLabel = isNow ? 'Ahora' : `${hour.hour}`;
+                const rainHtml = hour.rainProb > 0 
+                    ? `<div class="hourly-rain">${hour.rainProb}%</div>` 
+                    : `<div class="hourly-rain"></div>`; 
+
+                const item = document.createElement('div');
+                item.className = 'hourly-item';
+                item.innerHTML = `
+                    <div class="hourly-time">${timeLabel}</div>
+                    <div class="hourly-icon"><i class="bi ${hour.icon}"></i></div>
+                    ${rainHtml}
+                    <div class="hourly-temp">${hour.temp}°</div>
+                `;
+                container.appendChild(item);
+            });
+        };
+
+        const renderDailyData = (data) => {
+            GLOBAL_DATA = data;
+            const today = data[0];
+            updateCityDisplay(currentCity.name);
+            if(currentCity.lat) updateRadar(currentCity.lat, currentCity.lon);
+
+            document.getElementById('display-temp').innerText = estimateCurrentTemp(today.tempMin, today.tempMax);
+            document.getElementById('max-temp').innerText = today.tempMax;
+            document.getElementById('min-temp').innerText = today.tempMin;
+            document.getElementById('weather-desc').innerText = today.descripcionGeneral;
+            document.getElementById('main-icon').className = `bi ${today.iconoGeneral} display-icon filter-shadow`;
+
+            const currentPeriod = today.periodos.find(p => p.horario === '12-18') || today.periodos[0];
+            document.getElementById('wind-speed').innerText = currentPeriod ? currentPeriod.vientoVel : '--';
+            if(currentPeriod) document.getElementById('wind-arrow').style.transform = `rotate(${currentPeriod.vientoRot || 0}deg)`;
+            
+            const maxRain = Math.max(...today.periodos.map(p => p.probLluvia));
+            document.getElementById('rain-prob').innerText = maxRain;
+            document.getElementById('rain-bar').style.width = `${maxRain}%`;
+
+            updateThemeByWeather(today.iconoGeneral, maxRain);
+
+            const accordion = document.getElementById('forecastAccordion');
+            accordion.innerHTML = '';
+            
+            data.slice(1).forEach((day, index) => {
+                const dateStr = new Date(day.fecha).toLocaleDateString('es-ES', {weekday:'long', day:'numeric'});
+                const maxRainDay = Math.max(...day.periodos.map(p => p.probLluvia));
+                const midDay = day.periodos.find(p => p.horario === '12-18') || day.periodos[0]; 
+                
+                const itemHtml = `
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}">
+                            <div class="d-flex align-items-center w-100 pe-2">
+                                <div style="width: 40%" class="text-capitalize small text-start">${dateStr.split(',')[0]}</div>
+                                <i class="bi ${day.iconoGeneral} fs-5 mx-auto text-primary"></i>
+                                <div class="text-end fw-bold" style="width: 40%">
+                                    <span class="small" style="color: var(--max-temp-color)">${day.tempMax}°</span> 
+                                    <span class="text-secondary opacity-50 small">/</span> 
+                                    <span class="small" style="color: var(--min-temp-color)">${day.tempMin}°</span>
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse${index}" class="accordion-collapse collapse" data-bs-parent="#forecastAccordion">
+                        <div class="accordion-body pt-0">
+                            <div class="detail-grid">
+                                <div class="detail-box"><div class="label-sm mb-1">Lluvia</div><i class="bi bi-cloud-drizzle text-info"></i> ${maxRainDay}%</div>
+                                <div class="detail-box"><div class="label-sm mb-1">Viento</div><i class="bi bi-wind text-secondary"></i> ${midDay ? midDay.vientoVel : 0}</div>
+                                <div class="detail-box"><div class="label-sm mb-1">UV</div><i class="bi bi-sun text-warning"></i> ${day.uv || '-'}</div>
+                                <div class="detail-box"><div class="label-sm mb-1">Info</div><span class="small text-truncate d-block">${day.descripcionGeneral}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                accordion.innerHTML += itemHtml;
+            });
+        };
+
+        // Init Partículas y App
+        initEffects();
+        
         document.getElementById('themeBtn').addEventListener('click', () => {
             const body = document.body;
             let next = 'dark';
             if(body.getAttribute('data-theme') === 'dark') next = 'light';
             body.setAttribute('data-theme', next);
-            localStorage.setItem('forcedTheme', next); // Guardar preferencia
-            if(myChart) myChart.update();
+            localStorage.setItem('forcedTheme', next);
         });
         
         document.getElementById('refreshBtn').addEventListener('click', () => fetchWeather(currentCity.id, "Actualizando..."));
