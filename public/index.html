@@ -246,9 +246,16 @@
 
         // --- RENDER ---
         const renderData = (data) => {
+            if(!data || !data.current) {
+                console.error("Datos inválidos:", data);
+                return;
+            }
+            
             const current = data.current;
             const daily = data.daily[0];
-            const hourly = data.hourly; // Ahora trae 48h, filtramos
+            const hourly = data.hourly || [];
+
+            console.log("[renderData] Datos recibidos:", {current, daily, hourlyCount: hourly.length});
 
             // 1. DATA PRINCIPAL
             document.getElementById('city-name-display').innerText = currentCity.name.toUpperCase();
@@ -261,67 +268,80 @@
 
             // 2. EXTRAS
             document.getElementById('humidity').innerText = current.humidity;
-            document.getElementById('pressure').innerText = current.pressure;
+            document.getElementById('pressure').innerText = Math.round(current.pressure);
             document.getElementById('wind-speed').innerText = current.windSpeed;
 
-            // 3. HORARIA Y GRÁFICA (Filtrado Real con hora navegador)
+            // 3. HORARIA (Filtrado Real con hora navegador)
             const hContainer = document.getElementById('hourly-container');
             const hSummary = document.getElementById('hourly-summary');
             hContainer.innerHTML = '';
             
-            const now = new Date();
-            // Convertir hora actual a epoch para comparar fácil
-            const nowEpoch = Math.floor(now.getTime() / 1000); 
-            // Filtramos horas futuras
-            const futureHourly = hourly.filter(h => h.epoch >= nowEpoch).slice(0, 24);
+            if(hourly.length === 0) {
+                hSummary.innerText = "Datos horarios no disponibles.";
+            } else {
+                const now = new Date();
+                const nowEpoch = Math.floor(now.getTime() / 1000);
+                
+                // Filtrar solo horas futuras (desde ahora en adelante)
+                const futureHourly = hourly.filter(h => h.epoch >= nowEpoch).slice(0, 24);
+                
+                console.log(`[renderData] Horas futuras: ${futureHourly.length}`);
 
-            if(futureHourly.length > 0) {
-                const nextRain = futureHourly.find(h => h.rainProb > 20);
-                let summaryText = "Condiciones estables.";
-                if(nextRain) {
-                    const rainDate = new Date(nextRain.fullDate);
-                    summaryText = `☔ Lluvia (${nextRain.rainProb}%) a las ${rainDate.getHours()}:00.`;
-                }
-                else if(current.temp < 5) summaryText = "🧥 Hace frío. Abrígate bien.";
-                else if(current.desc.includes('Sol') || current.desc.includes('Despejado')) summaryText = "😎 Día perfecto para salir.";
-                hSummary.innerText = summaryText;
-
-                const tempsForGraph = [];
-                futureHourly.forEach((h, index) => {
-                    tempsForGraph.push(h.temp);
-                    const hDate = new Date(h.fullDate);
-                    const timeLabel = index === 0 ? 'Ahora' : `${hDate.getHours()}:00`;
-                    const rainHtml = h.rainProb > 0 ? `<div class="hourly-rain">${h.rainProb}%</div>` : `<div class="hourly-rain"></div>`;
+                if(futureHourly.length > 0) {
+                    const nextRain = futureHourly.find(h => h.rainProb > 20);
+                    let summaryText = "Condiciones estables.";
                     
-                    const item = document.createElement('div');
-                    item.className = 'hourly-item';
-                    item.innerHTML = `<div class="hourly-time">${timeLabel}</div><div class="hourly-icon"><i class="bi ${h.icon}"></i></div>${rainHtml}<div class="hourly-temp" style="margin-top:${index%2===0?'0':'0'}px">${h.temp}°</div>`;
-                    hContainer.appendChild(item);
-                });
-                drawHourlyCurve(tempsForGraph);
+                    if(nextRain) {
+                        const rainDate = new Date(nextRain.fullDate);
+                        summaryText = `☔ Lluvia (${nextRain.rainProb}%) a las ${String(rainDate.getHours()).padStart(2,'0')}:00.`;
+                    }
+                    else if(current.temp < 5) summaryText = "🧥 Hace frío. Abrígate bien.";
+                    else if(current.desc.toLowerCase().includes('sol') || current.desc.toLowerCase().includes('despejado')) summaryText = "😎 Día perfecto para salir.";
+                    
+                    hSummary.innerText = summaryText;
+
+                    const tempsForGraph = [];
+                    futureHourly.forEach((h, index) => {
+                        tempsForGraph.push(h.temp);
+                        const hDate = new Date(h.fullDate);
+                        const timeLabel = index === 0 ? 'Ahora' : `${String(hDate.getHours()).padStart(2,'0')}:00`;
+                        const rainHtml = h.rainProb > 0 ? `<div class="hourly-rain">${h.rainProb}%</div>` : `<div class="hourly-rain"></div>`;
+                        
+                        const item = document.createElement('div');
+                        item.className = 'hourly-item';
+                        item.innerHTML = `<div class="hourly-time">${timeLabel}</div><div class="hourly-icon"><i class="bi ${h.icon}"></i></div>${rainHtml}<div class="hourly-temp">${h.temp}°</div>`;
+                        hContainer.appendChild(item);
+                    });
+                    
+                    if(drawHourlyCurve && tempsForGraph.length > 0) {
+                        drawHourlyCurve(tempsForGraph);
+                    }
+                }
             }
 
             // 4. UV
-            const uv = daily.uv;
-            document.getElementById('uv-value').innerText = uv;
+            const uv = daily.uv || 0;
+            document.getElementById('uv-value').innerText = uv.toFixed(1);
             document.getElementById('uv-text').innerText = uv < 3 ? "Bajo" : (uv < 6 ? "Moderado" : "Alto");
             document.getElementById('uv-dot').style.left = Math.min((uv/11)*100,100) + '%';
 
-            // 5. SOL
-            // WeatherAPI da "07:30 AM", hay que parsear
+            // 5. SOL - Parsear formato "HH:MM AM/PM" de WeatherAPI
             const parseTime = (t) => {
+                if(!t) return 0;
                 const [time, period] = t.split(' ');
                 let [h, m] = time.split(':').map(Number);
                 if (period === 'PM' && h !== 12) h += 12;
                 if (period === 'AM' && h === 12) h = 0;
                 return h * 60 + m;
             };
+            
             const sunriseMin = parseTime(daily.sunrise);
             const sunsetMin = parseTime(daily.sunset);
+            const now = new Date();
             const currentMin = now.getHours() * 60 + now.getMinutes();
             
-            document.getElementById('sunrise-time').innerText = daily.sunrise;
-            document.getElementById('sunset-time').innerText = daily.sunset;
+            document.getElementById('sunrise-time').innerText = daily.sunrise || "--:--";
+            document.getElementById('sunset-time').innerText = daily.sunset || "--:--";
 
             let sunPercent = 0;
             if(currentMin > sunriseMin && currentMin < sunsetMin) {
@@ -331,8 +351,8 @@
 
             // 6. LUNA
             const phase = getMoonPhase(now);
-            document.getElementById('moon-text').innerText = phase.text;
-            document.getElementById('moon-icon').className = `bi ${phase.icon} fs-1 mb-2 opacity-75`;
+            if(document.getElementById('moon-text')) document.getElementById('moon-text').innerText = phase.text;
+            if(document.getElementById('moon-icon')) document.getElementById('moon-icon').className = `bi ${phase.icon} fs-1 mb-2 opacity-75`;
 
             // 7. SEMANAL
             const accordion = document.getElementById('forecastAccordion');
@@ -342,7 +362,7 @@
                 const daysOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
                 const dayName = daysOfWeek[dateObj.getDay()];
                 const dateStr = `${dayName} ${dateObj.getDate()}`;
-                const mRain = d.rainProbMax;
+                const mRain = d.rainProbMax || 0;
                 const rainWidth = mRain + '%';
                 const rainColor = mRain > 0 ? 'var(--rain-text)' : 'transparent';
                 
@@ -364,8 +384,8 @@
             });
 
             // 8. THEME
-            // Usamos is_day de WeatherAPI para saber si es de noche real
-            updateThemeByWeather(current.icon, hourly[0].rainProb, current.isDay);
+            const rainProb = hourly.length > 0 ? hourly[0].rainProb : 0;
+            updateThemeByWeather(current.icon, rainProb, current.isDay);
 
             // 9. RADAR
             if(currentCity.lat) document.getElementById('radar-frame').src = `https://embed.windy.com/embed2.html?lat=${currentCity.lat}&lon=${currentCity.lon}&detailLat=${currentCity.lat}&detailLon=${currentCity.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
