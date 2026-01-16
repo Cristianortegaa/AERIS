@@ -144,33 +144,83 @@ const parseAemetData = (rawData) => {
     });
 };
 
-// --- 🔥 NUEVO PARSEADOR HORARIO 🔥 ---
-const parseAemetHourly = (rawData) => {
-    if (!rawData || !rawData[0] || !rawData[0].prediccion) return [];
-    const dias = rawData[0].prediccion.dia;
+// --- UTILITY: Obtener hora actual en zona horaria Madrid ---
+const getCurrentTimeInMadrid = () => {
+    const formatter = new Intl.DateTimeFormat('es-ES', {
+        timeZone: 'Europe/Madrid',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+    const parts = formatter.formatToParts(new Date());
+    const result = {};
+    parts.forEach(({ type, value }) => {
+        result[type] = value;
+    });
+    const dateStr = `${result.year}-${result.month}-${result.day}`;
+    const hour = parseInt(result.hour);
+    return { dateStr, hour, fullDate: new Date() };
+};
+
+// --- UTILITY: Fusionar datos diarios con horarios (Data Merging) ---
+const mergeAemetData = (dailyData, hourlyRawData) => {
+    if (!dailyData || dailyData.length === 0) return [];
+    if (!hourlyRawData || !hourlyRawData[0] || !hourlyRawData[0].prediccion) return [];
+
+    const dias = hourlyRawData[0].prediccion.dia;
     let hourlyCombined = [];
 
-    // AEMET devuelve datos para hoy y mañana (y a veces pasado). 
-    // Necesitamos aplanar todo en una sola línea de tiempo.
+    // 1. Crear mapa de periodos diarios con sus datos de lluvia
+    const dailyPeriodMap = {};
+    dailyData.forEach(dayData => {
+        dayData.periodos.forEach(periodo => {
+            const key = `${dayData.fecha}_${periodo.horario}`;
+            dailyPeriodMap[key] = periodo;
+        });
+    });
+
+    // 2. Construir array horario desde datos AEMET horarios
     dias.forEach(dia => {
         const fechaBase = dia.fecha; // YYYY-MM-DD
-        
-        // El estado del cielo es la referencia más completa
-        if(dia.estadoCielo && Array.isArray(dia.estadoCielo)){
+
+        if (dia.estadoCielo && Array.isArray(dia.estadoCielo)) {
             dia.estadoCielo.forEach(item => {
                 const hora = item.periodo; // "01", "14", etc.
-                if(!hora) return;
+                if (!hora) return;
 
+                const hInt = parseInt(hora);
                 // Buscar datos coincidentes en otros arrays
                 const tempObj = dia.temperatura.find(t => t.periodo === hora);
                 const rainObj = dia.precipitacion.find(p => p.periodo === hora);
 
-                // Construir objeto hora
+                // ⭐ DATA MERGING: Buscar lluvia del periodo diario correspondiente
+                let rainProb = rainObj ? (parseInt(rainObj.value) || 0) : 0;
+                
+                // Determinar en qué periodo diario cae esta hora
+                let periodoDiario = null;
+                if (hInt >= 0 && hInt < 6) periodoDiario = '00-06';
+                else if (hInt >= 6 && hInt < 12) periodoDiario = '06-12';
+                else if (hInt >= 12 && hInt < 18) periodoDiario = '12-18';
+                else periodoDiario = '18-24';
+
+                const dayPeriodKey = `${fechaBase}_${periodoDiario}`;
+                const dayPeriodData = dailyPeriodMap[dayPeriodKey];
+
+                // Si el dato horario de lluvia es 0 o inexistente, usar el del periodo diario
+                if (rainProb === 0 && dayPeriodData) {
+                    rainProb = dayPeriodData.probLluvia || 0;
+                }
+
                 hourlyCombined.push({
-                    fullDate: `${fechaBase}T${hora}:00:00`,
-                    hour: parseInt(hora),
+                    fullDate: `${fechaBase}T${hora.padStart(2, '0')}:00:00`,
+                    hour: hInt,
+                    date: fechaBase,
                     temp: tempObj ? parseInt(tempObj.value) : 0,
-                    rainProb: rainObj ? (parseInt(rainObj.value) || 0) : 0, // A veces AEMET no manda valor si es 0
+                    rainProb: rainProb, // ✅ Ahora incluye datos fusionados
                     icon: getIcon(item.value),
                     desc: item.descripcion
                 });
@@ -178,19 +228,19 @@ const parseAemetHourly = (rawData) => {
         }
     });
 
-    // Filtrar: Solo mostrar desde la hora actual en adelante (hasta 24h después)
-    const now = new Date();
-    const currentHour = now.getHours();
-    // Ajuste simple de fecha para filtrar (asumimos servidor en hora local o UTC cercano)
-    // Filtramos las que ya pasaron hoy
-    const todayStr = now.toISOString().split('T')[0];
-    
-    return hourlyCombined.filter(h => {
-        const hDate = h.fullDate.split('T')[0];
-        if (hDate < todayStr) return false; // Días pasados
-        if (hDate === todayStr && h.hour < currentHour) return false; // Horas pasadas hoy
-        return true;
-    }).slice(0, 24); // Solo las próximas 24 horas
+    // 3. Filtrar por zona horaria Madrid: Solo próximas 24 horas
+    const madrid = getCurrentTimeInMadrid();
+    const currentDateStr = madrid.dateStr;
+    const currentHour = madrid.hour;
+
+    return hourlyCombined
+        .filter(h => {
+            // No incluir horas que ya pasaron
+            if (h.date < currentDateStr) return false;
+            if (h.date === currentDateStr && h.hour < currentHour) return false;
+            return true;
+        })
+        .slice(0, 24); // Solo próximas 24 horas
 };
 
 // --- ENDPOINTS ---
@@ -218,7 +268,7 @@ app.get('/api/alerts/:id', async (req, res) => {
     res.json({ alert: null }); 
 });
 
-// Endpoint Principal (Diario + Horario Combinado)
+// Endpoint Principal (Diario + Horario Combinado con Data Merging)
 app.get('/api/weather/:id', async (req, res) => {
     const locationId = req.params.id;
     try {
@@ -243,7 +293,9 @@ app.get('/api/weather/:id', async (req, res) => {
         // 2. Descargar Horaria (NIVEL DIOS)
         const urlResHourly = await axios.get(`https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/${locationId}`, { headers: { 'api_key': process.env.AEMET_API_KEY } });
         const weatherResHourly = await axios.get(urlResHourly.data.datos);
-        const cleanHourly = parseAemetHourly(weatherResHourly.data);
+        
+        // 3. ⭐ DATA MERGING: Fusionar datos diarios y horarios con timezone Madrid
+        const cleanHourly = mergeAemetData(cleanDaily, weatherResHourly.data);
 
         // Guardar en DB
         await WeatherCache.upsert({ 
