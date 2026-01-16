@@ -8,10 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// --- BASE DE DATOS (V26) ---
+// --- BASE DE DATOS ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v26.sqlite',
+    storage: './weather_db_v27.sqlite',
     logging: false
 });
 
@@ -39,7 +39,7 @@ const mapIcon = (code, isDay) => {
 app.get('/api/search/:query', async (req, res) => {
     try {
         if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key");
-        const url = `http://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${encodeURIComponent(req.params.query)}`;
+        const url = `https://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${encodeURIComponent(req.params.query)}`;
         const response = await axios.get(url);
         res.json(response.data);
     } catch (e) {
@@ -52,7 +52,7 @@ app.get('/api/geo', async (req, res) => {
     try {
         const { lat, lon } = req.query;
         if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key");
-        const url = `http://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${lat},${lon}`;
+        const url = `https://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${lat},${lon}`;
         const response = await axios.get(url);
         res.json(response.data[0]);
     } catch (e) {
@@ -60,7 +60,7 @@ app.get('/api/geo', async (req, res) => {
     }
 });
 
-// --- API PREVISIÓN (ÚNICA Y CORRECTA) ---
+// --- API PREVISIÓN ---
 app.get('/api/weather/:id', async (req, res) => {
     const locationId = req.params.id;
     try {
@@ -73,12 +73,13 @@ app.get('/api/weather/:id', async (req, res) => {
         }
 
         const q = isNaN(locationId) ? locationId : `id:${locationId}`;
-        const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=3&aqi=yes&alerts=no&lang=es`;
+        // 🔥 AQUI ESTA LA CLAVE: aqi=yes 🔥
+        const url = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=3&aqi=yes&alerts=no&lang=es`;
         
         const response = await axios.get(url);
         const data = response.data;
 
-        // Extraer datos AQI
+        // Extraer AQI
         const aqiData = data.current.air_quality || {};
         const usEpaIndex = aqiData['us-epa-index'] || 1; 
 
@@ -136,4 +137,4 @@ app.get('/api/weather/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Aeris V26 en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Aeris V27 HTTPS en puerto ${PORT}`));

@@ -82,6 +82,19 @@
         </div>
 
         <div class="glass-card">
+            <span class="label-sm text-uppercase fw-bold opacity-75 small"><i class="bi bi-wind"></i> Calidad Aire</span>
+            <div class="d-flex align-items-end justify-content-between mt-2">
+                <div class="metric-value fw-bold fs-2" id="aqi-val">--</div>
+                <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
+            </div>
+            <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
+            <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
+                <span>PM2.5: <span id="pm25">--</span></span>
+                <span>PM10: <span id="pm10">--</span></span>
+            </div>
+        </div>
+
+        <div class="glass-card">
             <h6 class="small opacity-75 mb-3">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly"></div>
         </div>
@@ -94,19 +107,6 @@
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
             <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none;"></iframe>
             <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none;">RADAR EN VIVO</div>
-        </div>
-
-        <div class="glass-card">
-            <span class="label-sm text-uppercase fw-bold opacity-75 small"><i class="bi bi-wind"></i> Calidad Aire</span>
-            <div class="d-flex align-items-end justify-content-between mt-2">
-                <div class="metric-value fw-bold fs-2" id="aqi-val">--</div>
-                <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
-            </div>
-            <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
-            <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
-                <span>PM2.5: <span id="pm25">--</span></span>
-                <span>PM10: <span id="pm10">--</span></span>
-            </div>
         </div>
     </div>
 
@@ -175,13 +175,15 @@
                     document.getElementById('radar-frame').src = radarUrl;
                 }
 
-                // AQI
+                // AQI - UPDATE DATA
                 const aqi = cur.aqi || 1;
                 const aqiLabels = {1: "Buena", 2: "Moderada", 3: "Dañina (Sensibles)", 4: "Dañina", 5: "Muy Dañina", 6: "Peligrosa"};
                 document.getElementById('aqi-val').innerText = aqi;
                 document.getElementById('aqi-text').innerText = aqiLabels[aqi] || "Buena";
                 document.getElementById('pm25').innerText = cur.pm25;
                 document.getElementById('pm10').innerText = cur.pm10;
+                
+                // Mover barra de color
                 const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
