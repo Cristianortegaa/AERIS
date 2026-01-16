@@ -14,10 +14,10 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- BASE DE DATOS (Caché V16) ---
+// --- BASE DE DATOS (Caché V17 - Reset Obligatorio) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v16.sqlite', 
+    storage: './weather_db_v17.sqlite', 
     logging: false
 });
 
@@ -90,14 +90,14 @@ const loadAllCities = async () => {
     console.log("⚠️ Usando lista manual de respaldo.");
 };
 
-// --- PARSEADOR DIARIO ---
+// --- PARSEADOR DIARIO (Defensivo) ---
 const parseAemetData = (rawData) => {
     if (!rawData || !rawData[0] || !rawData[0].prediccion) return [];
     return rawData[0].prediccion.dia.map(dia => {
         let rainMax = 0;
-        if (Array.isArray(dia.probPrecipitacion)) {
+        if (dia.probPrecipitacion && Array.isArray(dia.probPrecipitacion)) {
             const values = dia.probPrecipitacion.map(p => parseInt(p.value)).filter(v => !isNaN(v));
-            rainMax = Math.max(...values, 0);
+            rainMax = values.length > 0 ? Math.max(...values) : 0;
         }
 
         const findData = (collection, targetStart, targetEnd) => {
@@ -124,15 +124,15 @@ const parseAemetData = (rawData) => {
             };
         });
 
-        const mainSky = findData(dia.estadoCielo, '12', '18') || dia.estadoCielo[0];
+        const mainSky = findData(dia.estadoCielo, '12', '18') || (dia.estadoCielo ? dia.estadoCielo[0] : {value: '11', descripcion: 'Despejado'});
         let iconoFinal = getIcon(mainSky?.value);
         let descFinal = mainSky?.descripcion || 'Variable';
         if (rainMax >= 60 && !iconoFinal.includes('rain') && !iconoFinal.includes('lightning')) iconoFinal = 'bi-cloud-rain-fill';
 
         return {
             fecha: dia.fecha, 
-            tempMax: dia.temperatura.maxima, 
-            tempMin: dia.temperatura.minima,
+            tempMax: dia.temperatura ? dia.temperatura.maxima : 0, 
+            tempMin: dia.temperatura ? dia.temperatura.minima : 0,
             iconoGeneral: iconoFinal, 
             descripcionGeneral: descFinal, 
             uv: dia.uvMax || 0,
@@ -141,7 +141,7 @@ const parseAemetData = (rawData) => {
     });
 };
 
-// --- 🔥 PARSEADOR HORARIO NIVEL DIOS 🔥 ---
+// --- 🔥 PARSEADOR HORARIO NIVEL DIOS (A Prueba de Fallos) 🔥 ---
 const parseAemetHourly = (hourlyRaw, dailyClean) => {
     if (!hourlyRaw || !hourlyRaw[0] || !hourlyRaw[0].prediccion) return [];
     
@@ -158,8 +158,8 @@ const parseAemetHourly = (hourlyRaw, dailyClean) => {
                 if(!horaStr) return;
                 const horaInt = parseInt(horaStr);
 
-                // Extracción de datos precisos
-                const tempObj = diaH.temperatura.find(t => t.periodo === horaStr);
+                // Extracción de datos precisos con chequeos de seguridad
+                const tempObj = diaH.temperatura ? diaH.temperatura.find(t => t.periodo === horaStr) : null;
                 const sensObj = diaH.sensTermica ? diaH.sensTermica.find(t => t.periodo === horaStr) : null;
                 const humObj = diaH.humedadRelativa ? diaH.humedadRelativa.find(t => t.periodo === horaStr) : null;
                 
@@ -170,8 +170,11 @@ const parseAemetHourly = (hourlyRaw, dailyClean) => {
                     else if (horaInt >= 6 && horaInt < 12) periodoKey = '06-12';
                     else if (horaInt >= 12 && horaInt < 18) periodoKey = '12-18';
                     else periodoKey = '18-24';
-                    const periodoFound = dailyMatch.periodos.find(p => p.horario === periodoKey);
-                    if(periodoFound) probRain = periodoFound.probLluvia;
+                    
+                    if(dailyMatch.periodos) {
+                        const periodoFound = dailyMatch.periodos.find(p => p.horario === periodoKey);
+                        if(periodoFound) probRain = periodoFound.probLluvia;
+                    }
                 }
 
                 hourlyCombined.push({
@@ -183,24 +186,28 @@ const parseAemetHourly = (hourlyRaw, dailyClean) => {
                     humidity: humObj ? parseInt(humObj.value) : 50,
                     rainProb: probRain, 
                     icon: getIcon(item.value),
-                    desc: item.descripcion
+                    desc: item.descripcion || ''
                 });
             });
         }
     });
 
-    const nowMadrid = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Madrid"}));
-    const currentYear = nowMadrid.getFullYear();
-    const currentMonth = String(nowMadrid.getMonth() + 1).padStart(2, '0');
-    const currentDay = String(nowMadrid.getDate()).padStart(2, '0');
-    const todayMadridStr = `${currentYear}-${currentMonth}-${currentDay}`;
-    const currentHourMadrid = nowMadrid.getHours();
+    try {
+        const nowMadrid = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Madrid"}));
+        const currentYear = nowMadrid.getFullYear();
+        const currentMonth = String(nowMadrid.getMonth() + 1).padStart(2, '0');
+        const currentDay = String(nowMadrid.getDate()).padStart(2, '0');
+        const todayMadridStr = `${currentYear}-${currentMonth}-${currentDay}`;
+        const currentHourMadrid = nowMadrid.getHours();
 
-    return hourlyCombined.filter(h => {
-        if (h.date > todayMadridStr) return true;
-        if (h.date === todayMadridStr && h.hour >= currentHourMadrid) return true;
-        return false;
-    }).slice(0, 24);
+        return hourlyCombined.filter(h => {
+            if (h.date > todayMadridStr) return true;
+            if (h.date === todayMadridStr && h.hour >= currentHourMadrid) return true;
+            return false;
+        }).slice(0, 24);
+    } catch (e) {
+        return hourlyCombined.slice(0, 24);
+    }
 };
 
 // --- ENDPOINTS ---
@@ -266,6 +273,6 @@ app.get('/api/weather/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
-    console.log(`🚀 Aeris V16 en puerto ${PORT}`);
+    console.log(`🚀 Aeris V17 (Stable) en puerto ${PORT}`);
     await loadAllCities();
 });

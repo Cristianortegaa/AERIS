@@ -93,7 +93,7 @@
         .hourly-content { display: flex; gap: 0; position: absolute; top: 0; left: 0; z-index: 1; }
         .hourly-item { width: 60px; display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 10px; flex-shrink: 0; }
         .hourly-time { font-weight: 700; font-size: 0.85rem; margin-bottom: 5px; opacity: 0.8; }
-        .hourly-icon { font-size: 1.4rem; margin-bottom: 30px; color: var(--text-main); } /* Espacio para la linea */
+        .hourly-icon { font-size: 1.4rem; margin-bottom: 30px; color: var(--text-main); } 
         .hourly-rain { font-size: 0.7rem; color: var(--rain-text); font-weight: 700; position: absolute; top: 60px; }
         .hourly-temp { font-weight: 800; font-size: 1.1rem; margin-top: auto; padding-bottom: 10px; z-index: 2; text-shadow: 0 0 5px var(--glass-bg); }
 
@@ -109,14 +109,14 @@
 
         /* Other Widgets */
         .metric-value { font-size: 1.8rem; font-weight: 700; font-family: 'Outfit'; }
-        .metric-unit { font-size: 1rem; opacity: 0.6; font-weight: 600; }
         
-        .nav-search-group { flex-grow: 1; max-width: 400px; position: relative; }
-        .search-input-group { display: flex; align-items: center; background: var(--glass-bg); border-radius: 50px; padding: 5px 15px; border: var(--glass-border); }
+        .nav-search-group { flex-grow: 1; max-width: 400px; position: relative; z-index: 200; }
+        .search-input-group { display: flex; align-items: center; background: var(--glass-bg); border-radius: 50px; padding: 5px 15px; border: var(--glass-border); position: relative; z-index: 201; }
         .search-input { border:none; background:transparent; width:100%; outline:none; font-weight:600; color:var(--text-main); }
-        .suggestions-list { position: absolute; top: 110%; left: 0; width: 100%; background: var(--glass-bg); backdrop-filter: blur(20px); border-radius: 15px; padding: 0; margin: 0; list-style: none; display: none; z-index: 100; box-shadow: var(--card-shadow); }
+        .suggestions-list { position: absolute; top: 110%; left: 0; width: 100%; background: var(--glass-bg); backdrop-filter: blur(20px); border-radius: 15px; padding: 0; margin: 0; list-style: none; display: none; z-index: 300; box-shadow: var(--card-shadow); }
         .suggestions-list.show { display: block; }
         .suggestion-item { padding: 10px 15px; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer; }
+        
         .accordion-button { background: transparent !important; box-shadow: none !important; color: var(--text-main) !important; font-weight: 600; }
         .accordion-item { background: transparent; border: none; border-bottom: 1px solid rgba(0,0,0,0.05); }
         .rain-bar-container { height: 6px; background: rgba(0,0,0,0.05); border-radius: 10px; width: 100%; overflow: hidden; margin-top: 5px; }
@@ -145,7 +145,7 @@
             <div class="nav-search-group">
                 <div class="search-input-group">
                     <i class="bi bi-search opacity-50 me-2"></i>
-                    <input type="text" class="search-input" id="citySearch" placeholder="Buscar ciudad...">
+                    <input type="text" class="search-input" id="citySearch" placeholder="Buscar ciudad..." autocomplete="off">
                     <i class="bi bi-geo-alt-fill opacity-75" style="cursor:pointer" id="geoBtn"></i>
                 </div>
                 <ul class="suggestions-list" id="suggestions"></ul>
@@ -190,11 +190,6 @@
                     </svg>
                     <div class="hourly-content" id="hourly-container"></div>
                  </div>
-            </div>
-
-            <div class="glass-card span-full">
-                <span class="label-sm mb-3 d-block">Previsión 7 Días</span>
-                <div class="accordion accordion-flush" id="forecastAccordion"></div>
             </div>
 
             <div class="glass-card">
@@ -243,6 +238,11 @@
                 </div>
             </div>
 
+            <div class="glass-card span-full">
+                <span class="label-sm mb-3 d-block">Previsión 7 Días</span>
+                <div class="accordion accordion-flush" id="forecastAccordion"></div>
+            </div>
+
             <div class="glass-card span-2 position-relative" style="padding: 0; height: 350px;">
                 <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none; border-radius: 24px;"></iframe>
                 <div style="position:absolute; top:15px; left:15px; background:rgba(0,0,0,0.6); color:white; padding:4px 12px; border-radius:15px; font-size:0.75rem; font-weight:bold; backdrop-filter:blur(5px);">
@@ -256,7 +256,7 @@
     <script>
         let currentCity = JSON.parse(localStorage.getItem('savedCity')) || { id: '28065', name: 'Getafe', lat: 40.3, lon: -3.7 };
 
-        // --- PARTÍCULAS ---
+        // --- EFECTOS ---
         const initEffects = () => {
             const rainCont = document.getElementById('rain-container'); rainCont.innerHTML='';
             for(let i=0;i<100;i++){ const d=document.createElement('div');d.className='rain-drop';d.style.left=Math.random()*100+'vw';d.style.animationDuration=(Math.random()*0.8+0.4)+'s';d.style.animationDelay=Math.random()*2+'s';d.style.opacity=0;rainCont.appendChild(d); }
@@ -282,69 +282,40 @@
             }
         };
 
-        // --- DIBUJAR CURVA SVG (NIVEL DIOS) ---
         const drawHourlyCurve = (temps) => {
             const svg = document.getElementById('hourly-svg');
             const path = document.getElementById('temp-path');
             if(temps.length < 2) return;
-
-            const itemWidth = 60; 
-            const containerHeight = 140;
-            const maxTemp = Math.max(...temps) + 2;
-            const minTemp = Math.min(...temps) - 2;
-            const range = maxTemp - minTemp;
-
-            // Escalar Y: Temperatura a Pixel
-            const getY = (t) => {
-                const ratio = (t - minTemp) / range; // 0 a 1
-                return containerHeight - 30 - (ratio * (containerHeight - 60)); // Margen arriba/abajo
-            };
-
-            let d = `M 30 ${getY(temps[0])}`; // Mover al centro del primer item (30px)
+            const itemWidth = 60; const containerHeight = 140;
+            const maxTemp = Math.max(...temps) + 2; const minTemp = Math.min(...temps) - 2; const range = maxTemp - minTemp;
+            const getY = (t) => { return containerHeight - 30 - (((t - minTemp) / range) * (containerHeight - 60)); };
+            let d = `M 30 ${getY(temps[0])}`;
             for(let i=1; i<temps.length; i++) {
-                const x = 30 + (i * itemWidth);
-                const y = getY(temps[i]);
-                // Curva de Bezier simple para suavizar
-                const prevX = 30 + ((i-1) * itemWidth);
-                const prevY = getY(temps[i-1]);
-                const cp1x = prevX + (itemWidth / 2);
-                const cp1y = prevY;
-                const cp2x = x - (itemWidth / 2);
-                const cp2y = y;
-                d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x} ${y}`;
+                const x = 30 + (i * itemWidth); const y = getY(temps[i]);
+                const prevX = 30 + ((i-1) * itemWidth); const prevY = getY(temps[i-1]);
+                d += ` C ${prevX + itemWidth/2} ${prevY}, ${x - itemWidth/2} ${y}, ${x} ${y}`;
             }
             path.setAttribute('d', d);
             svg.setAttribute('width', Math.max(1000, temps.length * itemWidth));
         };
 
-        // --- LÓGICA DE FASE LUNAR (Simple) ---
         const getMoonPhase = (date) => {
-            const year = date.getFullYear();
-            const month = date.getMonth() + 1;
-            const day = date.getDate();
+            const year = date.getFullYear(); const month = date.getMonth() + 1; const day = date.getDate();
             let c = e = j = 0;
-            if (month < 3) { year--; month += 12; }
-            ++month;
-            c = 365.25 * year;
-            e = 30.6 * month;
-            j = c + e + day - 694039.09;
-            j /= 29.53058;
-            b = parseInt(j);
-            j -= b;
-            b = Math.round(j * 8);
-            if (b >= 8 ) b = 0;
+            if (month < 3) { year--; month += 12; } ++month;
+            c = 365.25 * year; e = 30.6 * month; j = c + e + day - 694039.09; j /= 29.53058; b = parseInt(j); j -= b; b = Math.round(j * 8); if (b >= 8 ) b = 0;
             const phases = ["Luna Nueva", "Creciente", "Cuarto Creciente", "Gibosa Creciente", "Luna Llena", "Gibosa Menguante", "Cuarto Menguante", "Menguante"];
             const icons = ["bi-circle", "bi-moon", "bi-moon-stars", "bi-moon-fill", "bi-circle-fill", "bi-moon-fill", "bi-moon-stars", "bi-moon"];
             return { text: phases[b], icon: icons[b] };
         };
 
-        // --- RENDER ---
         const renderData = (data) => {
+            if(!data || !data.daily || !data.daily[0]) return;
             const daily = data.daily[0];
-            const hourly = data.hourly;
+            const hourly = data.hourly || [];
             
             // 1. DATA PRINCIPAL
-            const current = (hourly && hourly.length > 0) ? hourly[0] : { temp: daily.tempMax, icon: daily.iconoGeneral, desc: daily.descripcionGeneral, rainProb: 0, feelsLike: daily.tempMax, humidity: 50, pressure: 1013 };
+            const current = (hourly.length > 0) ? hourly[0] : { temp: daily.tempMax, icon: daily.iconoGeneral, desc: daily.descripcionGeneral, rainProb: 0, feelsLike: daily.tempMax, humidity: 50, pressure: 1013 };
 
             document.getElementById('city-name-display').innerText = currentCity.name.toUpperCase();
             document.getElementById('display-temp').innerText = current.temp;
@@ -354,25 +325,20 @@
             document.getElementById('weather-desc').innerText = current.desc;
             document.getElementById('main-icon').className = `bi ${current.icon} display-icon filter-shadow`;
 
-            // 2. EXTRAS (Humedad/Presión)
             document.getElementById('humidity').innerText = current.humidity || 50;
-            document.getElementById('pressure').innerText = current.pressure || 1015; // Fallback si no hay dato real
+            document.getElementById('pressure').innerText = 1015;
 
-            // 3. HORARIA Y GRÁFICA
+            // 3. HORARIA
             const hContainer = document.getElementById('hourly-container');
             const hSummary = document.getElementById('hourly-summary');
             hContainer.innerHTML = '';
             
-            if(hourly && hourly.length > 0) {
+            if(hourly.length > 0) {
                 const nextRain = hourly.find(h => h.rainProb > 0);
-                const nextWind = hourly.find(h => h.windSpeed > 20); // Simulado si no hay dato
-                
-                // Resumen AI Style
                 let summaryText = "Condiciones estables.";
                 if(nextRain) summaryText = `☔ Lluvia (${nextRain.rainProb}%) esperada a las ${nextRain.hour}:00.`;
                 else if(current.temp < 5) summaryText = "🧥 Hace frío. Abrígate bien.";
                 else if(current.icon.includes('sun')) summaryText = "😎 Día perfecto para salir.";
-                
                 hSummary.innerText = summaryText;
 
                 const tempsForGraph = [];
@@ -380,43 +346,30 @@
                     tempsForGraph.push(h.temp);
                     const timeLabel = index === 0 ? 'Ahora' : `${h.hour}`;
                     const rainHtml = h.rainProb > 0 ? `<div class="hourly-rain">${h.rainProb}%</div>` : `<div class="hourly-rain"></div>`;
-                    
                     const item = document.createElement('div');
                     item.className = 'hourly-item';
-                    item.innerHTML = `
-                        <div class="hourly-time">${timeLabel}</div>
-                        <div class="hourly-icon"><i class="bi ${h.icon}"></i></div>
-                        ${rainHtml}
-                        <div class="hourly-temp" style="margin-top:${index%2===0?'0':'0'}px">${h.temp}°</div>
-                    `;
+                    item.innerHTML = `<div class="hourly-time">${timeLabel}</div><div class="hourly-icon"><i class="bi ${h.icon}"></i></div>${rainHtml}<div class="hourly-temp" style="margin-top:${index%2===0?'0':'0'}px">${h.temp}°</div>`;
                     hContainer.appendChild(item);
                 });
                 drawHourlyCurve(tempsForGraph);
             }
 
-            // 4. UV INDEX (Visual)
+            // 4. UV
             const uv = daily.uv || 0;
             document.getElementById('uv-value').innerText = uv;
             document.getElementById('uv-text').innerText = uv < 3 ? "Bajo" : (uv < 6 ? "Moderado" : "Alto");
             const uvPercent = Math.min((uv / 11) * 100, 100);
             document.getElementById('uv-dot').style.left = `${uvPercent}%`;
 
-            // 5. SOL (Widget Arco)
+            // 5. SOL
             const now = new Date();
             const currentMin = now.getHours() * 60 + now.getMinutes();
-            // Estimacion simple si no hay dato exacto (Amanecer 7:30 - Puesta 21:00)
-            const sunriseMin = 7 * 60 + 30; 
-            const sunsetMin = 21 * 60;
-            
+            const sunriseMin = 7 * 60 + 30; const sunsetMin = 21 * 60;
             let sunPercent = 0;
             if(currentMin > sunriseMin && currentMin < sunsetMin) {
-                const dayLength = sunsetMin - sunriseMin;
-                sunPercent = ((currentMin - sunriseMin) / dayLength) * 100;
-            } else if (currentMin >= sunsetMin) {
-                sunPercent = 100;
-            }
-            // Rotar el sol: -90deg (amanecer) a 90deg (puesta)
-            const rot = -72 + (sunPercent / 100 * 144); // Ajustado al arco visible CSS
+                sunPercent = ((currentMin - sunriseMin) / (sunsetMin - sunriseMin)) * 100;
+            } else if (currentMin >= sunsetMin) { sunPercent = 100; }
+            const rot = -72 + (sunPercent / 100 * 144);
             document.getElementById('sun-orb').style.transform = `rotate(${rot}deg)`;
 
             // 6. LUNA
@@ -424,49 +377,33 @@
             document.getElementById('moon-text').innerText = phase.text;
             document.getElementById('moon-icon').className = `bi ${phase.icon} fs-1 mb-2 opacity-75`;
 
-            // 7. SEMANAL (CORREGIDO PARA MOSTRAR DATOS REALES)
+            // 7. SEMANAL
             const accordion = document.getElementById('forecastAccordion');
             accordion.innerHTML = '';
-            
             // Verificamos que 'data.daily' existe y tiene datos
             if (data.daily && data.daily.length > 0) {
-                // Empezamos desde el índice 1 (mañana) hasta el final, o mostramos todos si prefieres incluir hoy
-                // AEMET suele dar predicción para hoy (índice 0) y los siguientes días.
-                // Si quieres "Próximos días" sin contar hoy, usa .slice(1). Si quieres incluir hoy, quita el .slice(1).
                 const weeklyData = data.daily.length > 1 ? data.daily.slice(1) : data.daily;
-
                 weeklyData.forEach((day, index) => {
-                    // Formatear fecha (ej: "Sábado 17")
                     const dateObj = new Date(day.fecha);
                     const daysOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
                     const dayName = daysOfWeek[dateObj.getDay()];
                     const dayNumber = dateObj.getDate();
                     const dateStr = `${dayName} ${dayNumber}`;
-
-                    // Calcular lluvia máxima del día
                     const mRain = Math.max(...day.periodos.map(p => p.probLluvia));
                     const rainWidth = mRain + '%';
                     const rainColor = mRain > 0 ? 'var(--rain-text)' : 'transparent';
                     
-                    // HTML del Item
-                    const itemHtml = `
+                    accordion.innerHTML += `
                     <div class="accordion-item">
                         <h2 class="accordion-header">
                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c${index}">
                                 <div class="d-flex align-items-center w-100 pe-2">
                                     <div style="width:35%" class="text-capitalize small text-start fw-bold">${dateStr}</div>
-                                    
                                     <div style="width:25%; display:flex; flex-direction:column; justify-content:center; padding:0 10px;">
-                                        <div style="font-size:0.6rem; opacity:0.7; text-align:center; margin-bottom:2px; min-height:10px">
-                                            ${mRain > 0 ? mRain + '%' : ''}
-                                        </div>
-                                        <div class="rain-bar-container">
-                                            <div class="rain-bar-fill" style="width:${rainWidth}; background:${rainColor}"></div>
-                                        </div>
+                                        <div style="font-size:0.6rem; opacity:0.7; text-align:center; margin-bottom:2px; min-height:10px">${mRain > 0 ? mRain + '%' : ''}</div>
+                                        <div class="rain-bar-container"><div class="rain-bar-fill" style="width:${rainWidth}; background:${rainColor}"></div></div>
                                     </div>
-
                                     <i class="bi ${day.iconoGeneral} fs-5 mx-auto text-primary" style="width:10%; text-align:center;"></i>
-
                                     <div class="text-end fw-bold" style="width:30%">
                                         <span class="small" style="color:var(--max-temp-color)">${day.tempMax}°</span> 
                                         <span class="text-secondary opacity-50 small mx-1">/</span> 
@@ -477,21 +414,15 @@
                         </h2>
                         <div id="c${index}" class="accordion-collapse collapse" data-bs-parent="#forecastAccordion">
                             <div class="accordion-body pt-0 text-center small opacity-75">
-                                <div class="mb-2">${day.descripcionGeneral || 'Sin descripción detallada.'}</div>
-                                <div class="d-flex justify-content-center gap-3">
-                                    <span><i class="bi bi-umbrella"></i> ${mRain}%</span>
-                                    <span><i class="bi bi-sun"></i> UV: ${day.uv || '-'}</span>
-                                </div>
+                                <div class="mb-2">${day.descripcionGeneral || 'Sin descripción.'}</div>
                             </div>
                         </div>
                     </div>`;
-                    
-                    accordion.innerHTML += itemHtml;
                 });
             } else {
                 accordion.innerHTML = '<div class="p-3 text-center opacity-50">No hay datos de previsión disponibles.</div>';
             }
-            
+
             // 8. TEMA
             const currentRainProb = (hourly && hourly.length > 0) ? hourly[0].rainProb : 0;
             updateThemeByWeather(current.icon, currentRainProb);
