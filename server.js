@@ -8,10 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// --- BASE DE DATOS (V27 - HTTPS FIX) ---
+// --- BASE DE DATOS (V26) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v27.sqlite', // Nueva versión limpia
+    storage: './weather_db_v26.sqlite',
     logging: false
 });
 
@@ -35,27 +35,24 @@ const mapIcon = (code, isDay) => {
     return 'bi-cloud';
 };
 
-// --- API BÚSQUEDA (HTTPS) ---
+// --- API BÚSQUEDA ---
 app.get('/api/search/:query', async (req, res) => {
     try {
         if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key");
-        // 🔥 CAMBIO CLAVE: https:// en lugar de http://
-        const url = `https://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${encodeURIComponent(req.params.query)}`;
+        const url = `http://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${encodeURIComponent(req.params.query)}`;
         const response = await axios.get(url);
         res.json(response.data);
     } catch (e) {
-        console.error("Search Error:", e.message);
         res.json([]);
     }
 });
 
-// --- API GEO (HTTPS) ---
+// --- API GEO ---
 app.get('/api/geo', async (req, res) => {
     try {
         const { lat, lon } = req.query;
         if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key");
-        // 🔥 CAMBIO CLAVE: https://
-        const url = `https://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${lat},${lon}`;
+        const url = `http://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${lat},${lon}`;
         const response = await axios.get(url);
         res.json(response.data[0]);
     } catch (e) {
@@ -63,7 +60,7 @@ app.get('/api/geo', async (req, res) => {
     }
 });
 
-// --- API PREVISIÓN (HTTPS + AQI) ---
+// --- API PREVISIÓN (ÚNICA Y CORRECTA) ---
 app.get('/api/weather/:id', async (req, res) => {
     const locationId = req.params.id;
     try {
@@ -76,8 +73,7 @@ app.get('/api/weather/:id', async (req, res) => {
         }
 
         const q = isNaN(locationId) ? locationId : `id:${locationId}`;
-        // 🔥 CAMBIO CLAVE: https:// y aqi=yes
-        const url = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=3&aqi=yes&alerts=no&lang=es`;
+        const url = `http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=3&aqi=yes&alerts=no&lang=es`;
         
         const response = await axios.get(url);
         const data = response.data;
@@ -140,4 +136,4 @@ app.get('/api/weather/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Aeris V27 HTTPS en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Aeris V26 en puerto ${PORT}`));
