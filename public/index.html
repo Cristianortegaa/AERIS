@@ -112,62 +112,64 @@
         .fav-header { padding: 30px 25px; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; display: flex; justify-content: space-between; align-items: center; color: var(--text); border-bottom: 1px solid var(--glass-border); }
         .fav-list { list-style: none; padding: 15px; margin: 0; overflow-y: auto; flex-grow: 1; }
         
-        .fav-item { 
-            padding: 16px 20px; 
-            margin-bottom: 10px; 
-            border-radius: 16px; 
-            cursor: pointer; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            transition: all 0.2s ease; 
-            color: var(--text); 
-            background: rgba(255, 255, 255, 0.5); 
-            border: 1px solid transparent; 
-        }
+        .fav-item { padding: 16px 20px; margin-bottom: 10px; border-radius: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; color: var(--text); background: rgba(255, 255, 255, 0.5); border: 1px solid transparent; }
         [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
-        
         .fav-item-info { display: flex; flex-direction: column; gap: 2px; max-width: 80%; }
         .fav-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
         .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
         .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
         
+        /* --- AI STYLES & MODAL --- */
+        .ai-container { cursor: pointer; transition: transform 0.2s; user-select: none; position: relative; }
+        .ai-container:active { transform: scale(0.95); }
+        .ai-change-badge { font-size: 0.65rem; background: var(--accent); color: white; padding: 2px 8px; border-radius: 10px; position: absolute; bottom: -5px; right: 0; white-space: nowrap; opacity: 0.8; }
+        
+        /* Modal Personalizado (Glassmorphism) */
+        .persona-modal {
+            position: fixed; inset: 0; z-index: 3000;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            backdrop-filter: blur(5px); background: rgba(0,0,0,0.3);
+        }
+        .persona-modal.show { opacity: 1; pointer-events: all; }
+        .persona-content {
+            width: 90%; max-width: 350px;
+            background: var(--glass); backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 25px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-height: 70vh; display: flex; flex-direction: column;
+        }
+        .persona-modal.show .persona-content { transform: scale(1); }
+        .persona-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; overflow-y: auto; padding: 5px; }
+        .persona-option {
+            background: rgba(255,255,255,0.3); border: 1px solid transparent;
+            border-radius: 16px; padding: 15px 10px; text-align: center;
+            cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 5px;
+        }
+        .persona-option:hover { background: rgba(255,255,255,0.6); transform: translateY(-2px); }
+        .persona-option.active { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.1); box-shadow: 0 0 0 2px var(--accent); }
+        .persona-icon { font-size: 2rem; }
+        .persona-name { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+        
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
-
-        /* --- AI PERSONA STYLES --- */
-        .ai-container { 
-            cursor: pointer; 
-            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-            user-select: none;
-            position: relative;
-        }
-        .ai-container:active { transform: scale(0.9); }
-        .ai-bubble {
-            position: absolute;
-            bottom: 110%;
-            right: 0;
-            background: var(--text);
-            color: var(--bg-1);
-            padding: 5px 10px;
-            border-radius: 10px;
-            font-size: 0.7rem;
-            font-weight: bold;
-            white-space: nowrap;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: 0.3s;
-            pointer-events: none;
-        }
-        .ai-container:hover .ai-bubble, .ai-container.changed .ai-bubble {
-            opacity: 1;
-            transform: translateY(0);
-        }
     </style>
 </head>
 <body data-theme="light">
+
+    <div class="persona-modal" id="personaModal">
+        <div class="persona-content">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0">Elige Personalidad</h5>
+                <button class="btn btn-sm btn-close" id="closePersonaModal"></button>
+            </div>
+            <div class="persona-grid" id="personaGrid">
+                </div>
+        </div>
+    </div>
 
     <div class="overlay" id="overlay"></div>
     <div class="fav-sidebar" id="favSidebar">
@@ -230,8 +232,10 @@
                 
                 <div class="d-flex align-items-center gap-2 ai-container" id="ai-toggle" style="opacity: 0.9;">
                     <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; height: 2em; display:block"></span>
-                    <span id="tip-icon" class="fs-4">🤖</span>
-                    <div class="ai-bubble" id="ai-bubble">Modo: Normal</div>
+                    <div class="position-relative">
+                        <span id="tip-icon" class="fs-4">🤖</span>
+                        <div class="ai-change-badge">Cambiar</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -252,32 +256,13 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
+                </div>
         </div>
 
         <div class="glass-card">
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
             <div id="daily">
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
-                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
-                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
-                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
-                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
-                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
-                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
-                </div>
-            </div>
+               </div>
         </div>
 
         <div class="glass-card">
@@ -305,70 +290,60 @@
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
         let rainChartInstance = null;
-        let lastWeatherData = null; // Guardamos datos para actualizar la IA sin rellamar API
+        let lastWeatherData = null;
 
-        // --- SISTEMA DE PERSONALIDADES ---
-        const personas = ['normal', 'zen', 'villano', 'madre'];
+        // --- SISTEMA DE PERSONALIDADES AVANZADO ---
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
         const aiLogic = {
-            normal: { icon: "🤖", name: "Modo: Normal", 
-                tips: {
-                    hot: ["Hace calor, hidrátate.", "Día perfecto para helado.", "Busca sombra."],
-                    cold: ["Hace frío, abrígate bien.", "Buen día para un café caliente."],
-                    rain: ["Lleva paraguas hoy.", "Posible lluvia, atento."],
-                    nice: ["Clima agradable, disfruta.", "Día perfecto para pasear."]
-                }
-            },
-            zen: { icon: "🧘", name: "Modo: Zen",
-                tips: {
-                    hot: ["El sol energiza tu alma.", "Siente el calor como un abrazo.", "Respira y fluye con el verano."],
-                    cold: ["El frío clarifica la mente.", "La quietud del invierno es paz.", "Abraza el silencio del frío."],
-                    rain: ["La lluvia nutre la tierra.", "El agua limpia el ambiente.", "Escucha el ritmo de las gotas."],
-                    nice: ["El equilibrio es perfecto hoy.", "La armonía está en el aire.", "Conecta con el presente."]
-                }
-            },
-            villano: { icon: "😈", name: "Modo: Villano",
-                tips: {
-                    hot: ["Te vas a derretir como queso barato.", "El asfalto es lava, suerte.", "Sudarás hasta por los ojos."],
-                    cold: ["Se te van a congelar las ideas.", "Ni el yeti saldría hoy.", "¿Sientes tus dedos? Yo tampoco."],
-                    rain: ["Tu pelo va a parecer una escoba.", "Ducha gratis, no te quejes.", "El cielo llora por ti."],
-                    nice: ["Hace bueno. Algo malo pasará.", "Demasiado sol, sospechoso.", "Disfruta antes del apocalipsis."]
-                }
-            },
-            madre: { icon: "👵", name: "Modo: Madre",
-                tips: {
-                    hot: ["Ponte crema solar, factor 50.", "Bebe agua, no refrescos.", "Ponte gorra que te da una insolación."],
-                    cold: ["¿Llevas camiseta interior?", "Cierra la boca que entra frío.", "Ponte el abrigo gordo, hazme caso."],
-                    rain: ["¡No salgas sin paraguas!", "Ni se te ocurra pisar charcos.", "Cámbiate los calcetines si te mojas."],
-                    nice: ["Aprovecha para lavar las cortinas.", "Sal a que te dé el aire un poco.", "Come algo antes de salir."]
-                }
-            }
+            normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hace calor, hidrátate.", "Busca sombra hoy."], cold: ["Abrígate bien hoy.", "Hace frío fuera."], rain: ["No olvides el paraguas.", "Riesgo de lluvia."], nice: ["Disfruta del buen tiempo.", "Día perfecto para salir."] } },
+            zen: { icon: "🧘", name: "Zen", tips: { hot: ["El sol nutre tu energía.", "Fluye con el calor."], cold: ["La quietud del frío es paz.", "Abraza el silencio."], rain: ["La lluvia limpia el alma.", "Escucha las gotas caer."], nice: ["Armonía perfecta hoy.", "Conecta con el presente."] } },
+            villano: { icon: "😈", name: "Villano", tips: { hot: ["Te vas a derretir, humano.", "El asfalto es lava."], cold: ["Se te congelarán las ideas.", "Ni el yeti sale hoy."], rain: ["Pelo encrespado garantizado.", "El cielo llora por ti."], nice: ["Hace bueno... sospechoso.", "Disfruta antes del fin."] } },
+            madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema, factor 50.", "Bebe agua, hijo."], cold: ["¿Llevas camiseta interior?", "Abrígate o te enfermas."], rain: ["¡Ni se te ocurra salir sin paraguas!", "No te mojes los pies."], nice: ["Come algo antes de salir.", "Sal a que te dé el aire."] } },
+            gym: { icon: "💪", name: "Gym Bro", tips: { hot: ["Sudar es grasa llorando.", "¡Calor para definir!"], cold: ["El frío no es excusa. ¡Entrena!", "Corre para calentarte."], rain: ["Correr bajo la lluvia es épico.", "No te saltes el leg day."], nice: ["Día perfecto para entrenar fuera.", "Vitamina D y pesas."] } },
+            cientifico: { icon: "🧪", name: "Científico", tips: { hot: ["Radiación solar elevada.", "Termodinámica extrema hoy."], cold: ["Descenso térmico molecular.", "Cristalización posible."], rain: ["Precipitación de H2O inminente.", "Hidratación atmosférica alta."], nice: ["Condiciones atmosféricas óptimas.", "Homeostasis climática."] } },
+            gato: { icon: "🐱", name: "Gato", tips: { hot: ["Dormiré al sol todo el día.", "El suelo está calentito."], cold: ["No pienso salir de la cama.", "Humano, sube la calefacción."], rain: ["Odio el agua. Miau.", "Ni me mires, no salgo."], nice: ["A cazar moscas en el jardín.", "Día perfecto para siesta."] } },
+            pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["El sol quema como mil cañones.", "¡A sudar la gota gorda!"], cold: ["Frío como el corazón de mi ex.", "Ron para calentarse."], rain: ["Tormenta a estribor, grumete.", "¡A baldear la cubierta!"], nice: ["Viento en popa a toda vela.", "Buen día para saquear."] } },
+            poeta: { icon: "📜", name: "Poeta", tips: { hot: ["El sol besa la tierra con ardor.", "Luz dorada inunda todo."], cold: ["El invierno susurra secretos.", "Manto gélido cubre el mundo."], rain: ["Lágrimas del cielo caen.", "Melancolía gris en el aire."], nice: ["La brisa acaricia tu rostro.", "Un poema de día."] } }
         };
 
-        const togglePersona = () => {
-            let idx = personas.indexOf(currentPersona);
-            idx = (idx + 1) % personas.length;
-            currentPersona = personas[idx];
-            localStorage.setItem('aeris_persona', currentPersona);
-            
-            // Animación y Feedback
-            const container = document.getElementById('ai-toggle');
-            const bubble = document.getElementById('ai-bubble');
-            container.classList.add('changed');
-            bubble.innerText = aiLogic[currentPersona].name;
-            
-            setTimeout(() => container.classList.remove('changed'), 1500); // Quita la burbuja
+        // Modal Logic
+        const modal = document.getElementById('personaModal');
+        const overlay = document.getElementById('overlay');
+        const modalContent = document.getElementById('personaGrid');
 
-            // Actualizar texto inmediatamente si hay datos
+        const openPersonaModal = () => {
+            modalContent.innerHTML = '';
+            Object.keys(aiLogic).forEach(key => {
+                const p = aiLogic[key];
+                const isActive = key === currentPersona ? 'active' : '';
+                modalContent.innerHTML += `
+                    <div class="persona-option ${isActive}" onclick="selectPersona('${key}')">
+                        <span class="persona-icon">${p.icon}</span>
+                        <span class="persona-name">${p.name}</span>
+                    </div>
+                `;
+            });
+            modal.classList.add('show');
+        };
+
+        const selectPersona = (key) => {
+            currentPersona = key;
+            localStorage.setItem('aeris_persona', key);
+            modal.classList.remove('show');
             if(lastWeatherData) updateAIText(lastWeatherData);
         };
+
+        document.getElementById('ai-toggle').addEventListener('click', openPersonaModal);
+        document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
+        // Cerrar modal al tocar fuera
+        modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
+
 
         const updateAIText = (cur) => {
             const p = aiLogic[currentPersona];
             document.getElementById('tip-icon').innerText = p.icon;
             
-            // Lógica de selección de frase
             let key = 'nice';
             const desc = cur.desc.toLowerCase();
             if (desc.includes('lluvia') || desc.includes('tormenta') || desc.includes('llovizna')) key = 'rain';
@@ -380,9 +355,7 @@
             document.getElementById('tip-text').innerText = frase;
         };
 
-        // Event Listener para cambiar personalidad
-        document.getElementById('ai-toggle').addEventListener('click', togglePersona);
-
+        // --- FIN SISTEMA PERSONALIDADES ---
 
         const updateHeartUI = () => {
             const heart = document.getElementById('favHeart');
@@ -522,7 +495,7 @@
                 const cur = data.current;
                 const loc = data.location;
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
-                lastWeatherData = cur; // GUARDAR DATOS PARA IA
+                lastWeatherData = cur;
 
                 updateHeartUI();
 
@@ -567,7 +540,7 @@
                 const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
-                // ACTUALIZAR IA CON LA PERSONALIDAD ACTUAL
+                // UPDATE AI
                 updateAIText(cur);
 
                 const nowEpoch = Math.floor(Date.now()/1000);
