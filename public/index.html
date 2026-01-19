@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AERIS</title>
+    <title>AERIS - Tu App del Tiempo</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -80,8 +80,13 @@
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         
-        /* AÑADIDO: Estilo especial para la tarjeta de lluvia */
-        .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 5px; position: relative; }
+        /* ESTILO GRÁFICO LLUVIA MEJORADO */
+        .rain-chart-wrapper { 
+            height: 140px; 
+            width: 100%; 
+            margin-top: 15px; 
+            position: relative; 
+        }
 
         .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; animation: fadeIn 0.2s ease-out; }
         .suggestions-list.show { display: block; }
@@ -157,7 +162,6 @@
                     <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0" style="color:var(--accent); letter-spacing:1px">...</h5>
                     <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
                 </div>
-                
                 <div id="lottie-icon" style="width: 140px; height: 140px; margin-top: -30px; margin-right: -10px;"></div>
             </div>
             
@@ -190,9 +194,11 @@
         </div>
 
         <div class="glass-card" id="rain-card" style="display:none; transition: opacity 0.5s ease;">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)"><i class="bi bi-umbrella-fill"></i> LLUVIA PRÓXIMA HORA</h6>
-                <small class="fw-bold" style="color:var(--accent); font-size:0.8rem" id="rain-summary">--</small>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)">
+                    <i class="bi bi-cloud-drizzle-fill"></i> PRÓXIMA HORA
+                </h6>
+                <small class="fw-bold text-uppercase" style="color:var(--accent); font-size:0.75rem" id="rain-summary">--</small>
             </div>
             <div class="rain-chart-wrapper">
                 <canvas id="rainChart"></canvas>
@@ -238,9 +244,9 @@
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
         let lottieAnim = null;
-        let rainChartInstance = null; // Instancia gráfico lluvia
+        let rainChartInstance = null;
 
-        // --- MAPA DE ICONOS LOTTIE (URLs PÚBLICAS ASSETS10) ---
+        // --- MAPA LOTTIE (PUBLIC & SAFE) ---
         const getLottieUrl = (code, isDay) => {
             const c = parseInt(code);
             if (c === 1000) return isDay ? "https://assets10.lottiefiles.com/packages/lf20_xlkxtmul.json" : "https://assets10.lottiefiles.com/packages/lf20_b0ojk9z1.json";
@@ -331,55 +337,69 @@
             getWeather(id);
         };
 
-        // --- RENDER RAIN CHART (MODERNO & INTELIGENTE) ---
+        // --- RENDER RAIN CHART (PRO) ---
         const renderRainChart = (nowcast) => {
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
             
-            // Si no hay datos, ocultar
             if(!nowcast || !nowcast.time || nowcast.time.length === 0) {
                 card.style.display = 'none';
                 return;
             }
 
+            // Datos próximos 60 min
             const now = new Date();
             const currentHour = now.getHours();
             let startIndex = nowcast.time.findIndex(t => t.includes(`T${String(currentHour).padStart(2,'0')}:`));
             if(startIndex === -1) startIndex = 0;
 
-            const rainData = nowcast.precipitation.slice(startIndex, startIndex + 5);
-            const totalRain = rainData.reduce((a,b) => a+b, 0);
+            const timeLabels = [];
+            const precipData = [];
+            
+            // Tomamos 5 puntos (0, 15, 30, 45, 60 min)
+            for(let i=0; i<5; i++) {
+                if(startIndex + i < nowcast.precipitation.length) {
+                    precipData.push(nowcast.precipitation[startIndex + i]);
+                    // Etiqueta hora real
+                    const timeStr = nowcast.time[startIndex + i].split('T')[1]; 
+                    timeLabels.push(timeStr);
+                }
+            }
 
-            // LOGICA FANTASMA: Si no hay lluvia (o es despreciable), OCULTAR tarjeta
+            const totalRain = precipData.reduce((a,b) => a+b, 0);
+
+            // LOGICA FANTASMA: Si apenas llueve, OCULTAR
             if(totalRain <= 0.1) {
                 card.style.display = 'none';
                 return;
             }
 
-            // Si hay lluvia, mostrar y pintar
+            // Si hay lluvia, mostrar tarjeta
             card.style.display = 'block';
-            summary.innerText = totalRain > 2 ? "Lluvia intensa esperada" : "Lluvia ligera esperada";
-            summary.style.color = "#38bdf8";
-
+            summary.innerText = totalRain > 2 ? "Lluvia Fuerte" : (totalRain > 0.5 ? "Lluvia Moderada" : "Lluvia Ligera");
+            
             const ctx = document.getElementById('rainChart').getContext('2d');
             
-            // Crear degradado bonito
+            // Degradado PRO (Tipo Apple Weather)
             const gradient = ctx.createLinearGradient(0, 0, 0, 150);
-            gradient.addColorStop(0, 'rgba(56, 189, 248, 0.9)'); // Azul fuerte arriba
-            gradient.addColorStop(1, 'rgba(56, 189, 248, 0.2)'); // Transparente abajo
+            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.9)'); // Azul vibrante arriba
+            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.1)'); // Transparente abajo
 
             if(rainChartInstance) rainChartInstance.destroy();
 
             rainChartInstance = new Chart(ctx, {
-                type: 'bar',
+                type: 'line', // Usamos 'line' con relleno para efecto suave
                 data: {
-                    labels: ['Ahora', '15min', '30min', '45min', '60min'],
+                    labels: timeLabels,
                     datasets: [{
-                        data: rainData,
+                        label: 'Lluvia (mm)',
+                        data: precipData,
                         backgroundColor: gradient,
-                        borderRadius: 6, // Bordes redondeados
-                        barThickness: 12, // Barras más finas y elegantes
-                        borderSkipped: false
+                        borderColor: '#3b82f6',
+                        borderWidth: 2,
+                        pointRadius: 0, // Sin puntos, solo curva
+                        fill: true,
+                        tension: 0.4 // Curva suave (spline)
                     }]
                 },
                 options: {
@@ -389,20 +409,19 @@
                     scales: {
                         x: { 
                             grid: { display: false }, 
-                            ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 10, family: 'Plus Jakarta Sans' } },
-                            border: { display: false }
+                            ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } }
                         },
                         y: { 
-                            display: false, // Ocultar eje Y para limpieza visual
+                            display: false, // Eje Y oculto para limpieza
                             min: 0,
-                            suggestedMax: Math.max(...rainData) + 0.5 
+                            suggestedMax: Math.max(...precipData) * 1.5 
                         }
                     },
                     animation: {
-                        duration: 1500,
+                        duration: 1000,
                         easing: 'easeOutQuart'
                     },
-                    layout: { padding: { top: 10 } }
+                    layout: { padding: { top: 10, bottom: 5, left: -10, right: -10 } }
                 }
             });
         };
@@ -424,6 +443,7 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
+                // Icono Lottie
                 const iconContainer = document.getElementById('lottie-icon');
                 if(lottieAnim) lottieAnim.destroy();
 
