@@ -73,7 +73,7 @@ app.get('/api/weather/:id', async (req, res) => {
         }
 
         const q = isNaN(locationId) ? locationId : `id:${locationId}`;
-        const url = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=3&aqi=yes&alerts=no&lang=es`;
+        const url = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=14&aqi=yes&alerts=no&lang=es`;
         
         const response = await axios.get(url);
         const data = response.data;
