@@ -8,7 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <link rel="icon" type="image/png" href="logo.png">
@@ -32,6 +31,7 @@
             --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
             --skeleton-base: rgba(255, 255, 255, 0.3);
             --skeleton-shine: rgba(255, 255, 255, 0.6);
+            --invert-close: 0;
         }
 
         [data-theme="dark"] { 
@@ -45,6 +45,7 @@
             --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
             --skeleton-base: rgba(255, 255, 255, 0.05);
             --skeleton-shine: rgba(255, 255, 255, 0.15);
+            --invert-close: 1;
         }
 
         body { 
@@ -57,6 +58,7 @@
             overflow-x: hidden; 
         }
 
+        /* --- GLASS CARDS --- */
         .glass-card { 
             background: var(--glass); 
             backdrop-filter: blur(25px); 
@@ -69,7 +71,7 @@
             transition: transform 0.2s, background 0.5s;
         }
         
-        /* --- SKELETON --- */
+        /* --- SKELETON LOADING --- */
         .skeleton {
             background-color: var(--skeleton-base);
             background-image: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 40px, var(--skeleton-base) 80px);
@@ -80,47 +82,76 @@
             color: transparent !important;
             animation: shimmer 1.5s infinite linear;
             pointer-events: none;
-            min-height: 1em;
+            /* IMPORTANTE: min-height en vez de height fijo para evitar colapsos */
+            min-height: 1em; 
         }
         .skeleton-circle { width: 100%; height: 100%; border-radius: 50%; }
         @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(100% + 200px) 0; } }
 
-        /* Layout Styles */
+        /* --- LAYOUT COMPONENTS --- */
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
         .search-group { flex-grow: 1; position: relative; }
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         
+        /* Typography */
         .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
+        .h4-desc { font-size: 1.5rem; line-height: 1.2; margin-top: 5px; } /* Clase específica para descripción */
+        
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         
         .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
+        
+        /* Suggestions */
         .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; }
         .suggestions-list.show { display: block; }
         .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; color: var(--text); }
         .suggestion-item:hover { background: var(--accent); color: white; }
 
+        /* AQI Bar */
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* Sidebar Styles */
+        /* --- SIDEBAR CORREGIDO --- */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
+        
         .fav-header { padding: 30px 25px; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; display: flex; justify-content: space-between; align-items: center; color: var(--text); border-bottom: 1px solid var(--glass-border); }
         .fav-list { list-style: none; padding: 15px; margin: 0; overflow-y: auto; flex-grow: 1; }
         
-        .fav-item { padding: 16px 20px; margin-bottom: 10px; border-radius: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; color: var(--text); background: rgba(255, 255, 255, 0.5); border: 1px solid transparent; }
+        .fav-item { 
+            padding: 16px 20px; 
+            margin-bottom: 10px; 
+            border-radius: 16px; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            transition: all 0.2s ease; 
+            color: var(--text); 
+            background: rgba(255, 255, 255, 0.5); 
+            border: 1px solid transparent; 
+        }
         [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
-        .fav-item-info { display: flex; flex-direction: column; gap: 2px; max-width: 80%; }
+        
+        /* AQUÍ ESTÁ EL ARREGLO DE FAVORITOS (Flex Column) */
+        .fav-item-info { 
+            display: flex; 
+            flex-direction: column; /* Apila ciudad sobre región */
+            justify-content: center;
+            gap: 2px; 
+            max-width: 80%; 
+        }
         .fav-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
         .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
         .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
         
-        /* --- AI STYLES & MODAL --- */
+        /* --- AI PERSONA & MODAL --- */
         .ai-container { 
             cursor: pointer; 
             transition: transform 0.2s; 
@@ -128,6 +159,9 @@
             position: relative;
             padding: 5px;
             border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .ai-container:hover { background: rgba(255,255,255,0.1); }
         .ai-container:active { transform: scale(0.95); }
@@ -139,7 +173,7 @@
             padding: 2px 6px; 
             border-radius: 8px; 
             position: absolute; 
-            bottom: -8px; 
+            bottom: -5px; 
             right: -5px; 
             white-space: nowrap; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
@@ -147,18 +181,19 @@
         }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         
-        /* Modal Personalizado (Z-Index Arreglado) */
+        /* Modal Personalizado (Z-Index Máximo) */
         .persona-modal {
             position: fixed; inset: 0; 
-            z-index: 9999; /* Z-INDEX MÁXIMO PARA QUE SE VEA */
+            z-index: 3000; /* Asegura que esté encima de todo */
             display: flex; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none; transition: opacity 0.3s;
             backdrop-filter: blur(10px); background: rgba(0,0,0,0.6);
         }
         .persona-modal.show { opacity: 1; pointer-events: all; }
+        
         .persona-content {
             width: 90%; max-width: 380px;
-            background: var(--bg-1); /* Usar variable de tema */
+            background: var(--bg-1); 
             border: 1px solid var(--glass-border);
             border-radius: 24px; padding: 25px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
@@ -169,12 +204,8 @@
         .persona-modal.show .persona-content { transform: scale(1); }
         
         .persona-grid { 
-            display: grid; 
-            grid-template-columns: repeat(3, 1fr); /* 3 Columnas */
-            gap: 12px; 
-            overflow-y: auto; 
-            padding: 5px; 
-            margin-top: 15px;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; 
+            overflow-y: auto; padding: 5px; margin-top: 15px;
         }
         
         .persona-option {
@@ -184,11 +215,7 @@
             cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 8px;
         }
         .persona-option:hover { background: rgba(255,255,255,0.25); transform: translateY(-3px); }
-        .persona-option.active { 
-            border-color: var(--accent); 
-            background: rgba(var(--accent-rgb), 0.2); 
-            box-shadow: 0 0 0 2px var(--accent); 
-        }
+        .persona-option.active { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.2); box-shadow: 0 0 0 2px var(--accent); }
         .persona-icon { font-size: 2rem; display:block; line-height: 1; }
         .persona-name { font-size: 0.75rem; font-weight: 700; color: var(--text); }
         
@@ -236,9 +263,9 @@
 
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-start">
-                <div style="flex-grow: 1; max-width: 70%;"> 
-                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; height: 1em; line-height: 1.4;"></h5>
-                    <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; height: 1.2em; line-height: 1.2; margin-top: 4px;"></div>
+                <div style="flex-grow: 1; max-width: 70%; display: flex; flex-direction: column;"> 
+                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; min-height: 1em;"></h5>
+                    <div id="desc" class="h4-desc text-capitalize fw-bold skeleton" style="width: 180px; min-height: 1.2em;"></div>
                 </div>
                 
                 <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -15px; margin-right: -15px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
@@ -248,7 +275,7 @@
             
             <div class="mt-1 d-flex align-items-end">
                 <div class="d-flex flex-column">
-                    <div id="temp" class="temp-big skeleton" style="line-height:0.9; width: 140px; height: 0.8em; margin-bottom: 10px;"></div>
+                    <div id="temp" class="temp-big skeleton" style="line-height:0.9; width: 140px; min-height: 0.8em; margin-bottom: 10px;"></div>
                     <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
                         Sensación: <span id="feels-like" class="skeleton" style="width: 30px; display:inline-block">--</span>°
                     </div>
@@ -268,8 +295,8 @@
             <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
                 <div><i id="favHeart" class="bi bi-heart fs-3" style="cursor:pointer; transition:0.2s; color: var(--text-sec)"></i></div>
                 
-                <div class="d-flex align-items-center gap-2 ai-container" id="ai-toggle" style="opacity: 0.9;">
-                    <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; height: 2em; display:block"></span>
+                <div class="ai-container" id="ai-toggle" style="opacity: 0.9;">
+                    <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; min-height: 2em; display:block"></span>
                     <div class="position-relative">
                         <span id="tip-icon" class="fs-4">🤖</span>
                         <div class="ai-change-badge">Cambiar</div>
@@ -294,27 +321,13 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
+                </div>
         </div>
 
         <div class="glass-card">
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
             <div id="daily">
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
-                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
-                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
-                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
-                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                 <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
                     <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
                     <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
                     <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
@@ -349,9 +362,9 @@
         let rainChartInstance = null;
         let lastWeatherData = null;
 
-        // --- SISTEMA DE PERSONALIDADES AVANZADO (9 MODOS) ---
+        // --- SISTEMA DE PERSONALIDADES ---
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
-
+        
         const aiLogic = {
             normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hace calor, hidrátate.", "Busca sombra hoy."], cold: ["Abrígate bien hoy.", "Hace frío fuera."], rain: ["No olvides el paraguas.", "Riesgo de lluvia."], nice: ["Disfruta del buen tiempo.", "Día perfecto para salir."] } },
             zen: { icon: "🧘", name: "Zen", tips: { hot: ["El sol nutre tu energía.", "Fluye con el calor."], cold: ["La quietud del frío es paz.", "Abraza el silencio."], rain: ["La lluvia limpia el alma.", "Escucha las gotas caer."], nice: ["Armonía perfecta hoy.", "Conecta con el presente."] } },
@@ -364,9 +377,7 @@
             poeta: { icon: "📜", name: "Poeta", tips: { hot: ["El sol besa la tierra con ardor.", "Luz dorada inunda todo."], cold: ["El invierno susurra secretos.", "Manto gélido cubre el mundo."], rain: ["Lágrimas del cielo caen.", "Melancolía gris en el aire."], nice: ["La brisa acaricia tu rostro.", "Un poema de día."] } }
         };
 
-        // Modal Logic
         const modal = document.getElementById('personaModal');
-        // NOTA: overlay es solo para el sidebar. El modal tiene su propio fondo.
         const modalContent = document.getElementById('personaGrid');
 
         const openPersonaModal = () => {
@@ -374,15 +385,10 @@
             Object.keys(aiLogic).forEach(key => {
                 const p = aiLogic[key];
                 const isActive = key === currentPersona ? 'active' : '';
-                // Se usa onclick inline para evitar problemas de binding
-                // IMPORTANTE: Se añade un data attribute para estilado si se quisiera
                 const div = document.createElement('div');
                 div.className = `persona-option ${isActive}`;
                 div.onclick = () => selectPersona(key);
-                div.innerHTML = `
-                    <span class="persona-icon">${p.icon}</span>
-                    <span class="persona-name">${p.name}</span>
-                `;
+                div.innerHTML = `<span class="persona-icon">${p.icon}</span><span class="persona-name">${p.name}</span>`;
                 modalContent.appendChild(div);
             });
             modal.classList.add('show');
@@ -392,18 +398,15 @@
             currentPersona = key;
             localStorage.setItem('aeris_persona', key);
             modal.classList.remove('show');
-            // Solo actualizamos si ya tenemos datos del tiempo
             if(lastWeatherData) updateAIText(lastWeatherData);
         };
 
         document.getElementById('ai-toggle').addEventListener('click', openPersonaModal);
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
-        // Cerrar modal al tocar fuera
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-
         const updateAIText = (cur) => {
-            if (!cur) return; // Protección
+            if (!cur) return; 
             const p = aiLogic[currentPersona];
             document.getElementById('tip-icon').innerText = p.icon;
             
@@ -417,8 +420,6 @@
             const frase = frases[Math.floor(Math.random() * frases.length)];
             document.getElementById('tip-text').innerText = frase;
         };
-
-        // --- FIN SISTEMA PERSONALIDADES ---
 
         const updateHeartUI = () => {
             const heart = document.getElementById('favHeart');
@@ -461,6 +462,15 @@
 
         const openSidebar = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); };
         const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
+        
+        // Elementos overlay/sidebar que estaban duplicados se manejan aquí una vez
+        const overlay = document.getElementById('overlay');
+        const favMenuBtn = document.getElementById('favMenuBtn');
+        const closeSidebarBtn = document.getElementById('closeSidebar');
+
+        if(favMenuBtn) favMenuBtn.addEventListener('click', openSidebar);
+        if(closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
+        if(overlay) overlay.addEventListener('click', closeSidebar);
 
         const searchInput = document.getElementById('citySearch');
         const suggestionsList = document.getElementById('suggestions');
@@ -491,7 +501,12 @@
             const id = city.id || city.name;
             localStorage.setItem('lastId', id);
             
-            document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
+            // RESET A SKELETON
+            document.querySelectorAll('.glass-card h5, .glass-card .h4-desc, .temp-big, #tip-text').forEach(el => {
+                el.classList.add('skeleton');
+                // IMPORTANTE: Aseguramos que no queden estilos inline de altura al volver a skeleton
+                el.style.removeProperty('height'); 
+            });
             document.getElementById('weather-icon-container').innerHTML = '<div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>';
             
             getWeather(id);
@@ -562,8 +577,15 @@
 
                 updateHeartUI();
 
+                // 1. Limpiar Skeleton classes
                 const skeletons = document.querySelectorAll('.skeleton');
-                skeletons.forEach(el => el.classList.remove('skeleton'));
+                skeletons.forEach(el => {
+                    el.classList.remove('skeleton');
+                    // ARREGLO CRÍTICO: Limpiar cualquier estilo inline que haya podido quedar
+                    el.style.width = ''; 
+                    el.style.height = '';
+                    el.style.minHeight = '';
+                });
 
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
@@ -649,7 +671,6 @@
                 const themeBtn = document.getElementById('themeBtn');
                 if(themeBtn) { 
                     themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>'; 
-                    // Invertir color botón cerrar modal si es necesario
                     document.documentElement.style.setProperty('--invert-close', newTheme === 'dark' ? '1' : '0');
                 }
 
@@ -673,7 +694,9 @@
         const geoBtn = document.getElementById('geoBtn');
         if(geoBtn) geoBtn.addEventListener('click', () => {
              if(!navigator.geolocation) return;
-             document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
+             // Reset visual a skeleton
+             document.querySelectorAll('.glass-card h5, .glass-card .h4-desc, .temp-big').forEach(el => el.classList.add('skeleton'));
+             
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                  const city = await res.json();
@@ -683,15 +706,6 @@
 
         const favHeart = document.getElementById('favHeart');
         if(favHeart) favHeart.addEventListener('click', toggleFavorite);
-        
-        const favMenuBtn = document.getElementById('favMenuBtn');
-        if(favMenuBtn) favMenuBtn.addEventListener('click', openSidebar);
-        
-        const closeSidebarBtn = document.getElementById('closeSidebar');
-        if(closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
-        
-        const overlay = document.getElementById('overlay');
-        if(overlay) overlay.addEventListener('click', closeSidebar);
 
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
