@@ -21,8 +21,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
-        /* --- VARIABLES DE COLOR --- */
-        /* MODO CLARO */
+        /* --- VARIABLES --- */
         :root { 
             --bg-1: #bae6fd; 
             --bg-2: #e0f2fe; 
@@ -35,7 +34,6 @@
             --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
         }
 
-        /* MODO OSCURO PREMIUM */
         [data-theme="dark"] { 
             --bg-1: #0f172a; 
             --bg-2: #020617; 
@@ -74,15 +72,8 @@
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
         .search-group { flex-grow: 1; position: relative; }
         
-        .search-input { 
-            width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; 
-            box-shadow: var(--card-shadow); border: 1px solid var(--glass-border);
-        }
-        
-        .btn-icon { 
-            background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); 
-            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow);
-        }
+        .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
+        .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         .btn-icon:active { transform: scale(0.95); }
         
@@ -90,7 +81,6 @@
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         
-        /* BUSCADOR */
         .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .suggestions-list.show { display: block; }
@@ -105,7 +95,6 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* --- SIDEBAR FAVORITOS --- */
         .fav-sidebar { 
             position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; 
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%);
@@ -168,7 +157,7 @@
                     <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
                 </div>
                 
-                <div id="lottie-icon" style="width: 140px; height: 140px; margin-top: -30px; margin-right: -10px;"></div>
+                <div id="lottie-icon" style="width: 130px; height: 130px; margin-top: -25px; margin-right: -10px;"></div>
             </div>
             
             <div class="mt-1 d-flex align-items-end">
@@ -237,27 +226,26 @@
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
-        let lottieAnim = null; // Variable global para la instancia de Lottie
+        let lottieAnim = null; // Instancia global para Lottie
 
-        // --- MAPA DE ICONOS LOTTIE (URLs PÚBLICAS Y SEGURAS) ---
+        // --- MAPA DE ICONOS LOTTIE (USANDO CDN PÚBLICO JSDELIVR) ---
+        // Estas URLs son 100% públicas y no requieren API Key
         const getLottieUrl = (code, isDay) => {
             const c = parseInt(code);
-            // Sol (1000) o Nublado (1003) | Noche: Luna
-            if (c === 1000) return isDay ? 'https://lottie.host/5696d042-3b2c-473d-8209-51d07c0303e2/pX1x2s9y2F.json' : 'https://lottie.host/9e01d360-606b-4261-9c6a-4d2c2069006e/6YI7s2sK7e.json';
+            const base = "https://cdn.jsdelivr.net/gh/noahblon/animated-weather-icons/lottie/";
             
-            // Nublado / Nubes
-            if ([1003, 1006, 1009, 1030].includes(c)) return 'https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json';
-            
+            // Sol / Luna
+            if (c === 1000) return isDay ? base + "day_clear.json" : base + "night_half_moon_clear.json";
+            // Nublado
+            if ([1003, 1006, 1009, 1030].includes(c)) return base + "cloudy.json";
             // Lluvia
-            if ([1063, 1180, 1183, 1186, 1189, 1240, 1192, 1195, 1243].includes(c)) return 'https://lottie.host/9769065c-6c2e-4363-8a3d-336307373f72/K1z3s3s22s.json';
-            
+            if ([1063, 1180, 1183, 1186, 1189, 1240, 1192, 1195, 1243].includes(c)) return base + "rain.json";
             // Tormenta
-            if ([1087, 1273, 1276].includes(c)) return 'https://lottie.host/5053075c-3033-4720-9720-720930720503/d9123s.json';
-            
+            if ([1087, 1273, 1276].includes(c)) return base + "thunder.json";
             // Nieve
-            if ([1066, 1114, 1210, 1213, 1216, 1219, 1222, 1225].includes(c)) return 'https://lottie.host/82736123-1238-1238-1238-12381238.json'; 
+            if ([1066, 1114, 1210, 1213, 1216, 1219, 1222, 1225].includes(c)) return base + "snow.json";
             
-            return 'https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json'; 
+            return base + "cloudy.json"; // Default
         };
 
         const updateHeartUI = () => {
@@ -357,16 +345,16 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
-                // 🔥 CARGA SEGURA DEL ICONO LOTTIE (JS PURO) 🔥
+                // 🔥 CARGA SEGURA DEL ICONO LOTTIE (lottie-web) 🔥
                 const iconContainer = document.getElementById('lottie-icon');
                 
-                // Limpiar animación previa si existe
-                if(lottieAnim) {
-                    lottieAnim.destroy();
-                }
+                // Limpiar animación previa
+                if(lottieAnim) lottieAnim.destroy();
 
                 let animCode = 1000;
                 const desc = cur.desc.toLowerCase();
+                
+                // Lógica de mapeo
                 if(desc.includes('lluvia') || desc.includes('llovizna')) animCode = 1183;
                 else if(desc.includes('nublado') || desc.includes('nube')) animCode = 1003;
                 else if(desc.includes('tormenta')) animCode = 1087;
@@ -377,11 +365,11 @@
                 
                 // Cargar nueva animación
                 lottieAnim = lottie.loadAnimation({
-                    container: iconContainer, // el div
+                    container: iconContainer,
                     renderer: 'svg',
                     loop: true,
                     autoplay: true,
-                    path: lottieUrl // la URL
+                    path: lottieUrl // URL del CDN público
                 });
 
                 document.getElementById('hum').innerText = cur.humidity;
