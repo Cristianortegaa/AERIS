@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <link rel="icon" type="image/png" href="logo.png">
@@ -58,7 +59,6 @@
             overflow-x: hidden; 
         }
 
-        /* --- GLASS CARDS --- */
         .glass-card { 
             background: var(--glass); 
             backdrop-filter: blur(25px); 
@@ -71,7 +71,7 @@
             transition: transform 0.2s, background 0.5s;
         }
         
-        /* --- SKELETON LOADING --- */
+        /* --- SKELETON --- */
         .skeleton {
             background-color: var(--skeleton-base);
             background-image: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 40px, var(--skeleton-base) 80px);
@@ -82,39 +82,34 @@
             color: transparent !important;
             animation: shimmer 1.5s infinite linear;
             pointer-events: none;
-            /* IMPORTANTE: min-height en vez de height fijo para evitar colapsos */
-            min-height: 1em; 
+            min-height: 1em;
         }
         .skeleton-circle { width: 100%; height: 100%; border-radius: 50%; }
         @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(100% + 200px) 0; } }
 
-        /* --- LAYOUT COMPONENTS --- */
+        /* Layout Styles */
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
         .search-group { flex-grow: 1; position: relative; }
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         
-        /* Typography */
         .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
-        .h4-desc { font-size: 1.5rem; line-height: 1.2; margin-top: 5px; } /* Clase específica para descripción */
         
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         
         .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
         
-        /* Suggestions */
         .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; }
         .suggestions-list.show { display: block; }
         .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; color: var(--text); }
         .suggestion-item:hover { background: var(--accent); color: white; }
 
-        /* AQI Bar */
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* --- SIDEBAR CORREGIDO --- */
+        /* --- SIDEBAR CORREGIDO (Lista de Favoritos) --- */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
@@ -137,10 +132,9 @@
         }
         [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
         
-        /* AQUÍ ESTÁ EL ARREGLO DE FAVORITOS (Flex Column) */
         .fav-item-info { 
             display: flex; 
-            flex-direction: column; /* Apila ciudad sobre región */
+            flex-direction: column; /* ARREGLADO: Apila verticalmente */
             justify-content: center;
             gap: 2px; 
             max-width: 80%; 
@@ -151,7 +145,7 @@
         .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
         .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
         
-        /* --- AI PERSONA & MODAL --- */
+        /* --- AI STYLES --- */
         .ai-container { 
             cursor: pointer; 
             transition: transform 0.2s; 
@@ -166,25 +160,10 @@
         .ai-container:hover { background: rgba(255,255,255,0.1); }
         .ai-container:active { transform: scale(0.95); }
         
-        .ai-change-badge { 
-            font-size: 0.6rem; 
-            background: var(--accent); 
-            color: white; 
-            padding: 2px 6px; 
-            border-radius: 8px; 
-            position: absolute; 
-            bottom: -5px; 
-            right: -5px; 
-            white-space: nowrap; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        
         /* Modal Personalizado (Z-Index Máximo) */
         .persona-modal {
             position: fixed; inset: 0; 
-            z-index: 3000; /* Asegura que esté encima de todo */
+            z-index: 3000; 
             display: flex; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none; transition: opacity 0.3s;
             backdrop-filter: blur(10px); background: rgba(0,0,0,0.6);
@@ -265,7 +244,7 @@
             <div class="d-flex justify-content-between align-items-start">
                 <div style="flex-grow: 1; max-width: 70%; display: flex; flex-direction: column;"> 
                     <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; min-height: 1em;"></h5>
-                    <div id="desc" class="h4-desc text-capitalize fw-bold skeleton" style="width: 180px; min-height: 1.2em;"></div>
+                    <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; min-height: 1.2em; line-height: 1.2;"></div>
                 </div>
                 
                 <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -15px; margin-right: -15px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
@@ -297,10 +276,7 @@
                 
                 <div class="ai-container" id="ai-toggle" style="opacity: 0.9;">
                     <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; min-height: 2em; display:block"></span>
-                    <div class="position-relative">
-                        <span id="tip-icon" class="fs-4">🤖</span>
-                        <div class="ai-change-badge">Cambiar</div>
-                    </div>
+                    <span id="tip-icon" class="fs-4">🤖</span>
                 </div>
             </div>
         </div>
@@ -321,13 +297,27 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                </div>
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+            </div>
         </div>
 
         <div class="glass-card">
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
             <div id="daily">
-                 <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
+                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
+                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
+                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
+                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
                     <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
                     <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
                     <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
@@ -502,9 +492,8 @@
             localStorage.setItem('lastId', id);
             
             // RESET A SKELETON
-            document.querySelectorAll('.glass-card h5, .glass-card .h4-desc, .temp-big, #tip-text').forEach(el => {
+            document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => {
                 el.classList.add('skeleton');
-                // IMPORTANTE: Aseguramos que no queden estilos inline de altura al volver a skeleton
                 el.style.removeProperty('height'); 
             });
             document.getElementById('weather-icon-container').innerHTML = '<div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>';
@@ -581,7 +570,6 @@
                 const skeletons = document.querySelectorAll('.skeleton');
                 skeletons.forEach(el => {
                     el.classList.remove('skeleton');
-                    // ARREGLO CRÍTICO: Limpiar cualquier estilo inline que haya podido quedar
                     el.style.width = ''; 
                     el.style.height = '';
                     el.style.minHeight = '';
@@ -695,7 +683,7 @@
         if(geoBtn) geoBtn.addEventListener('click', () => {
              if(!navigator.geolocation) return;
              // Reset visual a skeleton
-             document.querySelectorAll('.glass-card h5, .glass-card .h4-desc, .temp-big').forEach(el => el.classList.add('skeleton'));
+             document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
              
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
