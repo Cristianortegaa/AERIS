@@ -59,6 +59,55 @@
             overflow-x: hidden; 
         }
 
+        /* --- SPLASH SCREEN --- */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+            z-index: 10000; /* Por encima de todo */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.6s ease-out, visibility 0.6s;
+        }
+        
+        #splash-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .splash-logo-container {
+            width: 120px;
+            height: 120px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            animation: breathe 3s infinite ease-in-out;
+        }
+
+        .splash-title {
+            margin-top: 20px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            opacity: 0.8;
+            color: var(--text);
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* --- GLASS CARDS --- */
         .glass-card { 
             background: var(--glass); 
             backdrop-filter: blur(25px); 
@@ -71,7 +120,7 @@
             transition: transform 0.2s, background 0.5s;
         }
         
-        /* --- SKELETON --- */
+        /* --- SKELETON LOADING --- */
         .skeleton {
             background-color: var(--skeleton-base);
             background-image: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 40px, var(--skeleton-base) 80px);
@@ -82,18 +131,19 @@
             color: transparent !important;
             animation: shimmer 1.5s infinite linear;
             pointer-events: none;
-            min-height: 1em;
+            min-height: 1em; 
         }
         .skeleton-circle { width: 100%; height: 100%; border-radius: 50%; }
         @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(100% + 200px) 0; } }
 
-        /* Layout Styles */
+        /* --- LAYOUT COMPONENTS --- */
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
         .search-group { flex-grow: 1; position: relative; }
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         
+        /* Typography */
         .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
         
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
@@ -109,7 +159,7 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* --- SIDEBAR CORREGIDO (Lista de Favoritos) --- */
+        /* --- SIDEBAR --- */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
@@ -134,7 +184,7 @@
         
         .fav-item-info { 
             display: flex; 
-            flex-direction: column; /* ARREGLADO: Apila verticalmente */
+            flex-direction: column;
             justify-content: center;
             gap: 2px; 
             max-width: 80%; 
@@ -203,6 +253,14 @@
     </style>
 </head>
 <body data-theme="light">
+
+    <div id="splash-screen">
+        <div class="splash-logo-container">
+            <img src="logo.png" alt="Aeris" style="width: 70px; height: 70px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+            <i class="bi bi-cloud-sun-fill" style="font-size: 3rem; color: var(--accent); display:none;"></i>
+        </div>
+        <div class="splash-title">AERIS</div>
+    </div>
 
     <div class="persona-modal" id="personaModal">
         <div class="persona-content">
@@ -346,6 +404,13 @@
     </div>
 
     <script>
+        // --- SPLASH LOGIC ---
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('splash-screen').classList.add('hidden');
+            }, 2000); // 2 segundos de splash
+        });
+
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
@@ -453,7 +518,7 @@
         const openSidebar = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); };
         const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
         
-        // Elementos overlay/sidebar que estaban duplicados se manejan aquí una vez
+        // Elementos overlay/sidebar
         const overlay = document.getElementById('overlay');
         const favMenuBtn = document.getElementById('favMenuBtn');
         const closeSidebarBtn = document.getElementById('closeSidebar');
