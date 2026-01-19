@@ -49,12 +49,79 @@
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             color: var(--text); 
+            /* Se mantiene tu degradado original, pero añadimos una regla abajo para permitir ver el fondo dinámico */
             background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); 
             min-height: 100vh; 
             padding-bottom: 80px; 
             transition: background 0.8s ease, color 0.5s ease; 
             overflow-x: hidden; 
+            position: relative; /* Necesario para capas absolutas */
         }
+
+        /* --- AÑADIDO: ESTILOS FONDOS DINÁMICOS --- */
+        
+        /* Contenedor que va DETRÁS de todo */
+        #dynamic-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
+            /* Usamos tu degradado aquí para que las animaciones se vean sobre él */
+            background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+        }
+
+        /* Sobreescribimos el body para que sea transparente y se vea el #dynamic-bg */
+        body { background: transparent !important; }
+
+        /* LLUVIA */
+        .rain-layer {
+            position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.4));
+            background-size: 1px 30px; /* Hilos de lluvia */
+            transform: translateY(-100%);
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .rain-layer.active { 
+            opacity: 0.6; 
+            animation: rainDrop 0.6s linear infinite; 
+        }
+        @keyframes rainDrop { 
+            0% { transform: translateY(-100%); } 
+            100% { transform: translateY(100%); } 
+        }
+
+        /* SOL / LENS FLARE */
+        .sun-layer {
+            position: absolute; top: -150px; right: -150px;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(255,255,200,0.3) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 1s, transform 3s ease-out;
+        }
+        .sun-layer.active { opacity: 1; transform: scale(1.2); }
+
+        /* TORMENTA (Destellos) */
+        .storm-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .storm-layer.active { animation: lightning 5s infinite; }
+        @keyframes lightning {
+            0%, 90% { opacity: 0; }
+            91% { opacity: 0.2; }
+            92% { opacity: 0; }
+            93% { opacity: 0.2; }
+            94% { opacity: 0; }
+            100% { opacity: 0; }
+        }
+
+        /* --- FIN ESTILOS FONDOS DINÁMICOS --- */
 
         .glass-card { 
             background: var(--glass); 
@@ -209,6 +276,12 @@
 </head>
 <body data-theme="light">
 
+    <div id="dynamic-bg">
+        <div id="bg-sun" class="sun-layer"></div>
+        <div id="bg-rain" class="rain-layer"></div>
+        <div id="bg-storm" class="storm-layer"></div>
+    </div>
+
     <div id="loader"><div class="spinner-border text-primary"></div></div>
     
     <div class="overlay" id="overlay"></div>
@@ -299,7 +372,7 @@
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS 14 DÍAS</h6>
             <div id="daily"></div>
         </div>
 
@@ -479,6 +552,28 @@
                 
                 // 🔥 SENSACIÓN TÉRMICA 🔥
                 document.getElementById('feels-like').innerText = cur.feelsLike;
+
+                // --- AÑADIDO: LÓGICA FONDOS DINÁMICOS ---
+                const bgSun = document.getElementById('bg-sun');
+                const bgRain = document.getElementById('bg-rain');
+                const bgStorm = document.getElementById('bg-storm');
+                
+                // Reset de animaciones
+                bgSun.classList.remove('active');
+                bgRain.classList.remove('active');
+                bgStorm.classList.remove('active');
+
+                const descLower = cur.desc.toLowerCase();
+                
+                if (descLower.includes('tormenta') || descLower.includes('trueno')) {
+                    bgRain.classList.add('active'); // Lluvia
+                    bgStorm.classList.add('active'); // Rayos
+                } else if (descLower.includes('lluvia') || descLower.includes('llovizna') || descLower.includes('chubasco')) {
+                    bgRain.classList.add('active'); // Solo lluvia
+                } else if (cur.isDay && (descLower.includes('sol') || descLower.includes('despejado'))) {
+                    bgSun.classList.add('active'); // Sol radiante
+                }
+                // --- FIN LÓGICA FONDOS ---
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
