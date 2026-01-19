@@ -69,34 +69,21 @@
             transition: transform 0.2s, background 0.5s;
         }
         
-        /* --- SKELETON LOADING ANIMATION (LA CLAVE) --- */
+        /* --- SKELETON --- */
         .skeleton {
             background-color: var(--skeleton-base);
-            background-image: linear-gradient(
-                90deg, 
-                var(--skeleton-base) 0px, 
-                var(--skeleton-shine) 40px, 
-                var(--skeleton-base) 80px
-            );
+            background-image: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 40px, var(--skeleton-base) 80px);
             background-size: 200px 100%;
             background-repeat: no-repeat;
             display: inline-block;
             border-radius: 8px;
-            color: transparent !important; /* Oculta el texto real si lo hay */
+            color: transparent !important;
             animation: shimmer 1.5s infinite linear;
-            pointer-events: none; /* No clickable mientras carga */
-            min-height: 1em; /* Altura mínima para que no colapse */
+            pointer-events: none;
+            min-height: 1em;
         }
-
-        /* Variantes de Skeleton para formas específicas */
-        .skeleton-text { height: 1em; width: 100%; margin-bottom: 4px; }
         .skeleton-circle { width: 100%; height: 100%; border-radius: 50%; }
-        .skeleton-box { width: 100%; height: 100%; border-radius: 12px; }
-
-        @keyframes shimmer {
-            0% { background-position: -200px 0; }
-            100% { background-position: calc(100% + 200px) 0; }
-        }
+        @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(100% + 200px) 0; } }
 
         /* Layout Styles */
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
@@ -118,14 +105,55 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* Sidebar Styles */
+        /* --- SIDEBAR CORREGIDO (FIX) --- */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
         .fav-header { padding: 30px 25px; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; display: flex; justify-content: space-between; align-items: center; color: var(--text); border-bottom: 1px solid var(--glass-border); }
         .fav-list { list-style: none; padding: 15px; margin: 0; overflow-y: auto; flex-grow: 1; }
-        .fav-item { padding: 18px 20px; margin-bottom: 10px; border-radius: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; color: var(--text); background: rgba(255, 255, 255, 0.5); border: 1px solid transparent; }
+        
+        .fav-item { 
+            padding: 16px 20px; 
+            margin-bottom: 10px; 
+            border-radius: 16px; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            transition: all 0.2s ease; 
+            color: var(--text); 
+            background: rgba(255, 255, 255, 0.5); 
+            border: 1px solid transparent; 
+        }
         [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
+        
+        .fav-item-info { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 2px; 
+            max-width: 80%; /* Evita que choque con el botón borrar */
+        }
+        .fav-name { 
+            font-weight: 700; 
+            font-size: 1rem; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; /* Pone "..." si es muy largo */
+        }
+        .fav-region { 
+            font-size: 0.75rem; 
+            opacity: 0.6; 
+            font-weight: 500; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
+        .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
+        
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
     </style>
@@ -159,12 +187,11 @@
 
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; height: 1em;"></h5>
-                    <div id="desc" class="h4 text-capitalize mt-2 fw-bold skeleton" style="width: 180px; height: 1.2em;"></div>
+                <div style="flex-grow: 1; max-width: 70%;"> <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; height: 1em; line-height: 1.4;"></h5>
+                    <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; height: 1.2em; line-height: 1.2; margin-top: 4px;"></div>
                 </div>
                 
-                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -15px; margin-right: -15px; display:flex; align-items:center; justify-content:center;">
+                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -15px; margin-right: -15px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
                     <div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>
                 </div>
             </div>
@@ -262,8 +289,6 @@
     </div>
 
     <script>
-        // No necesitamos loader timeout manual, se quita solo cuando carga la data
-
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
@@ -295,7 +320,14 @@
             favorites.forEach(city => {
                 const li = document.createElement('li');
                 li.className = 'fav-item';
-                li.innerHTML = `<div class="fav-item-info"><span class="fav-name">${city.name}</span><span class="fav-region text-uppercase">${city.region}</span></div><div class="fav-delete" title="Borrar"><i class="bi bi-trash3-fill"></i></div>`;
+                // HTML MEJORADO PARA LISTA DE FAVORITOS
+                li.innerHTML = `
+                    <div class="fav-item-info">
+                        <span class="fav-name">${city.name}</span>
+                        <span class="fav-region">${city.region}</span>
+                    </div>
+                    <div class="fav-delete" title="Borrar"><i class="bi bi-trash3-fill"></i></div>
+                `;
                 li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); };
                 li.querySelector('.fav-delete').onclick = (e) => { e.stopPropagation(); favorites = favorites.filter(f => String(f.id) !== String(city.id)); localStorage.setItem('aeris_favs', JSON.stringify(favorites)); renderFavorites(); updateHeartUI(); };
                 list.appendChild(li);
@@ -347,7 +379,6 @@
             const id = city.id || city.name;
             localStorage.setItem('lastId', id);
             
-            // RESET A MODO SKELETON AL CAMBIAR CIUDAD
             document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
             document.getElementById('weather-icon-container').innerHTML = '<div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>';
             
@@ -407,7 +438,6 @@
         };
 
         async function getWeather(id) {
-            // NOTA: Ya no mostramos loader overlay, el skeleton ya está visible en el HTML por defecto
             try {
                 const res = await fetch(`/api/weather/${id}`);
                 const data = await res.json();
@@ -418,11 +448,9 @@
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 updateHeartUI();
 
-                // 1. Limpiar Skeleton classes
                 const skeletons = document.querySelectorAll('.skeleton');
                 skeletons.forEach(el => el.classList.remove('skeleton'));
 
-                // 2. Inyectar Datos
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
@@ -440,7 +468,6 @@
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
                     document.getElementById('min-temp').innerText = data.daily[0].tempMin;
-                    // Limpiar skeleton de max/min si quedaba
                     document.getElementById('max-temp').classList.remove('skeleton');
                     document.getElementById('min-temp').classList.remove('skeleton');
                 }
@@ -449,7 +476,6 @@
                     const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
                     const iframe = document.getElementById('radar-frame');
                     if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
-                    // El skeleton del radar se quita en el evento onload del iframe
                 }
 
                 const aqi = (cur.aqi !== undefined) ? cur.aqi : 1; 
@@ -472,7 +498,6 @@
                 const nowEpoch = Math.floor(Date.now()/1000);
                 const hCont = document.getElementById('hourly');
                 if(hCont) {
-                    // Reemplazamos los skeletons con los datos reales
                     hCont.innerHTML = data.hourly
                         .filter(h => h.epoch >= nowEpoch)
                         .slice(0, 24)
@@ -532,7 +557,6 @@
         const geoBtn = document.getElementById('geoBtn');
         if(geoBtn) geoBtn.addEventListener('click', () => {
              if(!navigator.geolocation) return;
-             // Poner skeletons antes de cargar geo
              document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
