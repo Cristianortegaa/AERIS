@@ -160,7 +160,7 @@
                     <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
                 </div>
                 
-                <div id="weather-icon-container" style="width: 140px; height: 140px; margin-top: -30px; margin-right: -10px; display:flex; align-items:center; justify-content:center;"></div>
+                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -15px; margin-right: 0px; display:flex; align-items:center; justify-content:center;"></div>
             </div>
             
             <div class="mt-1 d-flex align-items-end">
@@ -430,11 +430,9 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
-                // --- CAMBIO: USAR ICONOS BOOTSTRAP (BÁSICOS Y NORMALES) ---
+                // --- CAMBIO: AJUSTE DE TAMAÑO DE ICONO (Más pequeño: 5rem) ---
                 const iconContainer = document.getElementById('weather-icon-container');
-                // Usamos el código de icono que viene de la API (ej: 'bi-sun', 'bi-cloud-rain')
-                // Lo ponemos grande (7rem) y con el color del acento para que destaque limpio
-                iconContainer.innerHTML = `<i class="bi ${cur.icon}" style="font-size: 7rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));"></i>`;
+                iconContainer.innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));"></i>`;
 
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
