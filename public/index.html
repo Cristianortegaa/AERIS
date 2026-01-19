@@ -30,6 +30,8 @@
             --text-sec: #475569;
             --accent: #0284c7;
             --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+            --skeleton-base: rgba(255, 255, 255, 0.3);
+            --skeleton-shine: rgba(255, 255, 255, 0.6);
         }
 
         [data-theme="dark"] { 
@@ -41,6 +43,8 @@
             --text-sec: #cbd5e1; 
             --accent: #38bdf8;
             --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
+            --skeleton-base: rgba(255, 255, 255, 0.05);
+            --skeleton-shine: rgba(255, 255, 255, 0.15);
         }
 
         body { 
@@ -65,69 +69,69 @@
             transition: transform 0.2s, background 0.5s;
         }
         
+        /* --- SKELETON LOADING ANIMATION (LA CLAVE) --- */
+        .skeleton {
+            background-color: var(--skeleton-base);
+            background-image: linear-gradient(
+                90deg, 
+                var(--skeleton-base) 0px, 
+                var(--skeleton-shine) 40px, 
+                var(--skeleton-base) 80px
+            );
+            background-size: 200px 100%;
+            background-repeat: no-repeat;
+            display: inline-block;
+            border-radius: 8px;
+            color: transparent !important; /* Oculta el texto real si lo hay */
+            animation: shimmer 1.5s infinite linear;
+            pointer-events: none; /* No clickable mientras carga */
+            min-height: 1em; /* Altura mínima para que no colapse */
+        }
+
+        /* Variantes de Skeleton para formas específicas */
+        .skeleton-text { height: 1em; width: 100%; margin-bottom: 4px; }
+        .skeleton-circle { width: 100%; height: 100%; border-radius: 50%; }
+        .skeleton-box { width: 100%; height: 100%; border-radius: 12px; }
+
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: calc(100% + 200px) 0; }
+        }
+
+        /* Layout Styles */
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
         .search-group { flex-grow: 1; position: relative; }
-        
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
-        .btn-icon:active { transform: scale(0.95); }
         
         .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         
-        /* ESTILO GRÁFICO LLUVIA (Más alto y limpio) */
-        .rain-chart-wrapper { 
-            height: 120px; 
-            width: 100%; 
-            margin-top: 10px; 
-            position: relative; 
-        }
-
-        .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; animation: fadeIn 0.2s ease-out; }
+        .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
+        .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; }
         .suggestions-list.show { display: block; }
         .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; color: var(--text); }
-        .suggestion-item:last-child { border-bottom: none; }
         .suggestion-item:hover { background: var(--accent); color: white; }
-        .suggestion-item small { font-size: 0.75rem; opacity: 0.7; font-weight: 500; }
-        
-        #loader { position:fixed; inset:0; background:var(--bg-1); z-index:9999; display:flex; justify-content:center; align-items:center; transition:0.5s; }
-        .hidden { opacity:0; pointer-events:none; }
 
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        .fav-sidebar { 
-            position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; 
-            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%);
-            z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); 
-            transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-            display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5);
-            border-radius: 0 24px 24px 0;
-        }
-        [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); box-shadow: 10px 0 40px rgba(0,0,0,0.5); }
+        /* Sidebar Styles */
+        .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
+        [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
         .fav-header { padding: 30px 25px; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; display: flex; justify-content: space-between; align-items: center; color: var(--text); border-bottom: 1px solid var(--glass-border); }
         .fav-list { list-style: none; padding: 15px; margin: 0; overflow-y: auto; flex-grow: 1; }
         .fav-item { padding: 18px 20px; margin-bottom: 10px; border-radius: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; color: var(--text); background: rgba(255, 255, 255, 0.5); border: 1px solid transparent; }
         [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
-        .fav-item:hover { background: rgba(var(--accent-rgb), 0.1); transform: translateX(5px); border-color: rgba(var(--accent-rgb), 0.2); }
-        .fav-item-info { display: flex; flex-direction: column; gap: 4px; }
-        .fav-name { font-weight: 700; font-size: 1.1rem; }
-        .fav-region { font-size: 0.8rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-        .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); }
-        .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
-        .bi-heart-fill { animation: heartBeat 0.3s ease-in-out; color: #ef4444 !important; }
-        @keyframes heartBeat { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body data-theme="light">
 
-    <div id="loader"><div class="spinner-border text-primary"></div></div>
-    
     <div class="overlay" id="overlay"></div>
     <div class="fav-sidebar" id="favSidebar">
         <div class="fav-header">
@@ -156,36 +160,38 @@
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0" style="color:var(--accent); letter-spacing:1px">...</h5>
-                    <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
+                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; height: 1em;"></h5>
+                    <div id="desc" class="h4 text-capitalize mt-2 fw-bold skeleton" style="width: 180px; height: 1.2em;"></div>
                 </div>
                 
-                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -15px; margin-right: -15px; display:flex; align-items:center; justify-content:center;"></div>
+                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -10px; margin-right: -15px; display:flex; align-items:center; justify-content:center;">
+                    <div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>
+                </div>
             </div>
             
             <div class="mt-1 d-flex align-items-end">
                 <div class="d-flex flex-column">
-                    <div id="temp" class="temp-big" style="line-height:0.9">--</div>
+                    <div id="temp" class="temp-big skeleton" style="line-height:0.9; width: 140px; height: 0.8em; margin-bottom: 10px;"></div>
                     <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
-                        Sensación: <span id="feels-like">--</span>°
+                        Sensación: <span id="feels-like" class="skeleton" style="width: 30px; display:inline-block">--</span>°
                     </div>
                 </div>
                 <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
-                    <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp">--</span>°</span>
-                    <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp">--</span>°</span>
+                    <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
+                    <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                 </div>
             </div>
 
             <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
-                <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum">--</span>%</span>
-                <span><i class="bi bi-wind text-info"></i> <span id="wind">--</span> km/h</span>
-                <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv">--</span></span>
+                <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
+                <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
+                <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
                 <div><i id="favHeart" class="bi bi-heart fs-3" style="cursor:pointer; transition:0.2s; color: var(--text-sec)"></i></div>
                 <div class="d-flex align-items-center gap-2" style="opacity: 0.9;">
-                    <span id="tip-text" class="text-end fst-italic fw-bold" style="font-size: 0.8rem; line-height: 1.2; max-width: 200px;">Cargando...</span>
+                    <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; height: 2em; display:block"></span>
                     <span id="tip-icon" class="fs-4">🤖</span>
                 </div>
             </div>
@@ -205,19 +211,41 @@
 
         <div class="glass-card">
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
-            <div class="hourly-scroll" id="hourly"></div>
+            <div class="hourly-scroll" id="hourly">
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+            </div>
         </div>
 
         <div class="glass-card">
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
-            <div id="daily"></div>
+            <div id="daily">
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
+                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
+                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
+                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
+                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
+                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
+                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
+                </div>
+            </div>
         </div>
 
         <div class="glass-card">
             <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
             <div class="d-flex align-items-end justify-content-between mt-2">
-                <div class="fw-bold fs-2" id="aqi-val">--</div>
-                <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
+                <div class="fw-bold fs-2 skeleton" id="aqi-val" style="width:40px; height:40px"></div>
+                <div class="small opacity-75 text-end fw-bold skeleton" id="aqi-text" style="width:80px; height:1em"></div>
             </div>
             <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
             <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
@@ -227,16 +255,14 @@
         </div>
 
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
-            <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none;"></iframe>
-            <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none; backdrop-filter:blur(4px)">RADAR EN VIVO</div>
+            <div class="skeleton" style="width:100%; height:100%; position:absolute; top:0; left:0; border-radius:0" id="radar-skeleton"></div>
+            <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none; position:relative; z-index:2" onload="document.getElementById('radar-skeleton').style.display='none'"></iframe>
+            <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none; backdrop-filter:blur(4px); z-index:3">RADAR EN VIVO</div>
         </div>
     </div>
 
     <script>
-        setTimeout(() => {
-            const loader = document.getElementById('loader');
-            if(loader) loader.classList.add('hidden');
-        }, 3000);
+        // No necesitamos loader timeout manual, se quita solo cuando carga la data
 
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
@@ -320,102 +346,68 @@
             if(suggestionsList) suggestionsList.classList.remove('show');
             const id = city.id || city.name;
             localStorage.setItem('lastId', id);
+            
+            // RESET A MODO SKELETON AL CAMBIAR CIUDAD
+            document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
+            document.getElementById('weather-icon-container').innerHTML = '<div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>';
+            
             getWeather(id);
         };
 
-        // --- RENDER RAIN CHART (PRO: CURVA SUAVE + DEGRADADO) ---
         const renderRainChart = (nowcast) => {
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
-            
-            // Si no hay datos, ocultar
-            if(!nowcast || !nowcast.time || nowcast.time.length === 0) {
-                card.style.display = 'none';
-                return;
-            }
-
+            if(!nowcast || !nowcast.time || nowcast.time.length === 0) { card.style.display = 'none'; return; }
             const now = new Date();
             const currentHour = now.getHours();
             let startIndex = nowcast.time.findIndex(t => t.includes(`T${String(currentHour).padStart(2,'0')}:`));
             if(startIndex === -1) startIndex = 0;
-
             const timeLabels = [];
             const precipData = [];
-            
-            // Tomamos los siguientes 60 minutos (4-5 puntos de 15 min)
             for(let i=0; i<5; i++) {
                 if(startIndex + i < nowcast.precipitation.length) {
                     precipData.push(nowcast.precipitation[startIndex + i]);
-                    // Extraer hora limpia (HH:MM)
                     const fullTime = nowcast.time[startIndex + i];
                     const hourMin = fullTime.split('T')[1]; 
                     timeLabels.push(hourMin);
                 }
             }
-
             const totalRain = precipData.reduce((a,b) => a+b, 0);
-
-            // 👻 GHOST MODE: Si la lluvia es mínima (<= 0.1mm), OCULTAR tarjeta
-            if(totalRain <= 0.1) {
-                card.style.display = 'none';
-                return;
-            }
-
-            // Si hay lluvia significativa, mostrar y renderizar
+            if(totalRain <= 0.1) { card.style.display = 'none'; return; }
+            
             card.style.display = 'block';
             summary.innerText = totalRain > 2 ? "Lluvia Fuerte" : (totalRain > 0.5 ? "Lluvia Moderada" : "Lluvia Ligera");
             
             const ctx = document.getElementById('rainChart').getContext('2d');
-            
-            // Degradado PRO (Tipo Apple Weather)
             const gradient = ctx.createLinearGradient(0, 0, 0, 150);
-            gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)'); // Azul brillante arriba
-            gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)'); // Casi invisible abajo
+            gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
+            gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
 
             if(rainChartInstance) rainChartInstance.destroy();
-
             rainChartInstance = new Chart(ctx, {
-                type: 'line', // Usamos línea para curva suave
+                type: 'line',
                 data: {
                     labels: timeLabels,
                     datasets: [{
-                        label: 'mm',
-                        data: precipData,
-                        backgroundColor: gradient,
-                        borderColor: '#38bdf8', // Línea azul neón
-                        borderWidth: 2,
-                        pointRadius: 0, // Sin puntos feos
-                        fill: true,     // Relleno de área
-                        tension: 0.4    // Curva suave (spline)
+                        label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8',
+                        borderWidth: 2, pointRadius: 0, fill: true, tension: 0.4
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false }, tooltip: { enabled: true, intersect: false } },
                     scales: {
-                        x: { 
-                            grid: { display: false }, 
-                            ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } }
-                        },
-                        y: { 
-                            display: false, // Eje Y invisible
-                            min: 0,
-                            suggestedMax: Math.max(...precipData) * 1.5 
-                        }
+                        x: { grid: { display: false }, ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } } },
+                        y: { display: false, min: 0, suggestedMax: Math.max(...precipData) * 1.5 }
                     },
-                    animation: {
-                        duration: 1200,
-                        easing: 'easeOutQuart'
-                    },
+                    animation: { duration: 1200, easing: 'easeOutQuart' },
                     layout: { padding: { top: 10, left: -5, right: -5 } }
                 }
             });
         };
 
         async function getWeather(id) {
-            const loader = document.getElementById('loader');
-            if(loader) loader.classList.remove('hidden');
+            // NOTA: Ya no mostramos loader overlay, el skeleton ya está visible en el HTML por defecto
             try {
                 const res = await fetch(`/api/weather/${id}`);
                 const data = await res.json();
@@ -426,31 +418,38 @@
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 updateHeartUI();
 
+                // 1. Limpiar Skeleton classes
+                const skeletons = document.querySelectorAll('.skeleton');
+                skeletons.forEach(el => el.classList.remove('skeleton'));
+
+                // 2. Inyectar Datos
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
-                // --- CAMBIO: AJUSTE DE TAMAÑO DE ICONO (Más pequeño: 5rem) ---
                 const iconContainer = document.getElementById('weather-icon-container');
-                iconContainer.innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));"></i>`;
+                iconContainer.innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
 
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
 
-                // ACTIVAR LÓGICA GRÁFICO LLUVIA
                 renderRainChart(data.nowcast);
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
                     document.getElementById('min-temp').innerText = data.daily[0].tempMin;
+                    // Limpiar skeleton de max/min si quedaba
+                    document.getElementById('max-temp').classList.remove('skeleton');
+                    document.getElementById('min-temp').classList.remove('skeleton');
                 }
 
                 if(loc.lat && loc.lon) {
                     const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
                     const iframe = document.getElementById('radar-frame');
-                    if(iframe) iframe.src = radarUrl;
+                    if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
+                    // El skeleton del radar se quita en el evento onload del iframe
                 }
 
                 const aqi = (cur.aqi !== undefined) ? cur.aqi : 1; 
@@ -473,11 +472,12 @@
                 const nowEpoch = Math.floor(Date.now()/1000);
                 const hCont = document.getElementById('hourly');
                 if(hCont) {
+                    // Reemplazamos los skeletons con los datos reales
                     hCont.innerHTML = data.hourly
                         .filter(h => h.epoch >= nowEpoch)
                         .slice(0, 24)
                         .map(h => `
-                            <div class="hourly-item">
+                            <div class="hourly-item" style="animation: fadeIn 0.5s">
                                 <div class="small opacity-75 fw-bold mb-1">${new Date(h.fullDate).getHours()}:00</div>
                                 <i class="bi ${h.icon} fs-4" style="color:var(--text)"></i>
                                 <div class="fw-bold fs-5">${h.temp}°</div>
@@ -489,7 +489,7 @@
                 const dCont = document.getElementById('daily');
                 if(dCont) {
                     dCont.innerHTML = data.daily.map(d => `
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important; animation: fadeIn 0.5s">
                             <div style="width:35%" class="fw-bold text-capitalize">
                                 <div>${new Date(d.fecha).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div>
                                 <div class="small opacity-50 d-flex gap-2" style="font-size:0.7rem">
@@ -515,8 +515,6 @@
 
             } catch (e) {
                 console.error(e);
-            } finally {
-                if(loader) loader.classList.add('hidden');
             }
         }
 
@@ -534,6 +532,8 @@
         const geoBtn = document.getElementById('geoBtn');
         if(geoBtn) geoBtn.addEventListener('click', () => {
              if(!navigator.geolocation) return;
+             // Poner skeletons antes de cargar geo
+             document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                  const city = await res.json();
