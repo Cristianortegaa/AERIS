@@ -59,12 +59,13 @@
             overflow-x: hidden; 
         }
 
-        /* --- SPLASH SCREEN --- */
+        /* --- SPLASH SCREEN (SIEMPRE CLARO) --- */
         #splash-screen {
             position: fixed;
             inset: 0;
-            background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
-            z-index: 10000; /* Por encima de todo */
+            /* Usamos colores fijos, NO variables, para que siempre sea claro */
+            background: linear-gradient(180deg, #bae6fd, #e0f2fe);
+            z-index: 10000; 
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -81,9 +82,10 @@
         .splash-logo-container {
             width: 120px;
             height: 120px;
-            background: var(--glass);
+            /* Cristal fijo claro */
+            background: rgba(255, 255, 255, 0.65);
             backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
+            border: 1px solid rgba(255, 255, 255, 0.4);
             border-radius: 30px;
             display: flex;
             align-items: center;
@@ -99,7 +101,7 @@
             font-size: 1.5rem;
             letter-spacing: 2px;
             opacity: 0.8;
-            color: var(--text);
+            color: #0c4a6e; /* Color fijo oscuro para contraste */
         }
 
         @keyframes breathe {
@@ -143,7 +145,6 @@
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         
-        /* Typography */
         .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
         
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
@@ -159,7 +160,7 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* --- SIDEBAR --- */
+        /* --- SIDEBAR (Arreglado) --- */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
@@ -182,15 +183,16 @@
         }
         [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
         
+        /* Flex Column para que salga debajo */
         .fav-item-info { 
             display: flex; 
-            flex-direction: column;
+            flex-direction: column; 
             justify-content: center;
-            gap: 2px; 
+            gap: 4px; 
             max-width: 80%; 
         }
-        .fav-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fav-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+        .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
         
         .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
         .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
@@ -210,7 +212,7 @@
         .ai-container:hover { background: rgba(255,255,255,0.1); }
         .ai-container:active { transform: scale(0.95); }
         
-        /* Modal Personalizado (Z-Index Máximo) */
+        /* Modal Personalizado */
         .persona-modal {
             position: fixed; inset: 0; 
             z-index: 3000; 
@@ -257,7 +259,7 @@
     <div id="splash-screen">
         <div class="splash-logo-container">
             <img src="logo.png" alt="Aeris" style="width: 70px; height: 70px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
-            <i class="bi bi-cloud-sun-fill" style="font-size: 3rem; color: var(--accent); display:none;"></i>
+            <i class="bi bi-cloud-sun-fill" style="font-size: 3rem; color: #0284c7; display:none;"></i>
         </div>
         <div class="splash-title">AERIS</div>
     </div>
@@ -355,26 +357,12 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
+                </div>
         </div>
 
         <div class="glass-card">
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
             <div id="daily">
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
-                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
-                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
-                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
-                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
-                </div>
                 <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
                     <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
                     <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
@@ -408,7 +396,7 @@
         window.addEventListener('load', () => {
             setTimeout(() => {
                 document.getElementById('splash-screen').classList.add('hidden');
-            }, 2000); // 2 segundos de splash
+            }, 2000); 
         });
 
         let currentId = localStorage.getItem('lastId') || 'Madrid';
@@ -518,7 +506,6 @@
         const openSidebar = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); };
         const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
         
-        // Elementos overlay/sidebar
         const overlay = document.getElementById('overlay');
         const favMenuBtn = document.getElementById('favMenuBtn');
         const closeSidebarBtn = document.getElementById('closeSidebar');
