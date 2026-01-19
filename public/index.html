@@ -105,7 +105,7 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* --- SIDEBAR CORREGIDO (FIX) --- */
+        /* Sidebar Styles */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
@@ -127,35 +127,44 @@
         }
         [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
         
-        .fav-item-info { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 2px; 
-            max-width: 80%; /* Evita que choque con el botón borrar */
-        }
-        .fav-name { 
-            font-weight: 700; 
-            font-size: 1rem; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; /* Pone "..." si es muy largo */
-        }
-        .fav-region { 
-            font-size: 0.75rem; 
-            opacity: 0.6; 
-            font-weight: 500; 
-            text-transform: uppercase; 
-            letter-spacing: 0.5px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+        .fav-item-info { display: flex; flex-direction: column; gap: 2px; max-width: 80%; }
+        .fav-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
         .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
         
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
+
+        /* --- AI PERSONA STYLES --- */
+        .ai-container { 
+            cursor: pointer; 
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            user-select: none;
+            position: relative;
+        }
+        .ai-container:active { transform: scale(0.9); }
+        .ai-bubble {
+            position: absolute;
+            bottom: 110%;
+            right: 0;
+            background: var(--text);
+            color: var(--bg-1);
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: 0.3s;
+            pointer-events: none;
+        }
+        .ai-container:hover .ai-bubble, .ai-container.changed .ai-bubble {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body data-theme="light">
@@ -187,7 +196,8 @@
 
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-start">
-                <div style="flex-grow: 1; max-width: 70%;"> <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; height: 1em; line-height: 1.4;"></h5>
+                <div style="flex-grow: 1; max-width: 70%;"> 
+                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; height: 1em; line-height: 1.4;"></h5>
                     <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; height: 1.2em; line-height: 1.2; margin-top: 4px;"></div>
                 </div>
                 
@@ -217,9 +227,11 @@
 
             <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
                 <div><i id="favHeart" class="bi bi-heart fs-3" style="cursor:pointer; transition:0.2s; color: var(--text-sec)"></i></div>
-                <div class="d-flex align-items-center gap-2" style="opacity: 0.9;">
+                
+                <div class="d-flex align-items-center gap-2 ai-container" id="ai-toggle" style="opacity: 0.9;">
                     <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; height: 2em; display:block"></span>
                     <span id="tip-icon" class="fs-4">🤖</span>
+                    <div class="ai-bubble" id="ai-bubble">Modo: Normal</div>
                 </div>
             </div>
         </div>
@@ -293,6 +305,84 @@
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
         let rainChartInstance = null;
+        let lastWeatherData = null; // Guardamos datos para actualizar la IA sin rellamar API
+
+        // --- SISTEMA DE PERSONALIDADES ---
+        const personas = ['normal', 'zen', 'villano', 'madre'];
+        let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
+
+        const aiLogic = {
+            normal: { icon: "🤖", name: "Modo: Normal", 
+                tips: {
+                    hot: ["Hace calor, hidrátate.", "Día perfecto para helado.", "Busca sombra."],
+                    cold: ["Hace frío, abrígate bien.", "Buen día para un café caliente."],
+                    rain: ["Lleva paraguas hoy.", "Posible lluvia, atento."],
+                    nice: ["Clima agradable, disfruta.", "Día perfecto para pasear."]
+                }
+            },
+            zen: { icon: "🧘", name: "Modo: Zen",
+                tips: {
+                    hot: ["El sol energiza tu alma.", "Siente el calor como un abrazo.", "Respira y fluye con el verano."],
+                    cold: ["El frío clarifica la mente.", "La quietud del invierno es paz.", "Abraza el silencio del frío."],
+                    rain: ["La lluvia nutre la tierra.", "El agua limpia el ambiente.", "Escucha el ritmo de las gotas."],
+                    nice: ["El equilibrio es perfecto hoy.", "La armonía está en el aire.", "Conecta con el presente."]
+                }
+            },
+            villano: { icon: "😈", name: "Modo: Villano",
+                tips: {
+                    hot: ["Te vas a derretir como queso barato.", "El asfalto es lava, suerte.", "Sudarás hasta por los ojos."],
+                    cold: ["Se te van a congelar las ideas.", "Ni el yeti saldría hoy.", "¿Sientes tus dedos? Yo tampoco."],
+                    rain: ["Tu pelo va a parecer una escoba.", "Ducha gratis, no te quejes.", "El cielo llora por ti."],
+                    nice: ["Hace bueno. Algo malo pasará.", "Demasiado sol, sospechoso.", "Disfruta antes del apocalipsis."]
+                }
+            },
+            madre: { icon: "👵", name: "Modo: Madre",
+                tips: {
+                    hot: ["Ponte crema solar, factor 50.", "Bebe agua, no refrescos.", "Ponte gorra que te da una insolación."],
+                    cold: ["¿Llevas camiseta interior?", "Cierra la boca que entra frío.", "Ponte el abrigo gordo, hazme caso."],
+                    rain: ["¡No salgas sin paraguas!", "Ni se te ocurra pisar charcos.", "Cámbiate los calcetines si te mojas."],
+                    nice: ["Aprovecha para lavar las cortinas.", "Sal a que te dé el aire un poco.", "Come algo antes de salir."]
+                }
+            }
+        };
+
+        const togglePersona = () => {
+            let idx = personas.indexOf(currentPersona);
+            idx = (idx + 1) % personas.length;
+            currentPersona = personas[idx];
+            localStorage.setItem('aeris_persona', currentPersona);
+            
+            // Animación y Feedback
+            const container = document.getElementById('ai-toggle');
+            const bubble = document.getElementById('ai-bubble');
+            container.classList.add('changed');
+            bubble.innerText = aiLogic[currentPersona].name;
+            
+            setTimeout(() => container.classList.remove('changed'), 1500); // Quita la burbuja
+
+            // Actualizar texto inmediatamente si hay datos
+            if(lastWeatherData) updateAIText(lastWeatherData);
+        };
+
+        const updateAIText = (cur) => {
+            const p = aiLogic[currentPersona];
+            document.getElementById('tip-icon').innerText = p.icon;
+            
+            // Lógica de selección de frase
+            let key = 'nice';
+            const desc = cur.desc.toLowerCase();
+            if (desc.includes('lluvia') || desc.includes('tormenta') || desc.includes('llovizna')) key = 'rain';
+            else if (cur.temp > 28) key = 'hot';
+            else if (cur.temp < 10) key = 'cold';
+            
+            const frases = p.tips[key];
+            const frase = frases[Math.floor(Math.random() * frases.length)];
+            document.getElementById('tip-text').innerText = frase;
+        };
+
+        // Event Listener para cambiar personalidad
+        document.getElementById('ai-toggle').addEventListener('click', togglePersona);
+
 
         const updateHeartUI = () => {
             const heart = document.getElementById('favHeart');
@@ -320,7 +410,6 @@
             favorites.forEach(city => {
                 const li = document.createElement('li');
                 li.className = 'fav-item';
-                // HTML MEJORADO PARA LISTA DE FAVORITOS
                 li.innerHTML = `
                     <div class="fav-item-info">
                         <span class="fav-name">${city.name}</span>
@@ -336,19 +425,6 @@
 
         const openSidebar = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); };
         const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
-
-        const getFunnyTip = (temp, rainProb, wind, uv, aqi, descLower) => {
-            const tips = [];
-            let icon = "🤔";
-            if (rainProb > 40 || descLower.includes('lluvia') || descLower.includes('tormenta')) { icon = "☔"; tips.push("Si te alisas el pelo, pierdes el tiempo.", "Paraguas o ducha gratis, tú eliges.", "El cielo está llorando."); }
-            else if (temp > 30) { icon = "🥵"; tips.push("El asfalto es lava.", "No respires fuerte o te quemas.", "Hidrátate, no eres un cactus."); }
-            else if (temp < 5) { icon = "🥶"; tips.push("Se le congelan los mocos a las estatuas.", "Ponte 8 capas o rueda.", "Abraza a quien sea por calor."); }
-            else if (wind > 25) { icon = "💨"; tips.push("Agárrate los empastes.", "No lleves peluquín hoy.", "Cuidado con las macetas voladoras."); }
-            else if (uv > 7) { icon = "🧴"; tips.push("El sol muerde hoy.", "¿Eres vampiro? Busca sombra.", "Factor 50 o pareces una gamba."); }
-            else if (aqi > 3) { icon = "😷"; tips.push("El aire se mastica.", "Si tienes branquias, úsalas.", "No es niebla, es contaminación."); }
-            else { icon = "😎"; tips.push("Hace bueno. Raro, ¿eh?", "Si no sales hoy, no tienes perdón.", "Día de cervecita en terraza."); }
-            return { text: tips[Math.floor(Math.random() * tips.length)], icon: icon };
-        };
 
         const searchInput = document.getElementById('citySearch');
         const suggestionsList = document.getElementById('suggestions');
@@ -446,6 +522,8 @@
                 const cur = data.current;
                 const loc = data.location;
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
+                lastWeatherData = cur; // GUARDAR DATOS PARA IA
+
                 updateHeartUI();
 
                 const skeletons = document.querySelectorAll('.skeleton');
@@ -489,11 +567,8 @@
                 const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
-                const nextRain = data.hourly.find(h => h.rainProb > 40 && h.epoch > Math.floor(Date.now()/1000));
-                const rainProbNow = nextRain ? nextRain.rainProb : 0;
-                const tip = getFunnyTip(cur.temp, rainProbNow, cur.windSpeed, cur.uv, aqi, cur.desc.toLowerCase());
-                document.getElementById('tip-text').innerText = tip.text;
-                document.getElementById('tip-icon').innerText = tip.icon;
+                // ACTUALIZAR IA CON LA PERSONALIDAD ACTUAL
+                updateAIText(cur);
 
                 const nowEpoch = Math.floor(Date.now()/1000);
                 const hCont = document.getElementById('hourly');
