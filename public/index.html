@@ -224,7 +224,7 @@
             </ul>
         
         <div class="p-4 text-center">
-            <small class="opacity-50 fw-bold" style="font-size:0.7rem; letter-spacing:1px; color:var(--text)">AERIS</small>
+            <small class="opacity-50 fw-bold" style="font-size:0.7rem; letter-spacing:1px; color:var(--text)">AERIS WEATHER</small>
         </div>
     </div>
 
@@ -281,16 +281,6 @@
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
-            <div class="hourly-scroll" id="hourly"></div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
-            <div id="daily"></div>
-        </div>
-
-        <div class="glass-card">
             <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
             <div class="d-flex align-items-end justify-content-between mt-2">
                 <div class="fw-bold fs-2" id="aqi-val">--</div>
@@ -301,6 +291,16 @@
                 <span>PM2.5: <span id="pm25">--</span></span>
                 <span>PM10: <span id="pm10">--</span></span>
             </div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
+            <div class="hourly-scroll" id="hourly"></div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
+            <div id="daily"></div>
         </div>
 
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
@@ -316,7 +316,7 @@
             if(loader) loader.classList.add('hidden');
         }, 3000);
 
-        let currentId = localStorage.getItem('lastId') || 'Madrid';
+        let currentId = localStorage.getItem('lastId'); // Inicialmente null, sin valor por defecto 'Madrid'
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
 
@@ -604,8 +604,36 @@
         const overlay = document.getElementById('overlay');
         if(overlay) overlay.addEventListener('click', closeSidebar);
 
-        // START
-        getWeather(currentId);
+        // 🔥 INICIO INTELIGENTE: GPS O ÚLTIMA CIUDAD 🔥
+        if (!localStorage.getItem('lastId')) {
+            // Si es la primera vez (no hay historial), intenta geolocalizar
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                        try {
+                            const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+                            const city = await res.json();
+                            if (city.id || city.name) {
+                                getWeather(city.id || city.name);
+                            } else {
+                                getWeather('Madrid'); // Fallback si la API geo falla
+                            }
+                        } catch(e) {
+                            getWeather('Madrid'); // Fallback si fetch falla
+                        }
+                    },
+                    (err) => {
+                        console.log("GPS denegado o error:", err);
+                        getWeather('Madrid'); // Fallback si el usuario deniega GPS
+                    }
+                );
+            } else {
+                getWeather('Madrid'); // Fallback si no hay soporte GPS
+            }
+        } else {
+            // Si ya ha entrado antes, carga la última ciudad
+            getWeather(currentId);
+        }
     </script>
     
     <script>
