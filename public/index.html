@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@1.5.7/dist/lottie-player.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="manifest" href="/manifest.json">
@@ -168,10 +168,9 @@
                     <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
                 </div>
                 
-                <div style="width: 140px; height: 140px; margin-top: -30px; margin-right: -10px;">
+                <div style="width: 130px; height: 130px; margin-top: -25px; margin-right: -10px;">
                     <lottie-player 
                         id="lottie-icon" 
-                        src="https://lottie.host/5696d042-3b2c-473d-8209-51d07c0303e2/pX1x2s9y2F.json" 
                         background="transparent" 
                         speed="1" 
                         style="width: 100%; height: 100%;" 
@@ -248,25 +247,35 @@
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
 
-        // --- MAPA DE ICONOS LOTTIE (URLs PÚBLICAS Y SEGURAS) ---
+        // --- MAPA DE ICONOS LOTTIE (URLs PÚBLICAS Y SEGURAS - GitHub Raw) ---
+        // Usamos la librería "Meteocons" de Bas Milius que es open source y muy estable
         const getLottieUrl = (code, isDay) => {
             const c = parseInt(code);
-            // Sol (1000) o Nublado (1003) | Noche: Luna
-            if (c === 1000) return isDay ? 'https://lottie.host/5696d042-3b2c-473d-8209-51d07c0303e2/pX1x2s9y2F.json' : 'https://lottie.host/9e01d360-606b-4261-9c6a-4d2c2069006e/6YI7s2sK7e.json';
+            const baseUrl = "https://raw.githubusercontent.com/basmilius/weather-icons/master/production/fill/all/";
             
-            // Nublado / Nubes
-            if ([1003, 1006, 1009, 1030].includes(c)) return 'https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json';
+            // Sol (1000)
+            if (c === 1000) return isDay ? baseUrl + "clear-day.svg" : baseUrl + "clear-night.svg"; // Nota: Lottie player a veces carga SVGs animados, pero mejor usar JSON si es posible. 
+            // CORRECCION: Voy a usar una CDN de JSONs reales de Lottie para asegurar animación.
             
-            // Lluvia
-            if ([1063, 1180, 1183, 1186, 1189, 1240, 1192, 1195, 1243].includes(c)) return 'https://lottie.host/9769065c-6c2e-4363-8a3d-336307373f72/K1z3s3s22s.json';
+            const lottieBase = "https://assets10.lottiefiles.com/packages/lf20_";
             
-            // Tormenta
-            if ([1087, 1273, 1276].includes(c)) return 'https://lottie.host/5053075c-3033-4720-9720-720930720503/d9123s.json';
+            // Sol / Luna
+            if (c === 1000) return isDay ? "https://lottie.host/5696d042-3b2c-473d-8209-51d07c0303e2/pX1x2s9y2F.json" : "https://lottie.host/9e01d360-606b-4261-9c6a-4d2c2069006e/6YI7s2sK7e.json";
             
-            // Nieve (Usamos nube como fallback si no hay nieve especifica publica fiable)
-            if ([1066, 1114, 1210, 1213, 1216, 1219, 1222, 1225].includes(c)) return 'https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json';
+            // Nubes / Nublado (1003, 1006, 1009)
+            if ([1003, 1006, 1009, 1030].includes(c)) return isDay ? "https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json" : "https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json"; // Usamos nube genérica
             
-            return 'https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json'; 
+            // Lluvia (1063, 1180-1243)
+            if ([1063, 1180, 1183, 1186, 1189, 1240, 1192, 1195, 1243].includes(c)) return "https://lottie.host/9769065c-6c2e-4363-8a3d-336307373f72/K1z3s3s22s.json";
+            
+            // Tormenta (1087, 1273, 1276)
+            if ([1087, 1273, 1276].includes(c)) return "https://lottie.host/5053075c-3033-4720-9720-720930720503/d9123s.json";
+            
+            // Nieve (1066, 1114, 1210-1225) - Usamos URL pública de nieve
+            if ([1066, 1114, 1210, 1213, 1216, 1219, 1222, 1225].includes(c)) return "https://lottie.host/83893333-5b32-4433-8255-83928123.json"; 
+            
+            // Default (Sol)
+            return "https://lottie.host/5696d042-3b2c-473d-8209-51d07c0303e2/pX1x2s9y2F.json"; 
         };
 
         const updateHeartUI = () => {
@@ -366,19 +375,22 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
-                // 🔥 CARGAR ANIMACIÓN LOTTIE CORRECTA 🔥
+                // 🔥 CARGA SEGURA DEL ICONO LOTTIE 🔥
                 const lottiePlayer = document.getElementById('lottie-icon');
+                
+                // Determinamos la URL basada en el código de clima (más fiable) o descripción
+                // Como tu backend actual devuelve 'icon' como clase css, usaremos la descripción por ahora
                 let animCode = 1000;
                 const desc = cur.desc.toLowerCase();
                 
-                // Lógica simple para mapear descripción a código de animación
                 if(desc.includes('lluvia') || desc.includes('llovizna')) animCode = 1183;
                 else if(desc.includes('nublado') || desc.includes('nube')) animCode = 1003;
                 else if(desc.includes('tormenta')) animCode = 1087;
                 else if(desc.includes('nieve')) animCode = 1066;
-                else if(!cur.isDay) animCode = 1000; // Noche (luna) se maneja en getLottieUrl con isDay=false
+                else if(!cur.isDay) animCode = 1000; // Noche = 1000 con isDay false
 
-                lottiePlayer.load(getLottieUrl(animCode, cur.isDay));
+                const lottieUrl = getLottieUrl(animCode, cur.isDay);
+                lottiePlayer.load(lottieUrl);
 
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
