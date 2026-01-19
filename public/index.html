@@ -10,8 +10,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
-    
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="manifest" href="/manifest.json">
     
@@ -161,7 +159,7 @@
                     <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
                 </div>
                 
-                <div id="lottie-icon" style="width: 140px; height: 140px; margin-top: -30px; margin-right: -10px;"></div>
+                <div id="lottie-icon" style="width: 140px; height: 140px; margin-top: -30px; margin-right: -10px; display:flex; align-items:center; justify-content:center;"></div>
             </div>
             
             <div class="mt-1 d-flex align-items-end">
@@ -242,18 +240,34 @@
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
-        let lottieAnim = null;
+        // Eliminado let lottieAnim
         let rainChartInstance = null;
 
-        // --- ICONOS LOTTIE (Robustos) ---
-        const getLottieUrl = (code, isDay) => {
+        // --- NUEVA FUNCIÓN: ICONOS EMOJI DEL TIEMPO (Sustituye a Lottie) ---
+        const getWeatherEmoji = (code, isDay) => {
             const c = parseInt(code);
-            if (c === 1000) return isDay ? "https://assets10.lottiefiles.com/packages/lf20_xlkxtmul.json" : "https://assets10.lottiefiles.com/packages/lf20_b0ojk9z1.json";
-            if ([1003, 1006, 1009, 1030].includes(c)) return "https://assets10.lottiefiles.com/packages/lf20_kssd2ynt.json";
-            if ([1063, 1180, 1183, 1186, 1189, 1240, 1192, 1195, 1243].includes(c)) return "https://assets10.lottiefiles.com/packages/lf20_76j4m2ia.json";
-            if ([1087, 1273, 1276].includes(c)) return "https://assets10.lottiefiles.com/packages/lf20_kuotozw0.json";
-            if ([1066, 1114, 1210, 1213, 1216, 1219, 1222, 1225].includes(c)) return "https://assets10.lottiefiles.com/packages/lf20_64okx8dl.json";
-            return "https://assets10.lottiefiles.com/packages/lf20_kssd2ynt.json"; 
+            // Códigos WeatherAPI
+            if (c === 1000) return isDay ? "☀️" : "🌙"; // Despejado
+            if (c === 1003) return isDay ? "⛅" : "☁️"; // Parcialmente nublado
+            if ([1006, 1009].includes(c)) return "☁️"; // Nublado
+            if ([1030, 1135, 1147].includes(c)) return "🌫️"; // Niebla/Neblina
+            
+            // Lluvia Ligera / Llovizna
+            if ([1063, 1180, 1183, 1186, 1189, 1240].includes(c)) return isDay ? "🌦️" : "🌧️";
+            
+            // Lluvia Moderada / Fuerte
+            if ([1192, 1195, 1198, 1201, 1243, 1246].includes(c)) return "🌧️";
+            
+            // Nieve / Aguanieve
+            if ([1066, 1069, 1072, 1114, 1117, 1204, 1207, 1210, 1213, 1216, 1219, 1222, 1225, 1237, 1249, 1252, 1255, 1258, 1261, 1264].includes(c)) return "❄️";
+            
+            // Tormentas
+            if ([1087, 1273, 1276, 1279, 1282].includes(c)) return "⛈️";
+            
+            // Granizo (Hielo)
+            if ([1237, 1261, 1264].includes(c)) return "🧊";
+
+            return isDay ? "☀️" : "🌙"; // Fallback
         };
 
         const updateHeartUI = () => {
@@ -443,25 +457,16 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
+                // --- CAMBIO PRINCIPAL AQUÍ: USAR EMOJI EN VEZ DE LOTTIE ---
                 const iconContainer = document.getElementById('lottie-icon');
-                if(lottieAnim) lottieAnim.destroy();
-
-                let animCode = 1000;
-                const desc = cur.desc.toLowerCase();
-                if(desc.includes('lluvia') || desc.includes('llovizna')) animCode = 1183;
-                else if(desc.includes('nublado') || desc.includes('nube')) animCode = 1003;
-                else if(desc.includes('tormenta')) animCode = 1087;
-                else if(desc.includes('nieve')) animCode = 1066;
-                else if(!cur.isDay) animCode = 1000;
-
-                const lottieUrl = getLottieUrl(animCode, cur.isDay);
-                lottieAnim = lottie.loadAnimation({
-                    container: iconContainer,
-                    renderer: 'svg',
-                    loop: true,
-                    autoplay: true,
-                    path: lottieUrl
-                });
+                const emoji = getWeatherEmoji(cur.icon_code, cur.isDay);
+                
+                // Inyectamos el Emoji
+                iconContainer.innerHTML = emoji;
+                // Ajustamos el estilo para que parezca un icono grande
+                iconContainer.style.fontSize = '6.5rem'; 
+                iconContainer.style.lineHeight = '1';
+                iconContainer.style.filter = 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))'; // Sombra suave
 
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
