@@ -8,453 +8,276 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    
     <link rel="icon" type="image/png" href="logo.png">
-
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#bae6fd">
+    
+    <meta name="theme-color" content="#0f172a">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
-        /* --- VARIABLES DE COLOR --- */
-        /* MODO CLARO */
+        /* --- VARIABLES --- */
         :root { 
-            --bg-1: #bae6fd; 
-            --bg-2: #e0f2fe; 
-            --glass: rgba(255, 255, 255, 0.65); 
-            --glass-border: rgba(255, 255, 255, 0.4);
-            --text: #0c4a6e; 
-            --text-sec: #475569;
-            --accent: #0284c7;
-            --accent-rgb: 2, 132, 199;
-            --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
-        }
-
-        /* MODO OSCURO PREMIUM */
-        [data-theme="dark"] { 
-            --bg-1: #0f172a; 
-            --bg-2: #020617; 
-            --glass: rgba(30, 41, 59, 0.70); 
-            --glass-border: rgba(255, 255, 255, 0.1); 
-            --text: #f8fafc; 
-            --text-sec: #cbd5e1; 
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-main: #ffffff;
+            --text-sec: rgba(255, 255, 255, 0.7);
             --accent: #38bdf8;
-            --accent-rgb: 56, 189, 248;
-            --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
         }
 
-        /* --- ESTILOS GENERALES --- */
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            color: var(--text); 
-            background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); 
-            min-height: 100vh; 
-            padding-bottom: 80px; 
-            transition: background 0.8s ease, color 0.5s ease; 
-            overflow-x: hidden; 
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-main);
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background: #0f172a;
         }
 
-        .glass-card { 
-            background: var(--glass); 
-            backdrop-filter: blur(25px); 
-            -webkit-backdrop-filter: blur(25px);
-            border-radius: 24px; 
-            padding: 20px; 
-            margin-bottom: 16px; 
+        /* FONDO ANIMADO */
+        #dynamic-bg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2;
+            background: linear-gradient(-45deg, #0f172a, #1e3a8a, #3b82f6, #0ea5e9);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        #dynamic-bg.rainy { background: linear-gradient(-45deg, #1e293b, #334155, #475569, #0f172a); }
+        #dynamic-bg.sunny { background: linear-gradient(-45deg, #0ea5e9, #38bdf8, #7dd3fc, #bae6fd); }
+        #dynamic-bg.night { background: linear-gradient(-45deg, #020617, #0f172a, #1e1b4b, #312e81); }
+
+        @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        /* EFECTO LLUVIA */
+        .rain {
+            position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: -1;
+            background-image: url('https://i.imgur.com/7f2NoD2.png');
+            animation: rainAnim 0.5s linear infinite;
+            opacity: 0; pointer-events: none; transition: opacity 1s;
+        }
+        .rain.active { opacity: 0.4; }
+        @keyframes rainAnim { from { background-position: 0 0; } to { background-position: 20px 100vh; } }
+
+        /* TARJETAS GLASS */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
-            box-shadow: var(--card-shadow);
-            transition: transform 0.2s, background 0.5s;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
+
+        .temp-big { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 5rem; line-height: 0.9; letter-spacing: -2px; }
         
-        .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
+        .nav-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+        .btn-icon { width: 45px; height: 45px; border-radius: 50%; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.1); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+        .btn-icon:hover { background: var(--accent); border-color: var(--accent); }
+
         .search-group { flex-grow: 1; position: relative; }
-        
-        .search-input { 
-            width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; 
-            box-shadow: var(--card-shadow); border: 1px solid var(--glass-border);
-        }
-        
-        .btn-icon { 
-            background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); 
-            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow);
-        }
-        .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
-        .btn-icon:active { transform: scale(0.95); }
-        
-        .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
-        .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
-        .hourly-item { min-width:60px; text-align:center; }
-        
-        /* BUSCADOR */
-        .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .search-input { width: 100%; background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 50px; padding: 12px 20px; color: white; outline: none; font-weight: 600; }
+        .search-input::placeholder { color: rgba(255,255,255,0.6); }
+
+        .suggestions-list { position: absolute; top: 110%; left: 0; width: 100%; background: rgba(15, 23, 42, 0.95); border: 1px solid var(--glass-border); border-radius: 16px; list-style: none; padding: 0; margin: 0; display: none; z-index: 100; overflow: hidden; }
         .suggestions-list.show { display: block; }
-        .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; color: var(--text); }
-        .suggestion-item:last-child { border-bottom: none; }
-        .suggestion-item:hover { background: var(--accent); color: white; }
-        .suggestion-item small { font-size: 0.75rem; opacity: 0.7; font-weight: 500; }
-        
-        #loader { position:fixed; inset:0; background:var(--bg-1); z-index:9999; display:flex; justify-content:center; align-items:center; transition:0.5s; }
-        .hidden { opacity:0; pointer-events:none; }
+        .suggestion-item { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
+        .suggestion-item:hover { background: var(--accent); }
 
-        .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
-        .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-
-        /* --- SIDEBAR FAVORITOS (Con bordes redondeados) --- */
-        .fav-sidebar { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            height: 100%; 
-            width: 85%; /* Ancho móvil */
-            max-width: 320px; 
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            z-index: 2000; 
-            box-shadow: 10px 0 40px rgba(0,0,0,0.1); 
-            transform: translateX(-105%); 
-            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-            display: flex; 
-            flex-direction: column; 
-            border-right: 1px solid rgba(255,255,255,0.5);
-            /* 🔥 BORDES REDONDEADOS A LA DERECHA 🔥 */
-            border-radius: 0 24px 24px 0;
+        /* SIDEBAR */
+        .fav-sidebar {
+            position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px;
+            background: rgba(15, 23, 42, 0.98);
+            z-index: 2000; transform: translateX(-105%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid var(--glass-border);
+            display: flex; flex-direction: column;
+            border-radius: 0 20px 20px 0;
         }
-
-        [data-theme="dark"] .fav-sidebar {
-            background: rgba(15, 23, 42, 0.95);
-            border-right: 1px solid rgba(255,255,255,0.05);
-            box-shadow: 10px 0 40px rgba(0,0,0,0.5);
-        }
-
         .fav-sidebar.open { transform: translateX(0); }
-
-        .fav-header { 
-            padding: 30px 25px; 
-            font-weight: 800; 
-            font-size: 1.5rem; 
-            letter-spacing: -0.5px;
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            color: var(--text);
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .fav-list { 
-            list-style: none; 
-            padding: 15px; 
-            margin: 0; 
-            overflow-y: auto; 
-            flex-grow: 1; 
-        }
-
-        .fav-item { 
-            padding: 18px 20px; 
-            margin-bottom: 10px;
-            border-radius: 16px;
-            cursor: pointer; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            transition: all 0.2s ease; 
-            color: var(--text);
-            background: rgba(255, 255, 255, 0.5); 
-            border: 1px solid transparent;
-        }
-
-        [data-theme="dark"] .fav-item {
-            background: rgba(255, 255, 255, 0.03); 
-        }
-
-        .fav-item:hover { 
-            background: rgba(var(--accent-rgb), 0.1); 
-            transform: translateX(5px);
-            border-color: rgba(var(--accent-rgb), 0.2);
-        }
-        [data-theme="light"] .fav-item:hover { background: rgba(var(--accent-rgb), 0.08); }
-        [data-theme="dark"] .fav-item:hover { background: rgba(255,255,255,0.1); }
-
-        .fav-item-info { display: flex; flex-direction: column; gap: 4px; }
-        .fav-name { font-weight: 700; font-size: 1.1rem; }
-        .fav-region { font-size: 0.8rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        .fav-delete { 
-            width: 36px; 
-            height: 36px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            border-radius: 50%;
-            opacity: 0.4; 
-            transition: all 0.2s;
-            color: var(--text);
-        }
-
-        .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
-        @media (hover: hover) {
-            .fav-delete:hover { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(1.1); color: #ef4444; }
-            .fav-item:hover .fav-delete { opacity: 0.7; }
-        }
-
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+        .fav-header { padding: 20px; font-weight: bold; font-size: 1.2rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; }
+        .fav-list { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex-grow: 1; }
+        .fav-item { padding: 15px; margin-bottom: 8px; background: rgba(255,255,255,0.05); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(5px); }
         .overlay.show { opacity: 1; pointer-events: all; }
-        
-        .bi-heart-fill { animation: heartBeat 0.3s ease-in-out; color: #ef4444 !important; }
-        @keyframes heartBeat { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+        #loader { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; justify-content: center; align-items: center; transition: 0.5s; }
+        .hidden { opacity: 0; pointer-events: none; }
+
+        .chart-container { height: 120px; width: 100%; margin-top: 10px; }
     </style>
 </head>
-<body data-theme="light">
+<body>
 
-    <div id="loader"><div class="spinner-border text-primary"></div></div>
-    
+    <div id="dynamic-bg"></div>
+    <div id="rain-effect" class="rain"></div>
+
+    <div id="loader"><div class="spinner-border text-info"></div></div>
+
     <div class="overlay" id="overlay"></div>
     <div class="fav-sidebar" id="favSidebar">
         <div class="fav-header">
-            <span>Mis Lugares</span>
-            <button class="btn btn-sm rounded-circle d-flex align-items-center justify-content-center" style="width:32px; height:32px; opacity:0.7; background:rgba(150,150,150,0.2); border:none; color:var(--text)" id="closeSidebar">
-                <i class="bi bi-x-lg"></i>
-            </button>
+            Mis Lugares <i class="bi bi-x-lg" id="closeSidebar" style="cursor:pointer"></i>
         </div>
-        
-        <ul class="fav-list" id="favList">
-            </ul>
-        
-        <div class="p-4 text-center">
-            <small class="opacity-50 fw-bold" style="font-size:0.7rem; letter-spacing:1px; color:var(--text)">AERIS WEATHER</small>
-        </div>
+        <ul class="fav-list" id="favList"></ul>
+        <div class="text-center p-3 small text-white-50">AERIS WEATHER</div>
     </div>
 
     <div class="container pt-3">
         <div class="nav-bar">
-            <button class="btn-icon" id="favMenuBtn"><i class="bi bi-list-stars fs-5"></i></button>
+            <button class="btn-icon" id="favMenuBtn"><i class="bi bi-list"></i></button>
             <div class="search-group">
                 <input type="text" class="search-input" id="citySearch" placeholder="Buscar ciudad..." autocomplete="off">
                 <ul class="suggestions-list" id="suggestions"></ul>
             </div>
-            <button class="btn-icon" id="geoBtn"><i class="bi bi-geo-alt-fill fs-5"></i></button>
-            <button class="btn-icon" id="themeBtn"><i class="bi bi-moon-stars-fill fs-5"></i></button>
+            <button class="btn-icon" id="geoBtn"><i class="bi bi-geo-alt-fill"></i></button>
         </div>
 
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0" style="color:var(--accent); letter-spacing:1px">...</h5>
-                    <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
+                    <h5 id="city" class="text-uppercase small fw-bold mb-0 opacity-75">CARGANDO...</h5>
+                    <div id="desc" class="h3 fw-bold text-capitalize my-1">--</div>
                 </div>
-                <i id="icon" class="bi bi-cloud display-1" style="color:var(--accent)"></i>
+                <lottie-player id="weather-icon" src="https://lottie.host/5696d042-3b2c-473d-8209-51d07c0303e2/pX1x2s9y2F.json" background="transparent" speed="1" style="width: 100px; height: 100px; margin-top: -20px; margin-right: -10px;" loop autoplay></lottie-player>
             </div>
-            
-            <div class="mt-1 d-flex align-items-end">
+
+            <div class="d-flex align-items-end mt-2">
                 <div class="d-flex flex-column">
-                    <div id="temp" class="temp-big" style="line-height:0.9">--</div>
-                    <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
-                        Sensación: <span id="feels-like">--</span>°
-                    </div>
+                    <div id="temp" class="temp-big">--°</div>
+                    <div class="small fw-bold opacity-75">Sensación: <span id="feels-like">--</span>°</div>
                 </div>
-                
-                <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
-                    <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp">--</span>°</span>
-                    <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp">--</span>°</span>
+                <div class="ms-auto text-end mb-3 small fw-bold opacity-75">
+                    <span class="text-danger d-block"><i class="bi bi-arrow-up"></i> <span id="max-temp">--</span>°</span>
+                    <span class="text-info"><i class="bi bi-arrow-down"></i> <span id="min-temp">--</span>°</span>
                 </div>
             </div>
 
-            <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
-                <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum">--</span>%</span>
-                <span><i class="bi bi-wind text-info"></i> <span id="wind">--</span> km/h</span>
+            <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 pt-3 border-top border-light border-opacity-10">
+                <span><i class="bi bi-droplet-fill text-info"></i> <span id="hum">--</span>%</span>
+                <span><i class="bi bi-wind text-white"></i> <span id="wind">--</span> km/h</span>
                 <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv">--</span></span>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
-                <div>
-                    <i id="favHeart" class="bi bi-heart fs-3" style="cursor:pointer; transition:0.2s; color: var(--text-sec)"></i>
-                </div>
-
-                <div class="d-flex align-items-center gap-2" style="opacity: 0.9;">
-                    <span id="tip-text" class="text-end fst-italic fw-bold" style="font-size: 0.8rem; line-height: 1.2; max-width: 200px;">Cargando...</span>
-                    <span id="tip-icon" class="fs-4">🤖</span>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <i id="favHeart" class="bi bi-heart fs-4" style="cursor:pointer;"></i>
+                <div class="small fst-italic text-end opacity-75" style="max-width: 200px;">
+                    <span id="tip-text">Preparando consejo...</span> 🤖
                 </div>
             </div>
         </div>
 
         <div class="glass-card">
-            <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
-            <div class="d-flex align-items-end justify-content-between mt-2">
-                <div class="fw-bold fs-2" id="aqi-val">--</div>
-                <div class="small opacity-75 text-end fw-bold" id="aqi-text">--</div>
+            <h6 class="small fw-bold opacity-75 mb-0">TENDENCIA 24H</h6>
+            <div class="chart-container">
+                <canvas id="tempChart"></canvas>
             </div>
-            <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
-            <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small fw-bold opacity-75 mb-3">PRÓXIMOS 14 DÍAS</h6>
+            <div id="daily-list"></div>
+        </div>
+
+        <div class="glass-card">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="small fw-bold opacity-75 mb-0"><i class="bi bi-lungs"></i> CALIDAD AIRE</h6>
+                <span id="aqi-text" class="badge bg-success">Buena</span>
+            </div>
+            <div class="progress" style="height: 6px; background: rgba(255,255,255,0.2);">
+                <div id="aqi-bar" class="progress-bar bg-white" style="width: 0%"></div>
+            </div>
+            <div class="d-flex justify-content-between mt-2 small opacity-50">
                 <span>PM2.5: <span id="pm25">--</span></span>
                 <span>PM10: <span id="pm10">--</span></span>
             </div>
         </div>
 
-        <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
-            <div class="hourly-scroll" id="hourly"></div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
-            <div id="daily"></div>
-        </div>
-
-        <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
-            <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none;"></iframe>
-            <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none; backdrop-filter:blur(4px)">RADAR EN VIVO</div>
+        <div class="glass-card p-0 overflow-hidden" style="height: 300px;">
+            <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0"></iframe>
         </div>
     </div>
 
     <script>
-        // --- FAILSAFE LOADER ---
-        setTimeout(() => {
-            const loader = document.getElementById('loader');
-            if(loader) loader.classList.add('hidden');
-        }, 3000);
-
-        let currentId = localStorage.getItem('lastId') || 'Madrid';
-        let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
+        let currentChart = null;
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
+        let currentCity = { id: 'Madrid', name: 'Madrid', region: '' };
 
-        // --- FAVORITES LOGIC ---
-        const updateHeartUI = () => {
-            const heart = document.getElementById('favHeart');
-            if(!heart) return;
-            // Comparación robusta texto/texto
-            const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id));
-            heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3';
-        };
-
-        const toggleFavorite = () => {
-            const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id));
-            if (index > -1) {
-                favorites.splice(index, 1);
-            } else {
-                favorites.push({ ...currentCityInfo });
-            }
-            localStorage.setItem('aeris_favs', JSON.stringify(favorites));
-            updateHeartUI();
-            renderFavorites();
-        };
-
-        const renderFavorites = () => {
-            const list = document.getElementById('favList');
-            if(!list) return;
-            list.innerHTML = '';
+        // --- MAPA DE ICONOS LOTTIE ---
+        const getLottie = (code, isDay) => {
+            const c = parseInt(code);
+            // Sol / Luna (Despejado)
+            if (c === 1000) return isDay ? 'https://lottie.host/5696d042-3b2c-473d-8209-51d07c0303e2/pX1x2s9y2F.json' : 'https://lottie.host/9e01d360-606b-4261-9c6a-4d2c2069006e/6YI7s2sK7e.json';
+            // Lluvia
+            if ([1063, 1180, 1183, 1186, 1189, 1240, 1192, 1195, 1243].includes(c)) return 'https://lottie.host/9769065c-6c2e-4363-8a3d-336307373f72/K1z3s3s22s.json';
+            // Nublado
+            if ([1003, 1006, 1009, 1030].includes(c)) return 'https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json';
+            // Tormenta
+            if ([1087, 1273, 1276].includes(c)) return 'https://lottie.host/5053075c-3033-4720-9720-720930720503/d9123s.json';
+            // Nieve
+            if ([1066, 1114, 1210].includes(c)) return 'https://lottie.host/82736123-1238-1238-1238-12381238.json'; // URL de ejemplo, cambiar por real
             
-            if(favorites.length === 0) {
-                list.innerHTML = `
-                    <div class="d-flex flex-column align-items-center justify-content-center h-100 opacity-50 mt-5" style="color:var(--text)">
-                        <i class="bi bi-bookmark-star display-4 mb-3"></i>
-                        <span>Aún no tienes favoritos</span>
-                    </div>`;
-                return;
-            }
+            return 'https://lottie.host/02000d04-3677-4c47-b845-7799307779b7/82k3Q9s61X.json'; // Default
+        };
 
-            favorites.forEach(city => {
-                const li = document.createElement('li');
-                li.className = 'fav-item';
-                li.innerHTML = `
-                    <div class="fav-item-info">
-                        <span class="fav-name">${city.name}</span>
-                        <span class="fav-region text-uppercase">${city.region}</span>
-                    </div>
-                    <div class="fav-delete" title="Borrar">
-                        <i class="bi bi-trash3-fill"></i>
-                    </div>
-                `;
-                
-                li.querySelector('.fav-item-info').onclick = () => {
-                    closeSidebar();
-                    selectCity(city);
-                };
-                li.querySelector('.fav-delete').onclick = (e) => {
-                    e.stopPropagation();
-                    favorites = favorites.filter(f => String(f.id) !== String(city.id));
-                    localStorage.setItem('aeris_favs', JSON.stringify(favorites));
-                    renderFavorites();
-                    updateHeartUI();
-                };
-                list.appendChild(li);
+        const setBackground = (code, isDay) => {
+            const bg = document.getElementById('dynamic-bg');
+            const rain = document.getElementById('rain-effect');
+            const c = parseInt(code);
+            
+            bg.className = ''; 
+            rain.classList.remove('active');
+
+            if (!isDay) {
+                bg.classList.add('night');
+            } else if ([1063, 1180, 1183, 1189, 1192, 1195, 1273].includes(c)) {
+                bg.classList.add('rainy');
+                rain.classList.add('active');
+            } else if (c === 1000) {
+                bg.classList.add('sunny');
+            }
+        };
+
+        const renderChart = (hours) => {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            if(currentChart) currentChart.destroy();
+
+            const labels = hours.map(h => new Date(h.fullDate).getHours() + 'h');
+            const data = hours.map(h => h.temp);
+
+            currentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        borderColor: '#ffffff',
+                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false }
+                    },
+                    layout: { padding: { top: 10, bottom: 0 } }
+                }
             });
         };
 
-        const openSidebar = () => {
-            document.getElementById('favSidebar').classList.add('open');
-            document.getElementById('overlay').classList.add('show');
-            renderFavorites();
-        };
-        const closeSidebar = () => {
-            document.getElementById('favSidebar').classList.remove('open');
-            document.getElementById('overlay').classList.remove('show');
-        };
-
-        // --- TIPS LOGIC ---
-        const getFunnyTip = (temp, rainProb, wind, uv, aqi, descLower) => {
-            const tips = [];
-            let icon = "🤔";
-            if (rainProb > 40 || descLower.includes('lluvia') || descLower.includes('tormenta')) {
-                icon = "☔"; tips.push("Si te alisas el pelo, pierdes el tiempo.", "Paraguas o ducha gratis, tú eliges.", "El cielo está llorando.");
-            } else if (temp > 30) {
-                icon = "🥵"; tips.push("El asfalto es lava.", "No respires fuerte o te quemas.", "Hidrátate, no eres un cactus.");
-            } else if (temp < 5) {
-                icon = "🥶"; tips.push("Se le congelan los mocos a las estatuas.", "Ponte 8 capas o rueda.", "Abraza a quien sea por calor.");
-            } else if (wind > 25) {
-                icon = "💨"; tips.push("Agárrate los empastes.", "No lleves peluquín hoy.", "Cuidado con las macetas voladoras.");
-            } else if (uv > 7) {
-                icon = "🧴"; tips.push("El sol muerde hoy.", "¿Eres vampiro? Busca sombra.", "Factor 50 o pareces una gamba.");
-            } else if (aqi > 3) {
-                icon = "😷"; tips.push("El aire se mastica.", "Si tienes branquias, úsalas.", "No es niebla, es contaminación.");
-            } else {
-                icon = "😎"; tips.push("Hace bueno. Raro, ¿eh?", "Si no sales hoy, no tienes perdón.", "Día de cervecita en terraza.");
-            }
-            return { text: tips[Math.floor(Math.random() * tips.length)], icon: icon };
-        };
-
-        // --- SEARCH ---
-        const searchInput = document.getElementById('citySearch');
-        const suggestionsList = document.getElementById('suggestions');
-        let searchTimeout;
-
-        if(searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(searchTimeout);
-                if (e.target.value.length < 3) return suggestionsList.classList.remove('show');
-                
-                searchTimeout = setTimeout(async () => {
-                    try {
-                        const res = await fetch(`/api/search/${encodeURIComponent(e.target.value)}`);
-                        const cities = await res.json();
-                        suggestionsList.innerHTML = '';
-                        cities.forEach(c => {
-                            const li = document.createElement('li');
-                            li.className = 'suggestion-item';
-                            li.innerHTML = `<span>${c.name}</span><small>${c.region}, ${c.country}</small>`;
-                            li.onclick = () => selectCity(c);
-                            suggestionsList.appendChild(li);
-                        });
-                        if(cities.length) suggestionsList.classList.add('show');
-                    } catch(e) {}
-                }, 300);
-            });
-        }
-
-        const selectCity = (city) => {
-            if(searchInput) searchInput.value = '';
-            if(suggestionsList) suggestionsList.classList.remove('show');
-            const id = city.id || city.name;
-            localStorage.setItem('lastId', id);
-            getWeather(id);
-        };
-
-        // --- API CALL ---
         async function getWeather(id) {
             const loader = document.getElementById('loader');
-            if(loader) loader.classList.remove('hidden');
             try {
                 const res = await fetch(`/api/weather/${id}`);
                 const data = await res.json();
@@ -463,184 +286,149 @@
 
                 const cur = data.current;
                 const loc = data.location;
-                
-                // Actualizar info global
-                currentCityInfo = { id: id, name: loc.name, region: loc.region };
-                updateHeartUI();
+                currentCity = { id: id, name: loc.name, region: loc.region };
 
-                // UI UPDATE
-                document.getElementById('city').innerText = loc.name;
-                document.getElementById('temp').innerText = cur.temp + '°';
+                document.getElementById('city').innerText = `${loc.name}, ${loc.country}`;
                 document.getElementById('desc').innerText = cur.desc;
-                document.getElementById('icon').className = `bi ${cur.icon} display-1`;
+                document.getElementById('temp').innerText = cur.temp + '°';
+                document.getElementById('feels-like').innerText = cur.feelsLike;
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
-                
-                // 🔥 SENSACIÓN TÉRMICA 🔥
-                document.getElementById('feels-like').innerText = cur.feelsLike;
 
-                if (data.daily && data.daily.length > 0) {
+                if (data.daily && data.daily.length) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
                     document.getElementById('min-temp').innerText = data.daily[0].tempMin;
                 }
 
-                // RADAR
-                if(loc.lat && loc.lon) {
-                    const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
-                    const iframe = document.getElementById('radar-frame');
-                    if(iframe) iframe.src = radarUrl;
-                }
+                // Cargar Icono Lottie Dinámico
+                document.getElementById('weather-icon').load(getLottie(cur.icon_code || 1000, cur.isDay));
+                setBackground(cur.icon_code || 1000, cur.isDay);
 
-                // AQI
-                const aqi = (cur.aqi !== undefined) ? cur.aqi : 1; 
-                const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
-                const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
-                const aqiLabels = {1: "Buena", 2: "Moderada", 3: "Dañina (S)", 4: "Dañina", 5: "Muy Dañina", 6: "Peligrosa"};
-                
-                document.getElementById('aqi-val').innerText = aqi;
-                document.getElementById('aqi-text').innerText = aqiLabels[aqi] || "Buena";
-                document.getElementById('pm25').innerText = pm25;
-                document.getElementById('pm10').innerText = pm10;
-                
-                const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
-                document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
+                const now = Math.floor(Date.now()/1000);
+                const nextHours = data.hourly.filter(h => h.epoch >= now).slice(0, 24);
+                renderChart(nextHours);
 
-                // SMART TIP
-                const nextRain = data.hourly.find(h => h.rainProb > 40 && h.epoch > Math.floor(Date.now()/1000));
-                const rainProbNow = nextRain ? nextRain.rainProb : 0;
-                const tip = getFunnyTip(cur.temp, rainProbNow, cur.windSpeed, cur.uv, aqi, cur.desc.toLowerCase());
-                
-                document.getElementById('tip-text').innerText = tip.text;
-                document.getElementById('tip-icon').innerText = tip.icon;
-
-                // HOURLY
-                const nowEpoch = Math.floor(Date.now()/1000);
-                const hCont = document.getElementById('hourly');
-                if(hCont) {
-                    hCont.innerHTML = data.hourly
-                        .filter(h => h.epoch >= nowEpoch)
-                        .slice(0, 24)
-                        .map(h => `
-                            <div class="hourly-item">
-                                <div class="small opacity-75 fw-bold mb-1">${new Date(h.fullDate).getHours()}:00</div>
-                                <i class="bi ${h.icon} fs-4" style="color:var(--text)"></i>
-                                <div class="fw-bold fs-5">${h.temp}°</div>
-                                <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">${h.rainProb>0?h.rainProb+'%':''}</div>
-                            </div>
-                        `).join('');
-                }
-
-                // DAILY
-                const dCont = document.getElementById('daily');
-                if(dCont) {
-                    dCont.innerHTML = data.daily.map(d => `
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                            <div style="width:35%" class="fw-bold text-capitalize">
-                                <div>${new Date(d.fecha).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div>
-                                <div class="small opacity-50 d-flex gap-2" style="font-size:0.7rem">
-                                    <span><i class="bi bi-sunrise"></i> ${d.sunrise}</span>
-                                    <span><i class="bi bi-sunset"></i> ${d.sunset}</span>
-                                </div>
-                            </div>
-                            <div class="d-flex flex-column align-items-center" style="width:25%">
-                                <i class="bi ${d.icon} fs-5" style="color:var(--accent)"></i>
-                                <small class="text-primary fw-bold" style="font-size:0.7rem">${d.rainProbMax > 0 ? d.rainProbMax + '%' : ''}</small>
-                            </div>
-                            <div class="text-end fw-bold" style="width:30%">
-                                <span style="color:#ef4444">${d.tempMax}°</span> <span class="opacity-50 mx-1">/</span> <span style="color:#3b82f6">${d.tempMin}°</span>
-                            </div>
+                document.getElementById('daily-list').innerHTML = data.daily.map(d => `
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-light border-opacity-10">
+                        <div style="width:35%" class="fw-bold small text-capitalize">${new Date(d.fecha).toLocaleDateString('es-ES', {weekday:'short', day:'numeric'})}</div>
+                        <div class="small opacity-50"><i class="bi bi-droplet"></i> ${d.rainProbMax}%</div>
+                        <div class="fw-bold small text-end" style="width:30%">
+                            <span class="text-white">${d.tempMax}°</span> <span class="opacity-50">${d.tempMin}°</span>
                         </div>
-                    `).join('');
+                    </div>
+                `).join('');
+
+                const aqiVal = cur.aqi || 1;
+                document.getElementById('aqi-bar').style.width = `${Math.min((aqiVal/6)*100, 100)}%`;
+                document.getElementById('pm25').innerText = cur.pm25;
+                document.getElementById('pm10').innerText = cur.pm10;
+
+                if(loc.lat) {
+                    document.getElementById('radar-frame').src = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
                 }
 
-                // 🔥 CAMBIO DE TEMA AUTOMÁTICO 🔥
-                const newTheme = cur.isDay ? 'light' : 'dark';
-                document.body.setAttribute('data-theme', newTheme);
-                // Actualizar icono del botón
-                const themeBtn = document.getElementById('themeBtn');
-                if(themeBtn) {
-                    themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>';
-                }
+                updateHeart();
+                const tips = ["Si te alisas el pelo, pierdes el tiempo.", "Hoy es día de peli y manta.", "Hidrátate, no eres un cactus.", "¡Vaya día para estar vivo!"];
+                document.getElementById('tip-text').innerText = tips[Math.floor(Math.random()*tips.length)];
 
             } catch (e) {
                 console.error(e);
             } finally {
-                if(loader) loader.classList.add('hidden');
+                loader.classList.add('hidden');
             }
         }
 
-        // INIT Listeners
-        const refreshBtn = document.getElementById('refreshBtn');
-        if(refreshBtn) refreshBtn.addEventListener('click', () => getWeather(localStorage.getItem('lastId') || 'Madrid'));
-        
-        const themeBtn = document.getElementById('themeBtn');
-        if(themeBtn) themeBtn.addEventListener('click', () => {
-            const current = document.body.getAttribute('data-theme');
-            const newTheme = current === 'dark' ? 'light' : 'dark';
-            document.body.setAttribute('data-theme', newTheme);
-            themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>';
+        const updateHeart = () => {
+            const heart = document.getElementById('favHeart');
+            const exists = favorites.some(f => String(f.id) === String(currentCity.id));
+            heart.className = exists ? 'bi bi-heart-fill fs-4 text-danger' : 'bi bi-heart fs-4 text-white';
+        };
+
+        document.getElementById('favHeart').addEventListener('click', () => {
+            const index = favorites.findIndex(f => String(f.id) === String(currentCity.id));
+            if (index > -1) favorites.splice(index, 1);
+            else favorites.push(currentCity);
+            localStorage.setItem('aeris_favs', JSON.stringify(favorites));
+            updateHeart();
+            renderSidebar();
         });
 
-        const geoBtn = document.getElementById('geoBtn');
-        if(geoBtn) geoBtn.addEventListener('click', () => {
-             if(!navigator.geolocation) return;
-             navigator.geolocation.getCurrentPosition(async (pos) => {
-                 const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-                 const city = await res.json();
-                 if(city.id || city.name) getWeather(city.id || city.name);
-             });
-        });
+        const renderSidebar = () => {
+            const list = document.getElementById('favList');
+            list.innerHTML = favorites.map(city => `
+                <li class="fav-item" onclick="selectFav('${city.id}')">
+                    <div>
+                        <div class="fw-bold">${city.name}</div>
+                        <div class="small opacity-50">${city.region || ''}</div>
+                    </div>
+                    <i class="bi bi-trash" onclick="removeFav(event, '${city.id}')"></i>
+                </li>
+            `).join('');
+        };
 
-        const favHeart = document.getElementById('favHeart');
-        if(favHeart) favHeart.addEventListener('click', toggleFavorite);
-        
-        const favMenuBtn = document.getElementById('favMenuBtn');
-        if(favMenuBtn) favMenuBtn.addEventListener('click', openSidebar);
-        
-        const closeSidebarBtn = document.getElementById('closeSidebar');
-        if(closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
-        
+        window.selectFav = (id) => {
+            closeSidebar();
+            getWeather(id);
+            localStorage.setItem('lastId', id);
+        };
+
+        window.removeFav = (e, id) => {
+            e.stopPropagation();
+            favorites = favorites.filter(f => String(f.id) !== String(id));
+            localStorage.setItem('aeris_favs', JSON.stringify(favorites));
+            renderSidebar();
+            updateHeart();
+        };
+
+        const sidebar = document.getElementById('favSidebar');
         const overlay = document.getElementById('overlay');
-        if(overlay) overlay.addEventListener('click', closeSidebar);
+        const closeSidebar = () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); };
+        document.getElementById('favMenuBtn').addEventListener('click', () => { sidebar.classList.add('open'); overlay.classList.add('show'); renderSidebar(); });
+        document.getElementById('closeSidebar').addEventListener('click', closeSidebar);
+        overlay.addEventListener('click', closeSidebar);
 
-        // 🔥 INICIO INTELIGENTE: GPS O ÚLTIMA CIUDAD (CORREGIDO Y PRIORITARIO) 🔥
-        if (navigator.geolocation) {
-            // INTENTAMOS GPS PRIMERO SIEMPRE
+        const searchInput = document.getElementById('citySearch');
+        const suggestions = document.getElementById('suggestions');
+        let timeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(timeout);
+            if(e.target.value.length < 3) return suggestions.classList.remove('show');
+            timeout = setTimeout(async () => {
+                const res = await fetch(`/api/search/${encodeURIComponent(e.target.value)}`);
+                const data = await res.json();
+                suggestions.innerHTML = data.map(c => 
+                    `<li class="suggestion-item" onclick="selectSearch('${c.id || c.name}')">${c.name} <small>(${c.country})</small></li>`
+                ).join('');
+                if(data.length) suggestions.classList.add('show');
+            }, 300);
+        });
+
+        window.selectSearch = (id) => {
+            searchInput.value = '';
+            suggestions.classList.remove('show');
+            localStorage.setItem('lastId', id);
+            getWeather(id);
+        };
+
+        const lastId = localStorage.getItem('lastId');
+        if (!lastId && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                async (pos) => {
+                async p => {
                     try {
-                        const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-                        const city = await res.json();
-                        if (city.id || city.name) {
-                            getWeather(city.id || city.name);
-                        } else {
-                            // Si falla API, usamos la última ciudad o Madrid
-                            getWeather(localStorage.getItem('lastId') || 'Madrid');
-                        }
-                    } catch(e) {
-                        getWeather(localStorage.getItem('lastId') || 'Madrid');
-                    }
+                        const res = await fetch(`/api/geo?lat=${p.coords.latitude}&lon=${p.coords.longitude}`);
+                        const c = await res.json();
+                        getWeather(c.id || c.name);
+                    } catch { getWeather('Madrid'); }
                 },
-                (err) => {
-                    // Si el usuario rechaza GPS, usamos la última ciudad o Madrid
-                    console.log("GPS denegado o error:", err);
-                    getWeather(localStorage.getItem('lastId') || 'Madrid');
-                },
-                { timeout: 5000 } // Esperar máx 5s al GPS
+                () => getWeather('Madrid')
             );
         } else {
-            // Si no hay soporte GPS, última ciudad o Madrid
-            getWeather(localStorage.getItem('lastId') || 'Madrid');
+            getWeather(lastId || 'Madrid');
         }
-    </script>
-    
-    <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js');
-        });
-    }
+
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');
+
     </script>
 </body>
 </html>
