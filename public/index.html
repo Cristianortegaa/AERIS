@@ -316,7 +316,7 @@
             if(loader) loader.classList.add('hidden');
         }, 3000);
 
-        let currentId = localStorage.getItem('lastId'); // Inicialmente null, sin valor por defecto 'Madrid'
+        let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
 
@@ -477,7 +477,7 @@
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
                 
-                // 🔥 SENSACIÓN TÉRMICA (Nueva) 🔥
+                // 🔥 SENSACIÓN TÉRMICA 🔥
                 document.getElementById('feels-like').innerText = cur.feelsLike;
 
                 if (data.daily && data.daily.length > 0) {
@@ -604,35 +604,34 @@
         const overlay = document.getElementById('overlay');
         if(overlay) overlay.addEventListener('click', closeSidebar);
 
-        // 🔥 INICIO INTELIGENTE: GPS O ÚLTIMA CIUDAD 🔥
-        if (!localStorage.getItem('lastId')) {
-            // Si es la primera vez (no hay historial), intenta geolocalizar
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    async (pos) => {
-                        try {
-                            const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-                            const city = await res.json();
-                            if (city.id || city.name) {
-                                getWeather(city.id || city.name);
-                            } else {
-                                getWeather('Madrid'); // Fallback si la API geo falla
-                            }
-                        } catch(e) {
-                            getWeather('Madrid'); // Fallback si fetch falla
+        // 🔥 INICIO INTELIGENTE: GPS O ÚLTIMA CIUDAD (CORREGIDO Y PRIORITARIO) 🔥
+        if (navigator.geolocation) {
+            // INTENTAMOS GPS PRIMERO SIEMPRE
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    try {
+                        const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+                        const city = await res.json();
+                        if (city.id || city.name) {
+                            getWeather(city.id || city.name);
+                        } else {
+                            // Si falla API, usamos la última ciudad o Madrid
+                            getWeather(localStorage.getItem('lastId') || 'Madrid');
                         }
-                    },
-                    (err) => {
-                        console.log("GPS denegado o error:", err);
-                        getWeather('Madrid'); // Fallback si el usuario deniega GPS
+                    } catch(e) {
+                        getWeather(localStorage.getItem('lastId') || 'Madrid');
                     }
-                );
-            } else {
-                getWeather('Madrid'); // Fallback si no hay soporte GPS
-            }
+                },
+                (err) => {
+                    // Si el usuario rechaza GPS, usamos la última ciudad o Madrid
+                    console.log("GPS denegado o error:", err);
+                    getWeather(localStorage.getItem('lastId') || 'Madrid');
+                },
+                { timeout: 5000 } // Esperar máx 5s al GPS
+            );
         } else {
-            // Si ya ha entrado antes, carga la última ciudad
-            getWeather(currentId);
+            // Si no hay soporte GPS, última ciudad o Madrid
+            getWeather(localStorage.getItem('lastId') || 'Madrid');
         }
     </script>
     
