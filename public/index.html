@@ -30,7 +30,6 @@
             --text: #0c4a6e; 
             --text-sec: #475569;
             --accent: #0284c7;
-            --accent-rgb: 2, 132, 199;
             --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
         }
 
@@ -42,7 +41,6 @@
             --text: #f8fafc; 
             --text-sec: #cbd5e1; 
             --accent: #38bdf8;
-            --accent-rgb: 56, 189, 248;
             --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
         }
 
@@ -80,11 +78,11 @@
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         
-        /* ESTILO GRÁFICO LLUVIA MEJORADO */
+        /* ESTILO GRÁFICO LLUVIA (Más alto y limpio) */
         .rain-chart-wrapper { 
-            height: 140px; 
+            height: 120px; 
             width: 100%; 
-            margin-top: 15px; 
+            margin-top: 10px; 
             position: relative; 
         }
 
@@ -162,6 +160,7 @@
                     <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-0" style="color:var(--accent); letter-spacing:1px">...</h5>
                     <div id="desc" class="h4 text-capitalize mt-1 fw-bold">--</div>
                 </div>
+                
                 <div id="lottie-icon" style="width: 140px; height: 140px; margin-top: -30px; margin-right: -10px;"></div>
             </div>
             
@@ -196,9 +195,9 @@
         <div class="glass-card" id="rain-card" style="display:none; transition: opacity 0.5s ease;">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)">
-                    <i class="bi bi-cloud-drizzle-fill"></i> PRÓXIMA HORA
+                    <i class="bi bi-cloud-drizzle-fill"></i> TENDENCIA LLUVIA
                 </h6>
-                <small class="fw-bold text-uppercase" style="color:var(--accent); font-size:0.75rem" id="rain-summary">--</small>
+                <small class="fw-bold" style="color:var(--accent); font-size:0.75rem" id="rain-summary">--</small>
             </div>
             <div class="rain-chart-wrapper">
                 <canvas id="rainChart"></canvas>
@@ -246,7 +245,7 @@
         let lottieAnim = null;
         let rainChartInstance = null;
 
-        // --- MAPA LOTTIE (PUBLIC & SAFE) ---
+        // --- ICONOS LOTTIE (Robustos) ---
         const getLottieUrl = (code, isDay) => {
             const c = parseInt(code);
             if (c === 1000) return isDay ? "https://assets10.lottiefiles.com/packages/lf20_xlkxtmul.json" : "https://assets10.lottiefiles.com/packages/lf20_b0ojk9z1.json";
@@ -337,17 +336,17 @@
             getWeather(id);
         };
 
-        // --- RENDER RAIN CHART (PRO) ---
+        // --- RENDER RAIN CHART (PRO: CURVA SUAVE + DEGRADADO) ---
         const renderRainChart = (nowcast) => {
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
             
+            // Si no hay datos, ocultar
             if(!nowcast || !nowcast.time || nowcast.time.length === 0) {
                 card.style.display = 'none';
                 return;
             }
 
-            // Datos próximos 60 min
             const now = new Date();
             const currentHour = now.getHours();
             let startIndex = nowcast.time.findIndex(t => t.includes(`T${String(currentHour).padStart(2,'0')}:`));
@@ -356,25 +355,26 @@
             const timeLabels = [];
             const precipData = [];
             
-            // Tomamos 5 puntos (0, 15, 30, 45, 60 min)
+            // Tomamos los siguientes 60 minutos (4-5 puntos de 15 min)
             for(let i=0; i<5; i++) {
                 if(startIndex + i < nowcast.precipitation.length) {
                     precipData.push(nowcast.precipitation[startIndex + i]);
-                    // Etiqueta hora real
-                    const timeStr = nowcast.time[startIndex + i].split('T')[1]; 
-                    timeLabels.push(timeStr);
+                    // Extraer hora limpia (HH:MM)
+                    const fullTime = nowcast.time[startIndex + i];
+                    const hourMin = fullTime.split('T')[1]; 
+                    timeLabels.push(hourMin);
                 }
             }
 
             const totalRain = precipData.reduce((a,b) => a+b, 0);
 
-            // LOGICA FANTASMA: Si apenas llueve, OCULTAR
+            // 👻 GHOST MODE: Si la lluvia es mínima (<= 0.1mm), OCULTAR tarjeta
             if(totalRain <= 0.1) {
                 card.style.display = 'none';
                 return;
             }
 
-            // Si hay lluvia, mostrar tarjeta
+            // Si hay lluvia significativa, mostrar y renderizar
             card.style.display = 'block';
             summary.innerText = totalRain > 2 ? "Lluvia Fuerte" : (totalRain > 0.5 ? "Lluvia Moderada" : "Lluvia Ligera");
             
@@ -382,46 +382,46 @@
             
             // Degradado PRO (Tipo Apple Weather)
             const gradient = ctx.createLinearGradient(0, 0, 0, 150);
-            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.9)'); // Azul vibrante arriba
-            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.1)'); // Transparente abajo
+            gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)'); // Azul brillante arriba
+            gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)'); // Casi invisible abajo
 
             if(rainChartInstance) rainChartInstance.destroy();
 
             rainChartInstance = new Chart(ctx, {
-                type: 'line', // Usamos 'line' con relleno para efecto suave
+                type: 'line', // Usamos línea para curva suave
                 data: {
                     labels: timeLabels,
                     datasets: [{
-                        label: 'Lluvia (mm)',
+                        label: 'mm',
                         data: precipData,
                         backgroundColor: gradient,
-                        borderColor: '#3b82f6',
+                        borderColor: '#38bdf8', // Línea azul neón
                         borderWidth: 2,
-                        pointRadius: 0, // Sin puntos, solo curva
-                        fill: true,
-                        tension: 0.4 // Curva suave (spline)
+                        pointRadius: 0, // Sin puntos feos
+                        fill: true,     // Relleno de área
+                        tension: 0.4    // Curva suave (spline)
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                    plugins: { legend: { display: false }, tooltip: { enabled: true, intersect: false } },
                     scales: {
                         x: { 
                             grid: { display: false }, 
                             ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } }
                         },
                         y: { 
-                            display: false, // Eje Y oculto para limpieza
+                            display: false, // Eje Y invisible
                             min: 0,
                             suggestedMax: Math.max(...precipData) * 1.5 
                         }
                     },
                     animation: {
-                        duration: 1000,
+                        duration: 1200,
                         easing: 'easeOutQuart'
                     },
-                    layout: { padding: { top: 10, bottom: 5, left: -10, right: -10 } }
+                    layout: { padding: { top: 10, left: -5, right: -5 } }
                 }
             });
         };
@@ -443,7 +443,6 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
-                // Icono Lottie
                 const iconContainer = document.getElementById('lottie-icon');
                 if(lottieAnim) lottieAnim.destroy();
 
@@ -469,7 +468,7 @@
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
 
-                // ACTIVAR GRÁFICO LLUVIA
+                // ACTIVAR LÓGICA GRÁFICO LLUVIA
                 renderRainChart(data.nowcast);
 
                 if (data.daily && data.daily.length > 0) {
