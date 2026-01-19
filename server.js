@@ -60,7 +60,7 @@ app.get('/api/geo', async (req, res) => {
     }
 });
 
-// --- API PREVISIÓN ---
+// --- API PREVISIÓN (MEZCLADA) ---
 app.get('/api/weather/:id', async (req, res) => {
     const locationId = req.params.id;
     try {
@@ -73,10 +73,24 @@ app.get('/api/weather/:id', async (req, res) => {
         }
 
         const q = isNaN(locationId) ? locationId : `id:${locationId}`;
-        const url = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=14&aqi=yes&alerts=no&lang=es`;
         
+        // 1. LLAMADA PRINCIPAL A WEATHERAPI
+        const url = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=14&aqi=yes&alerts=no&lang=es`;
         const response = await axios.get(url);
         const data = response.data;
+
+        // 2. LLAMADA SECUNDARIA A OPEN-METEO (Para Lluvia Minuto a Minuto)
+        let rainForecast = null;
+        try {
+            const { lat, lon } = data.location;
+            // Pedimos datos cada 15 min de precipitación
+            const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&forecast_days=1&timezone=auto`;
+            const omResponse = await axios.get(openMeteoUrl);
+            rainForecast = omResponse.data.minutely_15; // Objeto con { time: [], precipitation: [] }
+        } catch (omError) {
+            console.error("OpenMeteo Error (Rain):", omError.message);
+            // Si falla, seguimos sin romper la app, rainForecast será null
+        }
 
         // Extraer AQI
         const aqiData = data.current.air_quality || {};
@@ -91,11 +105,12 @@ app.get('/api/weather/:id', async (req, res) => {
             },
             current: {
                 temp: Math.round(data.current.temp_c),
-                feelsLike: Math.round(data.current.feelslike_c), // YA ESTABA, PERO NOS ASEGURAMOS
+                feelsLike: Math.round(data.current.feelslike_c),
                 humidity: data.current.humidity,
                 pressure: data.current.pressure_mb,
                 windSpeed: Math.round(data.current.wind_kph),
                 desc: data.current.condition.text,
+                icon_code: data.current.condition.code, // Añadido para Lottie
                 icon: mapIcon(data.current.condition.code, data.current.is_day),
                 isDay: data.current.is_day === 1,
                 uv: data.current.uv,
@@ -103,6 +118,8 @@ app.get('/api/weather/:id', async (req, res) => {
                 pm25: Math.round(aqiData.pm2_5 || 0),
                 pm10: Math.round(aqiData.pm10 || 0)
             },
+            // AÑADIMOS EL DATO DE OPEN-METEO AQUÍ
+            nowcast: rainForecast, 
             hourly: [
                 ...data.forecast.forecastday[0].hour,
                 ...(data.forecast.forecastday[1] ? data.forecast.forecastday[1].hour : [])
@@ -118,11 +135,11 @@ app.get('/api/weather/:id', async (req, res) => {
                 tempMax: Math.round(d.day.maxtemp_c),
                 tempMin: Math.round(d.day.mintemp_c),
                 uv: d.day.uv,
-                sunrise: d.astro.sunrise, // AÑADIDO
-                sunset: d.astro.sunset,   // AÑADIDO
+                sunrise: d.astro.sunrise,
+                sunset: d.astro.sunset,
                 icon: mapIcon(d.day.condition.code, 1),
                 desc: d.day.condition.text,
-                rainProbMax: d.day.daily_chance_of_rain // YA ESTABA, NOS ASEGURAMOS
+                rainProbMax: d.day.daily_chance_of_rain
             }))
         };
 
