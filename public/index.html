@@ -116,7 +116,6 @@
         
         /* CLOTHING CARD STYLE */
         .clothing-tag {
-            background: rgba(var(--accent-rgb), 0.1); 
             border: 1px solid var(--glass-border);
             padding: 8px 14px;
             border-radius: 50px;
@@ -130,6 +129,9 @@
         }
         [data-theme="dark"] .clothing-tag { background: rgba(255,255,255,0.1); }
         .clothing-tag:hover { transform: scale(1.05); }
+        
+        /* OUTFIT ICON (Small in Main Card) */
+        .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
     </style>
 </head>
 <body data-theme="light">
@@ -202,6 +204,11 @@
             <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
                 <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
                 <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
+                
+                <span id="outfit-display" style="display:none; margin-left: 5px;">
+                    <i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span>
+                </span>
+                
                 <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
             </div>
 
@@ -210,6 +217,18 @@
                 <div class="ai-container" id="ai-toggle" style="opacity: 0.9;">
                     <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; min-height: 2em; display:block"></span>
                     <span id="tip-icon" class="fs-4">🤖</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
+                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
+            </h6>
+            <div id="clothing-advice">
+                <div class="d-flex flex-wrap gap-2">
+                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
+                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
                 </div>
             </div>
         </div>
@@ -230,17 +249,6 @@
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
-                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
-            </h6>
-            <div id="getClothingList" class="d-flex flex-wrap gap-2">
-                <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
-                <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
-                <div class="skeleton" style="width: 60px; height: 30px; border-radius: 50px;"></div>
             </div>
         </div>
 
@@ -329,7 +337,7 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- FUNCION DOBLE: ROPA PARA CHICOS Y CHICAS (MODA ACTUAL) ---
+        // --- FUNCION DOBLE: ROPA MODERNIZADA (CHICOS/CHICAS) ---
         const getClothingList = (temp, desc, wind) => {
             let boys = [];
             let girls = [];
@@ -337,86 +345,50 @@
             const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             const isSnowing = desc.includes('nieve') || desc.includes('nevada');
 
-            // --- 1. CASOS ESPECIALES (LLUVIA/NIEVE) ---
+            // 1. LLUVIA/NIEVE
             if (isRaining) {
                 boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
                 boys.push({icon: 'bi-cloud-rain', text: 'Cortavientos'});
-                boys.push({icon: 'bi-boot', text: 'Botas piel'});
-                
                 girls.push({icon: 'bi-umbrella', text: 'Paraguas'});
                 girls.push({icon: 'bi-cloud-rain', text: 'Trench / Gabardina'});
-                girls.push({icon: 'bi-boot', text: 'Botas de agua altas'});
+                girls.push({icon: 'bi-boot', text: 'Botas de agua'});
             }
-            
             if (isSnowing) {
                 boys.push({icon: 'bi-snow', text: 'Botas montaña'});
-                boys.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
-                
                 girls.push({icon: 'bi-snow', text: 'Botas peluche'});
-                girls.push({icon: 'bi-hand-index-thumb', text: 'Manoplas'});
             }
 
-            // --- 2. TEMPERATURA (CHICOS) ---
-            if (temp < 0) {
+            // 2. TEMPERATURA
+            if (temp < 5) {
                 boys.push({icon: 'bi-snow2', text: 'Plumas gordo'});
-                boys.push({icon: 'bi-thermometer-snow', text: 'Térmica interior'});
                 boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro lana'});
-            } else if (temp < 10) {
-                boys.push({icon: 'bi-person-fill', text: 'Abrigo largo'});
-                boys.push({icon: 'bi-layers', text: 'Jersey cuello alto'});
-                boys.push({icon: 'bi-gem', text: 'Pantalón pana'});
-            } else if (temp < 15) {
-                boys.push({icon: 'bi-person-hoodie', text: 'Hoodie (Sudadera)'});
-                boys.push({icon: 'bi-layers-half', text: 'Chaleco acolchado'});
-                boys.push({icon: 'bi-person', text: 'Bomber'});
-            } else if (temp < 20) {
-                boys.push({icon: 'bi-person-video', text: 'Sobrecamisa'});
-                boys.push({icon: 'bi-gem', text: 'Pantalón Cargo'});
-                boys.push({icon: 'bi-tshirt', text: 'Camiseta básica'});
-            } else if (temp < 26) {
-                boys.push({icon: 'bi-brightness-high', text: 'Camiseta Oversize'});
-                boys.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
-                boys.push({icon: 'bi-bicycle', text: 'Vaqueros rotos'});
-            } else {
-                boys.push({icon: 'bi-brightness-alt-high', text: 'Camisa Lino'});
-                boys.push({icon: 'bi-bucket', text: 'Pantalón corto'});
-                boys.push({icon: 'bi-capslock', text: 'Gorra'});
-                boys.push({icon: 'bi-water', text: 'Sandalias'});
-            }
-
-            // --- 3. TEMPERATURA (CHICAS) ---
-            if (temp < 0) {
                 girls.push({icon: 'bi-snow2', text: 'Puffer Jacket'});
                 girls.push({icon: 'bi-thermometer-snow', text: 'Leggins térmicos'});
-                girls.push({icon: 'bi-emoji-dizzy', text: 'Bufanda XL'});
-            } else if (temp < 10) {
-                girls.push({icon: 'bi-person-fill', text: 'Abrigo de Paño'});
+            } else if (temp < 12) {
+                boys.push({icon: 'bi-person-fill', text: 'Abrigo paño'});
+                boys.push({icon: 'bi-layers', text: 'Jersey cuello alto'});
+                girls.push({icon: 'bi-person-fill', text: 'Abrigo largo'});
                 girls.push({icon: 'bi-layers', text: 'Jersey Oversize'});
-                girls.push({icon: 'bi-boot', text: 'Botas altas'});
-            } else if (temp < 15) {
-                girls.push({icon: 'bi-person', text: 'Cazadora Biker/Cuero'});
+            } else if (temp < 18) {
+                boys.push({icon: 'bi-person-hoodie', text: 'Hoodie/Sudadera'});
+                boys.push({icon: 'bi-layers-half', text: 'Chaleco acolchado'});
+                girls.push({icon: 'bi-person', text: 'Biker / Cuero'});
                 girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
-                girls.push({icon: 'bi-gem', text: 'Jeans anchos'});
-            } else if (temp < 20) {
+            } else if (temp < 24) {
+                boys.push({icon: 'bi-person-video', text: 'Sobrecamisa'});
+                boys.push({icon: 'bi-gem', text: 'Pantalón Cargo'});
                 girls.push({icon: 'bi-suit-heart', text: 'Blazer'});
-                girls.push({icon: 'bi-person-video', text: 'Rebeca fina'});
-                girls.push({icon: 'bi-shoe-prints', text: 'Zapatillas lona'});
-            } else if (temp < 26) {
-                girls.push({icon: 'bi-brightness-high', text: 'Top / Crop top'});
+                girls.push({icon: 'bi-gem', text: 'Jeans anchos'});
+            } else if (temp < 30) {
+                boys.push({icon: 'bi-brightness-high', text: 'Camiseta Oversize'});
+                boys.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
+                girls.push({icon: 'bi-brightness-high', text: 'Crop top'});
                 girls.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
-                girls.push({icon: 'bi-gem', text: 'Falda Midi'});
             } else {
-                girls.push({icon: 'bi-brightness-alt-high', text: 'Vestido ligero'});
-                girls.push({icon: 'bi-flower1', text: 'Mono corto'});
+                boys.push({icon: 'bi-brightness-alt-high', text: 'Camisa Lino'});
+                boys.push({icon: 'bi-water', text: 'Sandalias'});
+                girls.push({icon: 'bi-flower1', text: 'Vestido ligero'});
                 girls.push({icon: 'bi-water', text: 'Sandalias abiertas'});
-                girls.push({icon: 'bi-stars', text: 'Abanico'});
-            }
-
-            // --- 4. VIENTO (AMBOS) ---
-            if (wind > 25) {
-                boys.push({icon: 'bi-wind', text: 'Cortavientos'});
-                girls.push({icon: 'bi-exclamation-triangle', text: 'Evita falda vuelo'});
-                girls.push({icon: 'bi-wind', text: 'Recógete el pelo'});
             }
 
             return { boys, girls };
@@ -439,17 +411,46 @@
             document.getElementById('tip-text').innerText = frase;
 
             // ACTUALIZAR ROPA CARD
-            const clothingList = getClothingList(cur.temp, cur.desc, cur.windSpeed);
+            const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed);
             const clothingContainer = document.getElementById('clothing-advice');
+            
+            // Icono pequeño tarjeta principal (siempre del chico por defecto o genérico)
+            const outfitDisplay = document.getElementById('outfit-display');
+            if(outfitDisplay) {
+                const mainItem = clothes.boys[0] ? clothes.boys[0].text : '--';
+                outfitDisplay.style.display = 'inline-block';
+                outfitDisplay.innerHTML = `<i class="bi bi-person-standing-dress outfit-icon"></i> <span style="font-size: 0.8rem; font-weight: bold; opacity: 0.8;">${mainItem}</span>`;
+            }
+
+            // Tarjeta grande Armario
             if(clothingContainer) {
-                clothingContainer.innerHTML = clothingList.map(item => `
+                let html = '';
+                
+                // SECCIÓN CHICOS
+                html += `<div class="w-100 mb-2">
+                            <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem; display:block; margin-bottom:4px;">ELLOS 👦</small>
+                            <div class="d-flex flex-wrap gap-2">`;
+                html += clothes.boys.map(item => `
                     <div class="clothing-tag">
                         <i class="bi ${item.icon} text-primary"></i> ${item.text}
-                    </div>
-                `).join('');
+                    </div>`).join('');
+                html += `</div></div>`;
+
+                // SECCIÓN CHICAS
+                html += `<div class="w-100">
+                            <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem; display:block; margin-bottom:4px; margin-top:4px;">ELLAS 👧</small>
+                            <div class="d-flex flex-wrap gap-2">`;
+                html += clothes.girls.map(item => `
+                    <div class="clothing-tag" style="background: rgba(236, 72, 153, 0.15); border-color: rgba(236, 72, 153, 0.2);">
+                        <i class="bi ${item.icon}" style="color: #db2777;"></i> ${item.text}
+                    </div>`).join('');
+                html += `</div></div>`;
+
+                clothingContainer.innerHTML = html;
             }
         };
 
+        // --- LÓGICA DE COMPARTIR ---
         document.getElementById('shareBtn').addEventListener('click', () => {
             const element = document.getElementById('capture-card');
             const btn = document.getElementById('shareBtn');
