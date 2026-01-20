@@ -350,7 +350,7 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- ROPA ---
+        // --- FUNCION DOBLE: ROPA MODERNIZADA (CHICOS/CHICAS) ---
         const getClothingList = (temp, desc, wind) => {
             let boys = [];
             let girls = [];
@@ -358,6 +358,7 @@
             const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             const isSnowing = desc.includes('nieve') || desc.includes('nevada');
 
+            // 1. LLUVIA/NIEVE
             if (isRaining) {
                 boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
                 boys.push({icon: 'bi-cloud-rain', text: 'Cortavientos'});
@@ -370,6 +371,7 @@
                 girls.push({icon: 'bi-snow', text: 'Botas peluche'});
             }
 
+            // 2. TEMPERATURA
             if (temp < 5) {
                 boys.push({icon: 'bi-snow2', text: 'Plumas gordo'});
                 boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro lana'});
@@ -421,9 +423,11 @@
             const frase = frases[Math.floor(Math.random() * frases.length)];
             document.getElementById('tip-text').innerText = frase;
 
+            // ACTUALIZAR ROPA CARD
             const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed);
             const clothingContainer = document.getElementById('clothing-advice');
             
+            // Icono pequeño tarjeta principal (siempre del chico por defecto o genérico)
             const outfitDisplay = document.getElementById('outfit-display');
             if(outfitDisplay) {
                 const mainItem = clothes.boys[0] ? clothes.boys[0].text : '--';
@@ -431,8 +435,11 @@
                 outfitDisplay.innerHTML = `<i class="bi bi-person-standing-dress outfit-icon"></i> <span style="font-size: 0.8rem; font-weight: bold; opacity: 0.8;">${mainItem}</span>`;
             }
 
+            // Tarjeta grande Armario
             if(clothingContainer) {
                 let html = '';
+                
+                // SECCIÓN CHICOS
                 html += `<div class="w-100 mb-2">
                             <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem; display:block; margin-bottom:4px;">ELLOS 👦</small>
                             <div class="d-flex flex-wrap gap-2">`;
@@ -442,6 +449,7 @@
                     </div>`).join('');
                 html += `</div></div>`;
 
+                // SECCIÓN CHICAS
                 html += `<div class="w-100">
                             <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem; display:block; margin-bottom:4px; margin-top:4px;">ELLAS 👧</small>
                             <div class="d-flex flex-wrap gap-2">`;
@@ -676,6 +684,33 @@
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
 
+                // --- CORRECCIÓN CALIDAD AIRE (AQI 0-500) ---
+                const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
+                const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
+                const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
+                
+                // 1. Determinar Texto y Color según estándar US EPA
+                let aqiText = "Buena";
+                let aqiColor = "#4ade80"; // Verde
+                
+                if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; }
+                else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; }
+                else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; }
+                else if (aqi > 100) { aqiText = "Dañina (Sensibles)"; aqiColor = "#f97316"; }
+                else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } // Amarillo
+
+                // 2. Calcular porcentaje real para la barra (Escala máx 300 habitual)
+                let aqiPercent = (aqi / 300) * 100;
+                if (aqiPercent > 100) aqiPercent = 100; // Tope visual
+
+                // 3. Pintar en pantalla
+                document.getElementById('aqi-val').innerText = aqi;
+                document.getElementById('aqi-text').innerText = aqiText;
+                document.getElementById('aqi-text').style.color = aqiColor; // Color al texto también
+                document.getElementById('pm25').innerText = pm25;
+                document.getElementById('pm10').innerText = pm10;
+                document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
+
                 renderRainChart(data.nowcast, data.hourly);
 
                 if (data.daily && data.daily.length > 0) {
@@ -690,17 +725,6 @@
                     const iframe = document.getElementById('radar-frame');
                     if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
                 }
-
-                const aqi = (cur.aqi !== undefined) ? cur.aqi : 1; 
-                const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
-                const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
-                const aqiLabels = {1: "Buena", 2: "Moderada", 3: "Dañina (S)", 4: "Dañina", 5: "Muy Dañina", 6: "Peligrosa"};
-                document.getElementById('aqi-val').innerText = aqi;
-                document.getElementById('aqi-text').innerText = aqiLabels[aqi] || "Buena";
-                document.getElementById('pm25').innerText = pm25;
-                document.getElementById('pm10').innerText = pm10;
-                const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
-                document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
                 updateAIText(cur);
 
