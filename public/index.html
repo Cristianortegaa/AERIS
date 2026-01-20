@@ -59,11 +59,11 @@
             overflow-x: hidden; 
         }
 
-        /* --- SPLASH SCREEN (SIEMPRE CLARO) --- */
+        /* --- SPLASH SCREEN (SIEMPRE CLARO - CORREGIDO) --- */
         #splash-screen {
             position: fixed;
             inset: 0;
-            /* Usamos colores fijos, NO variables, para que siempre sea claro */
+            /* Colores fijos para que NO cambie con el modo oscuro */
             background: linear-gradient(180deg, #bae6fd, #e0f2fe);
             z-index: 10000; 
             display: flex;
@@ -101,7 +101,7 @@
             font-size: 1.5rem;
             letter-spacing: 2px;
             opacity: 0.8;
-            color: #0c4a6e; /* Color fijo oscuro para contraste */
+            color: #0c4a6e; /* Color oscuro fijo para contraste */
         }
 
         @keyframes breathe {
@@ -160,7 +160,7 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* --- SIDEBAR (Arreglado) --- */
+        /* --- SIDEBAR CORREGIDO (Lista Favoritos) --- */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
@@ -183,7 +183,7 @@
         }
         [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
         
-        /* Flex Column para que salga debajo */
+        /* Flex Column para que salga debajo (ARREGLADO) */
         .fav-item-info { 
             display: flex; 
             flex-direction: column; 
@@ -212,7 +212,7 @@
         .ai-container:hover { background: rgba(255,255,255,0.1); }
         .ai-container:active { transform: scale(0.95); }
         
-        /* Modal Personalizado */
+        /* Modal Personalizado (Z-Index Máximo) */
         .persona-modal {
             position: fixed; inset: 0; 
             z-index: 3000; 
@@ -668,7 +668,8 @@
                 // UPDATE AI
                 updateAIText(cur);
 
-                const nowEpoch = Math.floor(Date.now()/1000);
+                // FIX HORA ACTUAL + 23 SIGUIENTES
+                const nowEpoch = Math.floor(Date.now()/1000) - 3600; // Restamos 1 hora para asegurar
                 const hCont = document.getElementById('hourly');
                 if(hCont) {
                     hCont.innerHTML = data.hourly
@@ -676,7 +677,7 @@
                         .slice(0, 24)
                         .map(h => `
                             <div class="hourly-item" style="animation: fadeIn 0.5s">
-                                <div class="small opacity-75 fw-bold mb-1">${new Date(h.fullDate).getHours()}:00</div>
+                                <div class="small opacity-75 fw-bold mb-1">${h.fullDate.split(' ')[1]}</div>
                                 <i class="bi ${h.icon} fs-4" style="color:var(--text)"></i>
                                 <div class="fw-bold fs-5">${h.temp}°</div>
                                 <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">${h.rainProb>0?h.rainProb+'%':''}</div>
