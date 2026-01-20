@@ -644,6 +644,8 @@
 
         // --- GET WEATHER (MODIFICADO PARA USAR EL NOMBRE CORRECTO) ---
         async function getWeather(id) {
+            
+            // --- PROTECCIÓN MÓVIL: SI FALLA, LIMPIA SKELETONS ---
             try {
                 // Recuperamos nombre y región de LocalStorage para enviarlos al backend
                 const storedName = localStorage.getItem('lastName') || 'Ubicación';
@@ -664,6 +666,7 @@
 
                 updateHeartUI();
 
+                // --- AQUÍ ELIMINAMOS LOS SKELETONS SI TODO VA BIEN ---
                 const skeletons = document.querySelectorAll('.skeleton');
                 skeletons.forEach(el => {
                     el.classList.remove('skeleton');
@@ -778,6 +781,9 @@
 
             } catch (e) {
                 console.error(e);
+                // SI FALLA, QUITAMOS SKELETONS PARA QUE NO SE QUEDE CARGANDO ETERNAMENTE
+                document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
+                document.getElementById('desc').innerText = "Sin conexión";
             }
         }
 
@@ -825,7 +831,11 @@
                         }
                     } catch(e) { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
                 },
-                (err) => { getWeather(localStorage.getItem('lastId') || 'Madrid'); },
+                (err) => { 
+                    // SI FALLA EL GPS (MÓVIL), CARGAMOS LA ÚLTIMA CIUDAD O MADRID DIRECTAMENTE
+                    // ESTO EVITA QUE SE QUEDE CARGANDO
+                    getWeather(localStorage.getItem('lastId') || 'Madrid'); 
+                },
                 { timeout: 5000 }
             );
         } else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
