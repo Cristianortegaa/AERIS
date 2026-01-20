@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// --- BASE DE DATOS (En memoria) ---
+// --- BASE DE DATOS (RAM) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
     storage: ':memory:', 
@@ -38,6 +38,7 @@ const decodeWMO = (code, isDay = 1) => {
     const nightIcons = {
         0: 'bi-moon', 1: 'bi-cloud-moon', 2: 'bi-cloud-moon', 3: 'bi-clouds'
     };
+    
     const textMap = {
         0: "Despejado", 1: "Mayormente despejado", 2: "Parcialmente nublado", 3: "Nublado",
         45: "Niebla", 48: "Niebla escarcha",
@@ -47,6 +48,7 @@ const decodeWMO = (code, isDay = 1) => {
         80: "Chubascos", 81: "Chubascos fuertes", 82: "Chubascos violentos",
         95: "Tormenta", 96: "Tormenta con granizo", 99: "Tormenta fuerte"
     };
+
     let icon = isDay ? (dayIcons[c] || 'bi-cloud') : (nightIcons[c] || dayIcons[c] || 'bi-cloud');
     return { text: textMap[c] || "Variable", icon: icon };
 };
@@ -69,20 +71,41 @@ app.get('/api/search/:query', async (req, res) => {
     } catch (e) { res.json([]); }
 });
 
-// --- GEO ---
+// --- API GEO (FIX: AHORA USA OPENSTREETMAP/NOMINATIM PARA EL NOMBRE EXACTO) ---
 app.get('/api/geo', async (req, res) => {
     const { lat, lon } = req.query;
     try {
-        const response = await axios.get(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
-        const city = response.data.city || response.data.locality || "Ubicación";
-        const region = response.data.principalSubdivision || "";
-        res.json({ id: `${lat},${lon}`, name: city, region: region, lat: lat, lon: lon });
+        // Nominatim es el mejor servicio gratuito para obtener el nombre exacto de un punto
+        const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
+            params: {
+                lat: lat,
+                lon: lon,
+                format: 'json',
+                zoom: 10 // Zoom nivel ciudad
+            },
+            headers: { 'User-Agent': 'AerisApp/1.0' } // Requerido por Nominatim
+        });
+
+        const address = response.data.address;
+        // Prioridad: Ciudad > Pueblo > Villa > Municipio
+        const realName = address.city || address.town || address.village || address.municipality || address.county || "Ubicación Detectada";
+        const region = address.state || address.region || "";
+
+        res.json({
+            id: `${lat},${lon}`,
+            name: realName, 
+            region: region,
+            lat: lat,
+            lon: lon
+        });
     } catch (e) {
-        res.json({ id: `${lat},${lon}`, name: "Tu Ubicación", region: "", lat, lon });
+        console.error("Geo Error:", e.message);
+        // Fallback solo si falla OpenStreetMap
+        res.json({ id: `${lat},${lon}`, name: "Ubicación GPS", region: "", lat, lon });
     }
 });
 
-// --- CLIMA (Con Corrección Horaria) ---
+// --- API CLIMA ---
 app.get('/api/weather/:id', async (req, res) => {
     let locationId = req.params.id;
     let forcedName = req.query.name || "Ubicación";
@@ -93,7 +116,6 @@ app.get('/api/weather/:id', async (req, res) => {
         if (locationId.includes(',')) {
             [lat, lon] = locationId.split(',');
         } else {
-            // Fallback nombre antiguo
             const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`;
             const geoRes = await axios.get(geoUrl);
             if (geoRes.data.results) {
@@ -106,7 +128,6 @@ app.get('/api/weather/:id', async (req, res) => {
             }
         }
 
-        // Cache
         const cache = await WeatherCache.findByPk(locationId);
         if (cache && (new Date() - new Date(cache.updatedAt) < 10 * 60 * 1000)) {
             const cachedData = JSON.parse(cache.data);
@@ -114,7 +135,6 @@ app.get('/api/weather/:id', async (req, res) => {
             return res.json(cachedData);
         }
 
-        // PETICIÓN OPEN-METEO (Importante: timezone=auto para recibir hora local)
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto`;
         const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`;
 
@@ -129,18 +149,8 @@ app.get('/api/weather/:id', async (req, res) => {
 
         const currentWMO = decodeWMO(w.current.weather_code, w.current.is_day);
 
-        // --- PROCESAMIENTO HORARIO ---
-        // Open-Meteo con timezone=auto devuelve las horas 'time' ya en hora local de la ciudad
-        // Pero vienen en formato ISO (YYYY-MM-DDTHH:MM). Las procesamos tal cual.
-
         const finalData = {
-            location: { 
-                name: forcedName, 
-                region: forcedRegion, 
-                lat, lon,
-                timezone: w.timezone,           // Zona horaria detectada
-                timezone_abbreviation: w.timezone_abbreviation 
-            },
+            location: { name: forcedName, region: forcedRegion, lat, lon, timezone: w.timezone },
             current: {
                 temp: Math.round(w.current.temperature_2m),
                 feelsLike: Math.round(w.current.apparent_temperature),
@@ -153,21 +163,16 @@ app.get('/api/weather/:id', async (req, res) => {
                 aqi: a.current.us_aqi || 1,
                 pm25: a.current.pm2_5 || 0,
                 pm10: a.current.pm10 || 0,
-                // Fecha/Hora local de la petición actual
                 localTime: w.current.time 
             },
             nowcast: { time: w.minutely_15 ? w.minutely_15.time : [], precipitation: w.minutely_15 ? w.minutely_15.precipitation : [] },
-            
-            // HORAS: Ahora vienen correctas en hora local gracias a timezone=auto
             hourly: w.hourly.time.map((t, i) => ({
-                // 't' es "2024-01-20T18:00" (hora local de la ciudad)
                 fullDate: t.replace('T', ' '),
-                hourOnly: t.split('T')[1], // Extraemos "18:00" limpio
+                hourOnly: t.split('T')[1],
                 temp: Math.round(w.hourly.temperature_2m[i]),
                 rainProb: w.hourly.precipitation_probability[i],
                 icon: decodeWMO(w.hourly.weather_code[i], w.hourly.is_day[i]).icon
             })),
-            
             daily: w.daily.time.map((t, i) => ({
                 fecha: t,
                 tempMax: Math.round(w.daily.temperature_2m_max[i]),
