@@ -214,17 +214,6 @@
             </div>
         </div>
 
-        <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
-                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
-            </h6>
-            <div id="clothing-advice" class="d-flex flex-wrap gap-2">
-                <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
-                <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
-                <div class="skeleton" style="width: 60px; height: 30px; border-radius: 50px;"></div>
-            </div>
-        </div>
-
         <div class="glass-card" id="rain-card" style="display:none; transition: opacity 0.5s ease;">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)"><i class="bi bi-cloud-drizzle-fill"></i> TENDENCIA LLUVIA</h6>
@@ -241,6 +230,17 @@
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
+                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
+            </h6>
+            <div id="getClothingList" class="d-flex flex-wrap gap-2">
+                <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
+                <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
+                <div class="skeleton" style="width: 60px; height: 30px; border-radius: 50px;"></div>
             </div>
         </div>
 
@@ -421,7 +421,7 @@
 
             return { boys, girls };
         };
-        
+
         const updateAIText = (cur) => {
             if (!cur) return; 
             const p = aiLogic[currentPersona];
