@@ -8,10 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// --- BASE DE DATOS (Caché Optimizado) ---
+// --- BASE DE DATOS (Caché en Memoria para velocidad) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_cache_db.sqlite',
+    storage: ':memory:', // Usamos RAM para máxima velocidad en versión gratuita
     logging: false
 });
 
@@ -21,39 +21,53 @@ const WeatherCache = sequelize.define('WeatherCache', {
     updatedAt: { type: DataTypes.DATE }
 });
 
-// Iniciamos DB una sola vez al arrancar
-sequelize.sync().then(() => console.log("💾 Base de datos lista"));
+sequelize.sync();
 
-// --- TRADUCTOR DE CLIMA (WMO Codes) ---
+// --- DICCIONARIO WMO (El Traductor Clave) ---
 const decodeWMO = (code, isDay = 1) => {
     const c = parseInt(code);
-    if (c === 0) return { text: "Despejado", icon: isDay ? 'bi-sun' : 'bi-moon' };
-    if (c === 1) return { text: "Mayormente despejado", icon: isDay ? 'bi-cloud-sun' : 'bi-cloud-moon' };
-    if (c === 2) return { text: "Parcialmente nublado", icon: isDay ? 'bi-cloud' : 'bi-cloud-moon' };
-    if (c === 3) return { text: "Cielo cubierto", icon: 'bi-clouds' };
-    if ([45, 48].includes(c)) return { text: "Niebla", icon: 'bi-cloud-haze2' };
-    if ([51, 53, 55, 56, 57].includes(c)) return { text: "Llovizna", icon: 'bi-cloud-drizzle' };
-    if ([61, 63, 65, 66, 67].includes(c)) return { text: "Lluvia", icon: 'bi-cloud-rain' };
-    if ([71, 73, 75, 77].includes(c)) return { text: "Nieve", icon: 'bi-cloud-snow' };
-    if ([80, 81, 82].includes(c)) return { text: "Chubascos", icon: 'bi-cloud-rain-heavy' };
-    if ([85, 86].includes(c)) return { text: "Nieve fuerte", icon: 'bi-snow' };
-    if ([95, 96, 99].includes(c)) return { text: "Tormenta", icon: 'bi-cloud-lightning-rain' };
-    return { text: "Variable", icon: 'bi-cloud' };
+    const dayIcons = {
+        0: 'bi-sun', 1: 'bi-cloud-sun', 2: 'bi-cloud', 3: 'bi-clouds',
+        45: 'bi-cloud-haze2', 48: 'bi-cloud-haze2',
+        51: 'bi-cloud-drizzle', 53: 'bi-cloud-drizzle', 55: 'bi-cloud-drizzle',
+        61: 'bi-cloud-rain', 63: 'bi-cloud-rain', 65: 'bi-cloud-rain-heavy',
+        71: 'bi-cloud-snow', 73: 'bi-cloud-snow', 75: 'bi-snow',
+        80: 'bi-cloud-drizzle', 81: 'bi-cloud-rain', 82: 'bi-cloud-rain-heavy',
+        95: 'bi-cloud-lightning', 96: 'bi-cloud-lightning-rain', 99: 'bi-cloud-lightning-rain'
+    };
+    const nightIcons = {
+        0: 'bi-moon', 1: 'bi-cloud-moon', 2: 'bi-cloud-moon', 3: 'bi-clouds',
+        // El resto suelen ser iguales de noche
+    };
+    
+    const textMap = {
+        0: "Despejado", 1: "Mayormente despejado", 2: "Parcialmente nublado", 3: "Nublado",
+        45: "Niebla", 48: "Niebla con escarcha",
+        51: "Llovizna ligera", 53: "Llovizna", 55: "Llovizna intensa",
+        61: "Lluvia ligera", 63: "Lluvia", 65: "Lluvia fuerte",
+        71: "Nieve ligera", 73: "Nieve", 75: "Nieve fuerte",
+        80: "Chubascos leves", 81: "Chubascos", 82: "Chubascos fuertes",
+        95: "Tormenta", 96: "Tormenta con granizo", 99: "Tormenta fuerte"
+    };
+
+    // Selección de icono (Día o Noche)
+    let icon = isDay ? (dayIcons[c] || 'bi-cloud') : (nightIcons[c] || dayIcons[c] || 'bi-cloud');
+    return { text: textMap[c] || "Variable", icon: icon };
 };
 
-// --- API BÚSQUEDA (Geocoding) ---
+// --- API BÚSQUEDA ---
 app.get('/api/search/:query', async (req, res) => {
     try {
         const query = req.params.query;
-        // Buscamos ciudades
+        // Buscamos en Open-Meteo Geocoding
         const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=es&format=json`;
         const response = await axios.get(url);
         
         if (!response.data.results) return res.json([]);
 
-        // Formateamos para el frontend
+        // Formateamos para que el Frontend entienda
         const cities = response.data.results.map(city => ({
-            id: `${city.latitude},${city.longitude}`, // El ID son las coordenadas
+            id: `${city.latitude},${city.longitude}`, // ID son las coordenadas
             name: city.name,
             region: city.admin1 || city.country,
             country: city.country,
@@ -67,34 +81,34 @@ app.get('/api/search/:query', async (req, res) => {
     }
 });
 
-// --- API GEO (Ubicación actual) ---
+// --- API GEO ---
 app.get('/api/geo', (req, res) => {
-    // Simplemente rebotamos las coordenadas con un nombre genérico
-    // El frontend se encargará de ponerle nombre si lo tiene guardado
+    // Rebotamos coordenadas limpias
     const { lat, lon } = req.query;
     res.json({
         id: `${lat},${lon}`,
         name: "Mi Ubicación",
-        region: "Localizado por GPS",
+        region: "GPS",
         lat: lat,
         lon: lon
     });
 });
 
-// --- API CLIMA (Weather Full) ---
+// --- API CLIMA (El Cerebro) ---
 app.get('/api/weather/:id', async (req, res) => {
-    const locationId = req.params.id; // "lat,lon"
-    const forcedName = req.query.name; // Nombre forzado desde el frontend
-    const forcedRegion = req.query.region;
+    const locationId = req.params.id; // "40.41,-3.7"
+    // RECIBIMOS EL NOMBRE DEL FRONTEND (LA CLAVE DEL FIX)
+    const forcedName = req.query.name || "Ubicación"; 
+    const forcedRegion = req.query.region || "";
 
     try {
-        // Cache Check
+        // Cache Check (5 min)
         const cache = await WeatherCache.findByPk(locationId);
-        if (cache && (new Date() - new Date(cache.updatedAt) < 10 * 60 * 1000)) {
-            // Si usamos caché, inyectamos el nombre actualizado si viene en la query
+        if (cache && (new Date() - new Date(cache.updatedAt) < 5 * 60 * 1000)) {
             const cachedData = JSON.parse(cache.data);
-            if (forcedName) cachedData.location.name = forcedName;
-            if (forcedRegion) cachedData.location.region = forcedRegion;
+            // Inyectamos el nombre actualizado aunque sea caché
+            cachedData.location.name = forcedName;
+            cachedData.location.region = forcedRegion;
             return res.json(cachedData);
         }
 
@@ -103,27 +117,31 @@ app.get('/api/weather/:id', async (req, res) => {
         if (locationId.includes(',')) {
             [lat, lon] = locationId.split(',');
         } else {
-            return res.status(400).json({ error: "Formato ID inválido" });
+            return res.status(400).json({ error: "Coordenadas inválidas" });
         }
 
-        // Peticiones paralelas a Open-Meteo (Clima + Aire)
+        // PETICIÓN A OPEN-METEO
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto`;
         const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`;
 
-        const [wRes, aRes] = await Promise.all([
+        // Promise.allSettled para que si falla el aire, no rompa el clima
+        const [wRes, aRes] = await Promise.allSettled([
             axios.get(weatherUrl),
-            axios.get(airUrl).catch(() => ({ data: { current: {} } })) // Si falla el aire, seguimos
+            axios.get(airUrl)
         ]);
 
-        const w = wRes.data;
-        const a = aRes.data;
-        const currentWMO = decodeWMO(w.current.weather_code, w.current.is_day);
+        if (wRes.status === 'rejected') throw new Error("Fallo en Open-Meteo Weather");
 
-        // Construir respuesta
+        const w = wRes.value.data;
+        const a = (aRes.status === 'fulfilled') ? aRes.value.data : { current: {} };
+
+        // TRADUCCIÓN DE DATOS
+        const currentWMO = decodeWMO(w.current.weather_code, w.current.is_day);
+        
         const finalData = {
             location: {
-                name: forcedName || "Ubicación",
-                region: forcedRegion || "",
+                name: forcedName, // Usamos el nombre que nos pasó el frontend
+                region: forcedRegion,
                 lat: lat,
                 lon: lon
             },
@@ -162,15 +180,15 @@ app.get('/api/weather/:id', async (req, res) => {
             }))
         };
 
-        // Guardar en caché
+        // Guardar caché
         await WeatherCache.upsert({ locationId, data: JSON.stringify(finalData), updatedAt: new Date() });
         res.json(finalData);
 
     } catch (error) {
         console.error("API Error:", error.message);
-        res.status(500).json({ error: "Error de servidor" });
+        res.status(500).json({ error: "Error interno del servidor" });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Servidor Listo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Servidor Open-Meteo (Fix Nombres) en puerto ${PORT}`));
