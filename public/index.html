@@ -41,9 +41,7 @@
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
-        
         .temp-big { font-family:'Outfit'; font-weight:700; font-size: clamp(3.5rem, 10vw, 5.5rem); line-height: 1; letter-spacing: -2px; }
-        
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
@@ -397,7 +395,7 @@
             const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed);
             const clothingContainer = document.getElementById('clothing-advice');
             
-            // Icono pequeño tarjeta principal (siempre del chico por defecto o genérico)
+            // Icono pequeño tarjeta principal
             const outfitDisplay = document.getElementById('outfit-display');
             if(outfitDisplay) {
                 const mainItem = clothes.boys[0] ? clothes.boys[0].text : '--';
@@ -527,7 +525,6 @@
             });
         }
 
-        // --- SELECT CITY (CORREGIDO PARA USAR QUERY PARAMS) ---
         const selectCity = (city) => {
             if(searchInput) searchInput.value = '';
             if(suggestionsList) suggestionsList.classList.remove('show');
@@ -614,21 +611,18 @@
 
         // --- GET WEATHER (MODIFICADO PARA USAR EL NOMBRE CORRECTO) ---
         async function getWeather(id) {
+            
+            // --- PROTECCIÓN MÓVIL: SI FALLA, LIMPIA SKELETONS ---
             try {
-                // Recuperamos nombre y región de LocalStorage para enviarlos al backend
                 const storedName = localStorage.getItem('lastName') || 'Ubicación';
                 const storedRegion = localStorage.getItem('lastRegion') || '';
-                
-                // Añadimos el nombre a la URL para que el backend lo use
                 const res = await fetch(`/api/weather/${id}?name=${encodeURIComponent(storedName)}&region=${encodeURIComponent(storedRegion)}`);
-                
                 const data = await res.json();
                 if(data.error) throw new Error(data.error);
 
                 const cur = data.current;
                 const loc = data.location;
                 
-                // Actualizamos info global
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 lastWeatherData = cur;
 
@@ -654,31 +648,26 @@
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
 
-                // --- CORRECCIÓN CALIDAD AIRE (AQI 0-500) ---
+                // --- CORRECCIÓN CALIDAD AIRE ---
                 const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
                 const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
                 const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
-                
-                // 1. Determinar Texto y Color según estándar US EPA
                 let aqiText = "Buena";
-                let aqiColor = "#4ade80"; // Verde
-                
+                let aqiColor = "#4ade80"; 
                 if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; }
                 else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; }
                 else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; }
                 else if (aqi > 100) { aqiText = "Dañina (Sensibles)"; aqiColor = "#f97316"; }
-                else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } // Amarillo
+                else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } 
 
-                // 2. Calcular porcentaje real para la barra (Escala máx 300 habitual)
                 let aqiPercent = (aqi / 300) * 100;
-                if (aqiPercent > 100) aqiPercent = 100; // Tope visual
+                if (aqiPercent > 100) aqiPercent = 100;
 
-                // 3. Pintar en pantalla
                 document.getElementById('aqi-val').innerText = aqi;
                 document.getElementById('aqi-text').innerText = aqiText;
-                document.getElementById('aqi-text').style.color = aqiColor; // Color al texto también
-                document.getElementById('pm25').innerText = pm25;
-                document.getElementById('pm10').innerText = pm10;
+                document.getElementById('aqi-text').style.color = aqiColor;
+                document.getElementById('pm25').innerText = pm25 + (typeof pm25 === 'number' ? ' µg/m³' : '');
+                document.getElementById('pm10').innerText = pm10 + (typeof pm10 === 'number' ? ' µg/m³' : '');
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
                 renderRainChart(data.nowcast, data.hourly);
@@ -748,7 +737,6 @@
 
             } catch (e) {
                 console.error(e);
-                // SI FALLA, QUITAMOS SKELETONS PARA QUE NO SE QUEDE CARGANDO ETERNAMENTE
                 document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
                 document.getElementById('desc').innerText = "Sin conexión";
             }
@@ -769,15 +757,12 @@
         const geoBtn = document.getElementById('geoBtn');
         if(geoBtn) geoBtn.addEventListener('click', () => {
              if(!navigator.geolocation) return;
-             // Reset visual a skeleton
              document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
              
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                  const city = await res.json();
-                 // GEO NO DA NOMBRE PRECISO, PERO EL BACKEND LO PONE GENERICO
-                 // Si queremos nombre real, habría que hacer reverse geo en frontend, pero para simpleza:
-                 if(city.id) selectCity({id: city.id, name: 'Tu Ubicación', region: ''});
+                 if(city.id) selectCity({id: city.id, name: city.name || 'Tu Ubicación', region: ''});
              });
         });
 
@@ -790,22 +775,34 @@
                     try {
                         const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                         const city = await res.json();
-                        // Al inicio, intentamos cargar geo, pero si ya hay LastId guardado, usamos lastId para mantener nombre
-                        if(!localStorage.getItem('lastId')) {
-                             if (city.id) { selectCity({id: city.id, name: 'Tu Ubicación', region: ''}); }
+                        
+                        // PRIORIZAMOS SIEMPRE EL GPS
+                        if (city.id) {
+                            selectCity({
+                                id: city.id,
+                                name: city.name || 'Tu Ubicación',
+                                region: city.region || ''
+                            });
                         } else {
-                             getWeather(localStorage.getItem('lastId'));
+                            // Fallback
+                            const last = localStorage.getItem('lastId') || 'Madrid';
+                            getWeather(last);
                         }
-                    } catch(e) { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
+                    } catch(e) { 
+                        const last = localStorage.getItem('lastId') || 'Madrid';
+                        getWeather(last); 
+                    }
                 },
                 (err) => { 
-                    // SI FALLA EL GPS (MÓVIL), CARGAMOS LA ÚLTIMA CIUDAD O MADRID DIRECTAMENTE
-                    // ESTO EVITA QUE SE QUEDE CARGANDO
-                    getWeather(localStorage.getItem('lastId') || 'Madrid'); 
+                    const last = localStorage.getItem('lastId') || 'Madrid';
+                    getWeather(last); 
                 },
-                { timeout: 5000 }
+                { timeout: 5000, enableHighAccuracy: true }
             );
-        } else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
+        } else { 
+            const last = localStorage.getItem('lastId') || 'Madrid';
+            getWeather(last); 
+        }
     </script>
     
     <script>
