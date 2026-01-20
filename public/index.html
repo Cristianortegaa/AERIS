@@ -21,52 +21,28 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
-        /* --- VARIABLES --- */
-        :root { 
-            --bg-1: #bae6fd; --bg-2: #e0f2fe; --glass: rgba(255, 255, 255, 0.65); 
-            --glass-border: rgba(255, 255, 255, 0.4); --text: #0c4a6e; --text-sec: #475569;
-            --accent: #0284c7; --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
-            --skeleton-base: rgba(255, 255, 255, 0.3); --skeleton-shine: rgba(255, 255, 255, 0.6);
-            --invert-close: 0;
-        }
-        [data-theme="dark"] { 
-            --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); 
-            --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; 
-            --accent: #38bdf8; --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
-            --skeleton-base: rgba(255, 255, 255, 0.05); --skeleton-shine: rgba(255, 255, 255, 0.15);
-            --invert-close: 1;
-        }
+        :root { --bg-1: #bae6fd; --bg-2: #e0f2fe; --glass: rgba(255, 255, 255, 0.65); --glass-border: rgba(255, 255, 255, 0.4); --text: #0c4a6e; --text-sec: #475569; --accent: #0284c7; --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); --skeleton-base: rgba(255, 255, 255, 0.3); --skeleton-shine: rgba(255, 255, 255, 0.6); --invert-close: 0; }
+        [data-theme="dark"] { --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #38bdf8; --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); --skeleton-base: rgba(255, 255, 255, 0.05); --skeleton-shine: rgba(255, 255, 255, 0.15); --invert-close: 1; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text); background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); min-height: 100vh; padding-bottom: 80px; transition: background 0.8s ease, color 0.5s ease; overflow-x: hidden; }
 
-        /* Splash Screen */
         #splash-screen { position: fixed; inset: 0; background: linear-gradient(180deg, #bae6fd, #e0f2fe); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s ease-out, visibility 0.6s; }
         #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
         .splash-logo-container { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 50px rgba(0,0,0,0.15); animation: breathe 3s infinite ease-in-out; }
         .splash-title { margin-top: 20px; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: 2px; opacity: 0.8; color: #0c4a6e; }
         @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 
-        /* Glass Cards */
         .glass-card { background: var(--glass); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-radius: 24px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--glass-border); box-shadow: var(--card-shadow); transition: transform 0.2s, background 0.5s; position: relative; }
-        
-        /* Skeleton */
         .skeleton { background-color: var(--skeleton-base); background-image: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 40px, var(--skeleton-base) 80px); background-size: 200px 100%; background-repeat: no-repeat; display: inline-block; border-radius: 8px; color: transparent !important; animation: shimmer 1.5s infinite linear; pointer-events: none; min-height: 1em; }
         .skeleton-circle { width: 100%; height: 100%; border-radius: 50%; }
         @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(100% + 200px) 0; } }
 
-        /* Components */
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
         .search-group { flex-grow: 1; position: relative; }
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         
-        .temp-big { 
-            font-family:'Outfit'; 
-            font-weight:700; 
-            font-size: clamp(3.5rem, 10vw, 5.5rem); 
-            line-height: 1; 
-            letter-spacing: -2px; 
-        }
+        .temp-big { font-family:'Outfit'; font-weight:700; font-size: clamp(3.5rem, 10vw, 5.5rem); line-height: 1; letter-spacing: -2px; }
         
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
@@ -78,7 +54,6 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* Sidebar */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
@@ -92,7 +67,6 @@
         .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
         .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
 
-        /* AI & Modal */
         .ai-container { cursor: pointer; transition: transform 0.2s; user-select: none; position: relative; padding: 5px; border-radius: 12px; display: flex; align-items: center; gap: 8px; }
         .ai-container:hover { background: rgba(255,255,255,0.1); }
         .ai-container:active { transform: scale(0.95); }
@@ -109,7 +83,6 @@
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
 
-        /* SHARE BUTTON FIXED */
         .share-btn {
             position: absolute; top: 10px; right: 10px;
             width: 36px; height: 36px;
@@ -122,12 +95,11 @@
         }
         .share-btn:hover { background: var(--accent); color: white; transform: scale(1.1); }
         
-        /* CLOTHING CARD STYLE */
         .clothing-tag {
             border: 1px solid var(--glass-border);
             padding: 8px 14px;
             border-radius: 50px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 600;
             display: flex;
             align-items: center;
@@ -137,8 +109,6 @@
         }
         [data-theme="dark"] .clothing-tag { background: rgba(255,255,255,0.1); }
         .clothing-tag:hover { transform: scale(1.05); }
-        
-        /* OUTFIT ICON (Small in Main Card) */
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
     </style>
 </head>
@@ -644,8 +614,6 @@
 
         // --- GET WEATHER (MODIFICADO PARA USAR EL NOMBRE CORRECTO) ---
         async function getWeather(id) {
-            
-            // --- PROTECCIÓN MÓVIL: SI FALLA, LIMPIA SKELETONS ---
             try {
                 // Recuperamos nombre y región de LocalStorage para enviarlos al backend
                 const storedName = localStorage.getItem('lastName') || 'Ubicación';
@@ -666,7 +634,6 @@
 
                 updateHeartUI();
 
-                // --- AQUÍ ELIMINAMOS LOS SKELETONS SI TODO VA BIEN ---
                 const skeletons = document.querySelectorAll('.skeleton');
                 skeletons.forEach(el => {
                     el.classList.remove('skeleton');
