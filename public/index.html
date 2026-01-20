@@ -38,7 +38,7 @@
         }
         body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text); background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); min-height: 100vh; padding-bottom: 80px; transition: background 0.8s ease, color 0.5s ease; overflow-x: hidden; }
 
-        /* Splash Screen (Siempre Claro) */
+        /* Splash Screen */
         #splash-screen { position: fixed; inset: 0; background: linear-gradient(180deg, #bae6fd, #e0f2fe); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s ease-out, visibility 0.6s; }
         #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
         .splash-logo-container { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 50px rgba(0,0,0,0.15); animation: breathe 3s infinite ease-in-out; }
@@ -70,7 +70,7 @@
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* Sidebar (Fixed Layout) */
+        /* Sidebar */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
@@ -101,7 +101,7 @@
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
 
-        /* SHARE BUTTON ANIMATION */
+        /* AÑADIDO: ESTILO BOTÓN COMPARTIR */
         .share-btn {
             position: absolute; top: 15px; right: 15px;
             width: 40px; height: 40px;
@@ -113,8 +113,7 @@
             cursor: pointer; transition: 0.2s; z-index: 50;
         }
         .share-btn:hover { background: var(--accent); color: white; transform: scale(1.1); }
-        
-        /* OUTFIT ICON */
+        /* AÑADIDO: ESTILO ICONO ROPA */
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
     </style>
 </head>
@@ -159,7 +158,7 @@
             <button class="btn-icon" id="themeBtn"><i class="bi bi-moon-stars-fill fs-5"></i></button>
         </div>
 
-        <div class="glass-card" id="capture-target">
+        <div class="glass-card" id="capture-card">
             <button class="share-btn" id="shareBtn" title="Compartir"><i class="bi bi-camera-fill"></i></button>
 
             <div class="d-flex justify-content-between align-items-start">
@@ -188,10 +187,10 @@
             <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
                 <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
                 <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
-                
-                <span id="outfit-container" style="display:none; margin-left: 5px;">
+                <span id="outfit-display" style="display:none; margin-left: 5px;">
                     <i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span>
                 </span>
+                <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
@@ -254,7 +253,6 @@
     </div>
 
     <script>
-        // --- SPLASH LOGIC ---
         window.addEventListener('load', () => {
             setTimeout(() => {
                 document.getElementById('splash-screen').classList.add('hidden');
@@ -309,7 +307,7 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- LÓGICA DE ROPA (OUTFIT) ---
+        // --- AÑADIDO: LÓGICA DE ROPA (OUTFIT) ---
         const getOutfit = (temp, isRaining) => {
             if (isRaining) return { text: "Impermeable", icon: "bi-umbrella" };
             if (temp >= 25) return { text: "Camiseta", icon: "bi-brightness-high" };
@@ -335,18 +333,18 @@
             const frase = frases[Math.floor(Math.random() * frases.length)];
             document.getElementById('tip-text').innerText = frase;
 
-            // ACTUALIZAR ROPA
+            // AÑADIDO: ACTUALIZAR ROPA
             const outfit = getOutfit(cur.temp, isRaining);
-            const outfitContainer = document.getElementById('outfit-container');
+            const outfitContainer = document.getElementById('outfit-display');
             if(outfitContainer) {
                 outfitContainer.style.display = 'inline-block';
-                outfitContainer.innerHTML = `<i class="bi ${outfit.icon} text-primary"></i> <span style="font-size: 0.8rem; font-weight: bold; opacity: 0.8;">${outfit.text}</span>`;
+                outfitContainer.innerHTML = `<i class="bi ${outfit.icon} text-primary outfit-icon"></i> <span style="font-size: 0.8rem; font-weight: bold; opacity: 0.8;">${outfit.text}</span>`;
             }
         };
 
-        // --- LÓGICA DE COMPARTIR (SHARE) ---
+        // --- AÑADIDO: LÓGICA COMPARTIR FOTO ---
         document.getElementById('shareBtn').addEventListener('click', () => {
-            const element = document.getElementById('capture-target');
+            const element = document.getElementById('capture-card');
             const btn = document.getElementById('shareBtn');
             btn.style.display = 'none'; // Ocultar botón en la foto
             
@@ -365,7 +363,6 @@
             });
         });
 
-        // Resto de funciones...
         const updateHeartUI = () => {
             const heart = document.getElementById('favHeart');
             if(!heart) return;
