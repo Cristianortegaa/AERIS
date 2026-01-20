@@ -101,12 +101,12 @@
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
 
-        /* SHARE BUTTON ANIMATION */
+        /* SHARE BUTTON FIXED */
         .share-btn {
-            position: absolute; top: 15px; right: 15px;
-            width: 40px; height: 40px;
+            position: absolute; top: 10px; right: 10px; /* Ajustado para que no se pegue */
+            width: 36px; height: 36px; /* Un poco más pequeño y elegante */
             border-radius: 50%;
-            background: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.25);
             border: 1px solid var(--glass-border);
             color: var(--text);
             display: flex; align-items: center; justify-content: center;
@@ -183,7 +183,7 @@
                     <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; min-height: 1em;"></h5>
                     <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; min-height: 1.2em; line-height: 1.2;"></div>
                 </div>
-                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -15px; margin-right: -15px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
+                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: 10px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
                     <div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>
                 </div>
             </div>
@@ -345,7 +345,6 @@
             const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             const isSnowing = desc.includes('nieve') || desc.includes('nevada');
 
-            // 1. LLUVIA/NIEVE
             if (isRaining) {
                 boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
                 boys.push({icon: 'bi-cloud-rain', text: 'Cortavientos'});
@@ -358,7 +357,6 @@
                 girls.push({icon: 'bi-snow', text: 'Botas peluche'});
             }
 
-            // 2. TEMPERATURA
             if (temp < 5) {
                 boys.push({icon: 'bi-snow2', text: 'Plumas gordo'});
                 boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro lana'});
@@ -410,11 +408,9 @@
             const frase = frases[Math.floor(Math.random() * frases.length)];
             document.getElementById('tip-text').innerText = frase;
 
-            // ACTUALIZAR ROPA CARD
             const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed);
             const clothingContainer = document.getElementById('clothing-advice');
             
-            // Icono pequeño tarjeta principal (siempre del chico por defecto o genérico)
             const outfitDisplay = document.getElementById('outfit-display');
             if(outfitDisplay) {
                 const mainItem = clothes.boys[0] ? clothes.boys[0].text : '--';
@@ -422,11 +418,8 @@
                 outfitDisplay.innerHTML = `<i class="bi bi-person-standing-dress outfit-icon"></i> <span style="font-size: 0.8rem; font-weight: bold; opacity: 0.8;">${mainItem}</span>`;
             }
 
-            // Tarjeta grande Armario
             if(clothingContainer) {
                 let html = '';
-                
-                // SECCIÓN CHICOS
                 html += `<div class="w-100 mb-2">
                             <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem; display:block; margin-bottom:4px;">ELLOS 👦</small>
                             <div class="d-flex flex-wrap gap-2">`;
@@ -436,7 +429,6 @@
                     </div>`).join('');
                 html += `</div></div>`;
 
-                // SECCIÓN CHICAS
                 html += `<div class="w-100">
                             <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem; display:block; margin-bottom:4px; margin-top:4px;">ELLAS 👧</small>
                             <div class="d-flex flex-wrap gap-2">`;
@@ -450,7 +442,6 @@
             }
         };
 
-        // --- LÓGICA DE COMPARTIR ---
         document.getElementById('shareBtn').addEventListener('click', () => {
             const element = document.getElementById('capture-card');
             const btn = document.getElementById('shareBtn');
