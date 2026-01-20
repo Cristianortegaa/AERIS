@@ -18,9 +18,9 @@
     <meta name="theme-color" content="#bae6fd">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
-        /* --- ESTILOS --- */
         :root { --bg-1: #bae6fd; --bg-2: #e0f2fe; --glass: rgba(255, 255, 255, 0.65); --glass-border: rgba(255, 255, 255, 0.4); --text: #0c4a6e; --text-sec: #475569; --accent: #0284c7; --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); --skeleton-base: rgba(255, 255, 255, 0.3); --skeleton-shine: rgba(255, 255, 255, 0.6); --invert-close: 0; }
         [data-theme="dark"] { --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #38bdf8; --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); --skeleton-base: rgba(255, 255, 255, 0.05); --skeleton-shine: rgba(255, 255, 255, 0.15); --invert-close: 1; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text); background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); min-height: 100vh; padding-bottom: 80px; transition: background 0.8s ease, color 0.5s ease; overflow-x: hidden; }
@@ -46,16 +46,14 @@
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
-        .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; }
+        .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; }
         .suggestions-list.show { display: block; }
         .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; color: var(--text); }
         .suggestion-item:hover { background: var(--accent); color: white; }
         
-        /* AQI Styles */
         .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        /* Sidebar */
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
         [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
@@ -69,7 +67,6 @@
         .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
         .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
 
-        /* Modal & AI */
         .ai-container { cursor: pointer; transition: transform 0.2s; user-select: none; position: relative; padding: 5px; border-radius: 12px; display: flex; align-items: center; gap: 8px; }
         .ai-container:hover { background: rgba(255,255,255,0.1); }
         .ai-container:active { transform: scale(0.95); }
@@ -86,9 +83,8 @@
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .overlay.show { opacity: 1; pointer-events: all; }
 
-        /* SHARE BUTTON FIXED (NO OVERLAP) */
         .share-btn {
-            position: absolute; top: 15px; right: 15px;
+            position: absolute; top: 10px; right: 10px;
             width: 36px; height: 36px;
             border-radius: 50%;
             background: rgba(255,255,255,0.25);
@@ -99,7 +95,6 @@
         }
         .share-btn:hover { background: var(--accent); color: white; transform: scale(1.1); }
         
-        /* CLOTHING CARD STYLE */
         .clothing-tag {
             border: 1px solid var(--glass-border);
             padding: 8px 14px;
@@ -162,31 +157,36 @@
             <button class="share-btn" id="shareBtn" title="Compartir"><i class="bi bi-camera-fill"></i></button>
 
             <div class="d-flex justify-content-between align-items-start">
-                <div style="flex: 1; padding-right: 45px;"> 
+                <div style="flex-grow: 1; max-width: 70%; display: flex; flex-direction: column;"> 
                     <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; min-height: 1em;"></h5>
                     <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; min-height: 1.2em; line-height: 1.2;"></div>
                 </div>
-                <div id="weather-icon-container" style="width: 100px; height: 100px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; margin-top: 20px;">
+                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: 10px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
                     <div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>
                 </div>
             </div>
             
-            <div class="mt-2 d-flex align-items-end justify-content-between">
+            <div class="mt-1 d-flex align-items-end">
                 <div class="d-flex flex-column">
                     <div id="temp" class="temp-big skeleton" style="line-height:0.9; width: 140px; min-height: 0.8em; margin-bottom: 10px;"></div>
                     <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
                         Sensación: <span id="feels-like" class="skeleton" style="width: 30px; display:inline-block">--</span>°
                     </div>
                 </div>
-                <div class="mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
+                <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
                     <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                     <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                 </div>
             </div>
 
-            <div class="d-flex gap-3 flex-wrap mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
+            <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
                 <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
                 <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
+                
+                <span id="outfit-display" style="display:none; margin-left: 5px;">
+                    <i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span>
+                </span>
+                
                 <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
             </div>
 
@@ -200,7 +200,9 @@
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)"><i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY</h6>
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
+                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
+            </h6>
             <div id="clothing-advice">
                 <div class="d-flex flex-wrap gap-2">
                     <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
@@ -266,7 +268,6 @@
             }, 2000); 
         });
 
-        // --- GLOBAL ---
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityName = localStorage.getItem('lastName') || 'Madrid';
         let currentCityRegion = localStorage.getItem('lastRegion') || '';
@@ -275,18 +276,17 @@
         let rainChartInstance = null;
         let lastWeatherData = null;
 
-        // --- AI LOGIC ---
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
         const aiLogic = {
-            normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate.", "Busca sombra."], cold: ["Abrígate.", "Hace frío."], rain: ["Paraguas.", "Lluvia."], nice: ["Disfruta.", "Buen día."] } },
-            zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente el calor.", "Fluye."], cold: ["Abraza el frío.", "Paz."], rain: ["Lluvia sana.", "Escucha."], nice: ["Armonía.", "Presente."] } },
-            villano: { icon: "😈", name: "Villano", tips: { hot: ["Te derrites.", "Sufre."], cold: ["Congélate.", "Hielo."], rain: ["Mójate.", "Diluvio."], nice: ["Sospechoso.", "Espera."] } },
-            madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema.", "Bebe agua."], cold: ["Ponte la rebeca.", "Frío."], rain: ["Coge paraguas.", "Mójate no."], nice: ["Sal un poco.", "Come algo."] } },
-            gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda.", "Cardio."], cold: ["Entrena fuera.", "Corre."], rain: ["Sin excusas.", "Dale duro."], nice: ["Entrena ya.", "Vitamina D."] } },
-            cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Alta radiación.", "Calor."], cold: ["Baja térmica.", "Frío."], rain: ["Precipitación.", "H2O."], nice: ["Óptimo.", "Estable."] } },
-            gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta al sol.", "Calor."], cold: ["Manta.", "Estufa."], rain: ["Agua no.", "Casa."], nice: ["Cazar.", "Jugar."] } },
-            pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Sol abrasador.", "Ron."], cold: ["Viento gélido.", "Mar."], rain: ["Tormenta.", "Cubierta."], nice: ["Viento a favor.", "Navega."] } },
-            poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol dorado.", "Ardor."], cold: ["Aire gélido.", "Invierno."], rain: ["Lanto del cielo.", "Gris."], nice: ["Brisa suave.", "Luz."] } }
+            normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hace calor, hidrátate.", "Busca sombra hoy."], cold: ["Abrígate bien hoy.", "Hace frío fuera."], rain: ["No olvides el paraguas.", "Riesgo de lluvia."], nice: ["Disfruta del buen tiempo.", "Día perfecto para salir."] } },
+            zen: { icon: "🧘", name: "Zen", tips: { hot: ["El sol nutre tu energía.", "Fluye con el calor."], cold: ["La quietud del frío es paz.", "Abraza el silencio."], rain: ["La lluvia limpia el alma.", "Escucha las gotas caer."], nice: ["Armonía perfecta hoy.", "Conecta con el presente."] } },
+            villano: { icon: "😈", name: "Villano", tips: { hot: ["Te vas a derretir, humano.", "El asfalto es lava."], cold: ["Se te congelarán las ideas.", "Ni el yeti sale hoy."], rain: ["Pelo encrespado garantizado.", "El cielo llora por ti."], nice: ["Hace bueno... sospechoso.", "Disfruta antes del fin."] } },
+            madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema, factor 50.", "Bebe agua, hijo."], cold: ["¿Llevas camiseta interior?", "Abrígate o te enfermas."], rain: ["¡Ni se te ocurra salir sin paraguas!", "No te mojes los pies."], nice: ["Come algo antes de salir.", "Sal a que te dé el aire."] } },
+            gym: { icon: "💪", name: "Gym Bro", tips: { hot: ["Sudar es grasa llorando.", "¡Calor para definir!"], cold: ["El frío no es excusa. ¡Entrena!", "Corre para calentarte."], rain: ["Correr bajo la lluvia es épico.", "No te saltes el leg day."], nice: ["Día perfecto para entrenar fuera.", "Vitamina D y pesas."] } },
+            cientifico: { icon: "🧪", name: "Científico", tips: { hot: ["Radiación solar elevada.", "Termodinámica extrema hoy."], cold: ["Descenso térmico molecular.", "Cristalización posible."], rain: ["Precipitación de H2O inminente.", "Hidratación atmosférica alta."], nice: ["Condiciones atmosféricas óptimas.", "Homeostasis climática."] } },
+            gato: { icon: "🐱", name: "Gato", tips: { hot: ["Dormiré al sol todo el día.", "El suelo está calentito."], cold: ["No pienso salir de la cama.", "Humano, sube la calefacción."], rain: ["Odio el agua. Miau.", "Ni me mires, no salgo."], nice: ["A cazar moscas en el jardín.", "Día perfecto para siesta."] } },
+            pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["El sol quema como mil cañones.", "¡A sudar la gota gorda!"], cold: ["Frío como el corazón de mi ex.", "Ron para calentarse."], rain: ["Tormenta a estribor, grumete.", "¡A baldear la cubierta!"], nice: ["Viento en popa a toda vela.", "Buen día para saquear."] } },
+            poeta: { icon: "📜", name: "Poeta", tips: { hot: ["El sol besa la tierra con ardor.", "Luz dorada inunda todo."], cold: ["El invierno susurra secretos.", "Manto gélido cubre el mundo."], rain: ["Lágrimas del cielo caen.", "Melancolía gris en el aire."], nice: ["La brisa acaricia tu rostro.", "Un poema de día."] } }
         };
 
         const modal = document.getElementById('personaModal');
@@ -317,20 +317,19 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- ROPA LOGIC ---
         const getClothingList = (temp, desc, wind) => {
             let boys = [];
             let girls = [];
             desc = desc.toLowerCase();
-            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubascos');
+            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             const isSnowing = desc.includes('nieve') || desc.includes('nevada');
 
             if (isRaining) {
                 boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
                 boys.push({icon: 'bi-cloud-rain', text: 'Cortavientos'});
                 girls.push({icon: 'bi-umbrella', text: 'Paraguas'});
-                girls.push({icon: 'bi-cloud-rain', text: 'Trench'});
-                girls.push({icon: 'bi-boot', text: 'Botas agua'});
+                girls.push({icon: 'bi-cloud-rain', text: 'Trench / Gabardina'});
+                girls.push({icon: 'bi-boot', text: 'Botas de agua'});
             }
             if (isSnowing) {
                 boys.push({icon: 'bi-snow', text: 'Botas montaña'});
@@ -338,35 +337,35 @@
             }
 
             if (temp < 5) {
-                boys.push({icon: 'bi-snow2', text: 'Plumas'});
-                boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro'});
-                girls.push({icon: 'bi-snow2', text: 'Puffer'});
-                girls.push({icon: 'bi-thermometer-snow', text: 'Térmica'});
+                boys.push({icon: 'bi-snow2', text: 'Plumas gordo'});
+                boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro lana'});
+                girls.push({icon: 'bi-snow2', text: 'Puffer Jacket'});
+                girls.push({icon: 'bi-thermometer-snow', text: 'Leggins térmicos'});
             } else if (temp < 12) {
-                boys.push({icon: 'bi-person-fill', text: 'Abrigo'});
-                boys.push({icon: 'bi-layers', text: 'Jersey'});
+                boys.push({icon: 'bi-person-fill', text: 'Abrigo paño'});
+                boys.push({icon: 'bi-layers', text: 'Jersey cuello alto'});
                 girls.push({icon: 'bi-person-fill', text: 'Abrigo largo'});
                 girls.push({icon: 'bi-layers', text: 'Jersey Oversize'});
             } else if (temp < 18) {
-                boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
-                boys.push({icon: 'bi-layers-half', text: 'Chaleco'});
-                girls.push({icon: 'bi-person', text: 'Biker'});
+                boys.push({icon: 'bi-person-hoodie', text: 'Hoodie/Sudadera'});
+                boys.push({icon: 'bi-layers-half', text: 'Chaleco acolchado'});
+                girls.push({icon: 'bi-person', text: 'Biker / Cuero'});
                 girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
             } else if (temp < 24) {
                 boys.push({icon: 'bi-person-video', text: 'Sobrecamisa'});
-                boys.push({icon: 'bi-gem', text: 'Cargo'});
+                boys.push({icon: 'bi-gem', text: 'Pantalón Cargo'});
                 girls.push({icon: 'bi-suit-heart', text: 'Blazer'});
                 girls.push({icon: 'bi-gem', text: 'Jeans anchos'});
             } else if (temp < 30) {
-                boys.push({icon: 'bi-brightness-high', text: 'Camiseta'});
-                boys.push({icon: 'bi-sunglasses', text: 'Gafas'});
-                girls.push({icon: 'bi-brightness-high', text: 'Top'});
-                girls.push({icon: 'bi-sunglasses', text: 'Gafas'});
+                boys.push({icon: 'bi-brightness-high', text: 'Camiseta Oversize'});
+                boys.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
+                girls.push({icon: 'bi-brightness-high', text: 'Crop top'});
+                girls.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
             } else {
-                boys.push({icon: 'bi-brightness-alt-high', text: 'Lino'});
+                boys.push({icon: 'bi-brightness-alt-high', text: 'Camisa Lino'});
                 boys.push({icon: 'bi-water', text: 'Sandalias'});
-                girls.push({icon: 'bi-flower1', text: 'Vestido'});
-                girls.push({icon: 'bi-water', text: 'Sandalias'});
+                girls.push({icon: 'bi-flower1', text: 'Vestido ligero'});
+                girls.push({icon: 'bi-water', text: 'Sandalias abiertas'});
             }
 
             return { boys, girls };
@@ -409,7 +408,6 @@
             }
         };
 
-        // --- SHARE ---
         document.getElementById('shareBtn').addEventListener('click', () => {
             const element = document.getElementById('capture-card');
             const btn = document.getElementById('shareBtn');
@@ -500,20 +498,13 @@
             if(searchInput) searchInput.value = '';
             if(suggestionsList) suggestionsList.classList.remove('show');
             const id = city.id || city.name;
-            
             localStorage.setItem('lastId', id);
             localStorage.setItem('lastName', city.name);
             localStorage.setItem('lastRegion', city.region || '');
-            
             currentId = id;
             currentCityInfo = { id: id, name: city.name, region: city.region || '' };
-
-            document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => {
-                el.classList.add('skeleton');
-                el.style.removeProperty('height'); 
-            });
+            document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); });
             document.getElementById('weather-icon-container').innerHTML = '<div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>';
-            
             getWeather(id);
         };
 
@@ -521,18 +512,14 @@
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
             if(!nowcast || !nowcast.time || nowcast.time.length === 0) { card.style.display = 'none'; return; }
-            
             const nowEpoch = Math.floor(Date.now()/1000);
             const currentHourlyItem = hourlyData.find(h => h.epoch >= nowEpoch - 1800);
             if(!currentHourlyItem) { card.style.display = 'none'; return; }
-
-            const localHourStr = currentHourlyItem.displayTime.split(':')[0]; // Usamos la hora local del backend
+            const localHourStr = currentHourlyItem.displayTime.split(':')[0];
             let startIndex = nowcast.time.findIndex(t => t.includes(`T${localHourStr}:`));
             if(startIndex === -1) startIndex = 0;
-
             const timeLabels = [];
             const precipData = [];
-            
             for(let i=0; i<5; i++) {
                 if(startIndex + i < nowcast.precipitation.length) {
                     precipData.push(nowcast.precipitation[startIndex + i]);
@@ -541,36 +528,22 @@
                     timeLabels.push(hourMin);
                 }
             }
-            
             const totalRain = precipData.reduce((a,b) => a+b, 0);
             if(totalRain <= 0.1) { card.style.display = 'none'; return; }
-            
             card.style.display = 'block';
             summary.innerText = totalRain > 2 ? "Lluvia Fuerte" : (totalRain > 0.5 ? "Lluvia Moderada" : "Lluvia Ligera");
-            
             const ctx = document.getElementById('rainChart').getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 150);
             gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
             gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
-
             if(rainChartInstance) rainChartInstance.destroy();
             rainChartInstance = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: timeLabels,
-                    datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.4 }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: true, intersect: false } },
-                    scales: { x: { grid: { display: false }, ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } } }, y: { display: false, min: 0, suggestedMax: Math.max(...precipData) * 1.5 } },
-                    animation: { duration: 1200, easing: 'easeOutQuart' },
-                    layout: { padding: { top: 10, left: -5, right: -5 } }
-                }
+                data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.4 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: true, intersect: false } }, scales: { x: { grid: { display: false }, ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } } }, y: { display: false, min: 0, suggestedMax: Math.max(...precipData) * 1.5 } }, animation: { duration: 1200, easing: 'easeOutQuart' }, layout: { padding: { top: 10, left: -5, right: -5 } } }
             });
         };
 
-        // --- GET WEATHER ---
         async function getWeather(id) {
             try {
                 const storedName = localStorage.getItem('lastName') || 'Ubicación';
@@ -583,17 +556,14 @@
                 const loc = data.location;
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 lastWeatherData = cur;
-
                 updateHeartUI();
-                document.querySelectorAll('.skeleton').forEach(el => { el.classList.remove('skeleton'); el.style.width = ''; el.style.height = ''; el.style.minHeight = ''; });
 
+                document.querySelectorAll('.skeleton').forEach(el => { el.classList.remove('skeleton'); el.style.width = ''; el.style.height = ''; el.style.minHeight = ''; });
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
-                
                 const iconContainer = document.getElementById('weather-icon-container');
                 iconContainer.innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
-
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
@@ -606,7 +576,6 @@
                 let aqiText = "Buena"; let aqiColor = "#4ade80"; 
                 if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; } else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; } else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; } else if (aqi > 100) { aqiText = "Sensible"; aqiColor = "#f97316"; } else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } 
                 let aqiPercent = (aqi / 300) * 100; if (aqiPercent > 100) aqiPercent = 100;
-
                 document.getElementById('aqi-val').innerText = aqi;
                 document.getElementById('aqi-text').innerText = aqiText;
                 document.getElementById('aqi-text').style.color = aqiColor;
@@ -616,7 +585,6 @@
 
                 renderRainChart(data.nowcast, data.hourly);
 
-                // DAILY
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
                     document.getElementById('min-temp').innerText = data.daily[0].tempMin;
@@ -624,7 +592,6 @@
                     document.getElementById('min-temp').classList.remove('skeleton');
                 }
 
-                // RADAR
                 if(loc.lat && loc.lon) {
                     const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
                     const iframe = document.getElementById('radar-frame');
@@ -633,21 +600,11 @@
 
                 updateAIText(cur);
 
-                // HOURLY (Usamos la hora local del backend para filtrar)
-                // data.current.time trae la fecha/hora local ISO (2025-01-20T17:00)
+                // HOURLY
                 const localDate = new Date(cur.time);
                 const currentHour = localDate.getHours();
-
                 const hCont = document.getElementById('hourly');
                 if(hCont) {
-                    // Filtramos para mostrar desde la hora actual en adelante
-                    const nextHours = data.hourly.filter(h => h.hour >= currentHour || (h.hour < currentHour && h.fullDate > cur.time)); 
-                    // (Simplificación: OpenMeteo devuelve 24h, asumimos orden cronológico, tomamos las que coincidan o sean futuras)
-                    // Mejor: OpenMeteo Hourly suele devolver 24 slots del día actual.
-                    // Si son las 23:00, solo queda 1.
-                    // Ajuste: Mostrar las que queden del día + relleno del día siguiente si hiciera falta (backend simplificado aquí)
-                    // Usamos el slice simple basado en índice para robustez visual
-                    
                     hCont.innerHTML = data.hourly.slice(currentHour, currentHour + 24).map(h => `
                         <div class="hourly-item" style="animation: fadeIn 0.5s">
                             <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
@@ -689,7 +646,6 @@
                     themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>'; 
                     document.documentElement.style.setProperty('--invert-close', newTheme === 'dark' ? '1' : '0');
                 }
-
             } catch (e) {
                 console.error(e);
                 document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
@@ -713,12 +669,9 @@
         if(geoBtn) geoBtn.addEventListener('click', () => {
              if(!navigator.geolocation) return;
              document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
-             
              navigator.geolocation.getCurrentPosition(async (pos) => {
-                 // Pedir al backend que haga Reverse Geocoding
                  const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                  const city = await res.json();
-                 // El backend ahora devuelve un nombre REAL, no genérico
                  if(city.id) selectCity({id: city.id, name: city.name, region: city.region});
              });
         });
@@ -726,7 +679,6 @@
         const favHeart = document.getElementById('favHeart');
         if(favHeart) favHeart.addEventListener('click', toggleFavorite);
 
-        // --- ARRANQUE APP: PRIORIDAD GPS ---
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
@@ -737,22 +689,19 @@
                         if (city.id) { 
                             selectCity({id: city.id, name: city.name, region: city.region}); 
                         } else {
-                             // Si falla el server de nombres, fallback
                              getWeather(localStorage.getItem('lastId') || 'Madrid');
                         }
                     } catch(e) { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
                 },
                 (err) => { 
-                    // Si el usuario deniega GPS o timeout, carga la última ciudad
                     getWeather(localStorage.getItem('lastId') || 'Madrid'); 
                 },
-                { timeout: 4000, enableHighAccuracy: false } // Timeout rápido para no bloquear
+                { timeout: 4000, enableHighAccuracy: false }
             );
         } else { 
             getWeather(localStorage.getItem('lastId') || 'Madrid'); 
         }
     </script>
-    
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
