@@ -329,48 +329,99 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- FUNCION PARA GENERAR LISTA DE ROPA ---
+        // --- FUNCION DOBLE: ROPA PARA CHICOS Y CHICAS (MODA ACTUAL) ---
         const getClothingList = (temp, desc, wind) => {
-            let items = [];
+            let boys = [];
+            let girls = [];
             desc = desc.toLowerCase();
+            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
+            const isSnowing = desc.includes('nieve') || desc.includes('nevada');
 
-            if (desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta')) {
-                items.push({icon: 'bi-umbrella', text: 'Paraguas'});
-                items.push({icon: 'bi-droplet', text: 'Chubasquero'});
+            // --- 1. CASOS ESPECIALES (LLUVIA/NIEVE) ---
+            if (isRaining) {
+                boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
+                boys.push({icon: 'bi-cloud-rain', text: 'Cortavientos'});
+                boys.push({icon: 'bi-boot', text: 'Botas piel'});
+                
+                girls.push({icon: 'bi-umbrella', text: 'Paraguas'});
+                girls.push({icon: 'bi-cloud-rain', text: 'Trench / Gabardina'});
+                girls.push({icon: 'bi-boot', text: 'Botas de agua altas'});
             }
-            if (desc.includes('nieve') || desc.includes('nevada')) {
-                items.push({icon: 'bi-snow', text: 'Botas nieve'});
+            
+            if (isSnowing) {
+                boys.push({icon: 'bi-snow', text: 'Botas montaña'});
+                boys.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
+                
+                girls.push({icon: 'bi-snow', text: 'Botas peluche'});
+                girls.push({icon: 'bi-hand-index-thumb', text: 'Manoplas'});
             }
 
+            // --- 2. TEMPERATURA (CHICOS) ---
             if (temp < 0) {
-                items.push({icon: 'bi-thermometer-snow', text: 'Térmica'});
-                items.push({icon: 'bi-snow2', text: 'Abrigo plumas'});
-                items.push({icon: 'bi-emoji-dizzy', text: 'Bufanda y Guantes'});
+                boys.push({icon: 'bi-snow2', text: 'Plumas gordo'});
+                boys.push({icon: 'bi-thermometer-snow', text: 'Térmica interior'});
+                boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro lana'});
             } else if (temp < 10) {
-                items.push({icon: 'bi-person-fill', text: 'Abrigo'});
-                items.push({icon: 'bi-layers', text: 'Jersey grueso'});
-            } else if (temp < 16) {
-                items.push({icon: 'bi-person', text: 'Chaqueta ligera'});
-                items.push({icon: 'bi-layers-half', text: 'Sudadera'});
-            } else if (temp < 22) {
-                items.push({icon: 'bi-person-video', text: 'Manga larga'});
-                items.push({icon: 'bi-gem', text: 'Vaqueros'});
-            } else if (temp < 28) {
-                items.push({icon: 'bi-brightness-high', text: 'Manga corta'});
-                items.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
+                boys.push({icon: 'bi-person-fill', text: 'Abrigo largo'});
+                boys.push({icon: 'bi-layers', text: 'Jersey cuello alto'});
+                boys.push({icon: 'bi-gem', text: 'Pantalón pana'});
+            } else if (temp < 15) {
+                boys.push({icon: 'bi-person-hoodie', text: 'Hoodie (Sudadera)'});
+                boys.push({icon: 'bi-layers-half', text: 'Chaleco acolchado'});
+                boys.push({icon: 'bi-person', text: 'Bomber'});
+            } else if (temp < 20) {
+                boys.push({icon: 'bi-person-video', text: 'Sobrecamisa'});
+                boys.push({icon: 'bi-gem', text: 'Pantalón Cargo'});
+                boys.push({icon: 'bi-tshirt', text: 'Camiseta básica'});
+            } else if (temp < 26) {
+                boys.push({icon: 'bi-brightness-high', text: 'Camiseta Oversize'});
+                boys.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
+                boys.push({icon: 'bi-bicycle', text: 'Vaqueros rotos'});
             } else {
-                items.push({icon: 'bi-brightness-alt-high', text: 'Tirantes/Lino'});
-                items.push({icon: 'bi-water', text: 'Mucha agua'});
-                items.push({icon: 'bi-sun', text: 'Gorra'});
+                boys.push({icon: 'bi-brightness-alt-high', text: 'Camisa Lino'});
+                boys.push({icon: 'bi-bucket', text: 'Pantalón corto'});
+                boys.push({icon: 'bi-capslock', text: 'Gorra'});
+                boys.push({icon: 'bi-water', text: 'Sandalias'});
             }
 
-            if (wind > 20 && temp < 25) {
-                items.push({icon: 'bi-wind', text: 'Cortavientos'});
+            // --- 3. TEMPERATURA (CHICAS) ---
+            if (temp < 0) {
+                girls.push({icon: 'bi-snow2', text: 'Puffer Jacket'});
+                girls.push({icon: 'bi-thermometer-snow', text: 'Leggins térmicos'});
+                girls.push({icon: 'bi-emoji-dizzy', text: 'Bufanda XL'});
+            } else if (temp < 10) {
+                girls.push({icon: 'bi-person-fill', text: 'Abrigo de Paño'});
+                girls.push({icon: 'bi-layers', text: 'Jersey Oversize'});
+                girls.push({icon: 'bi-boot', text: 'Botas altas'});
+            } else if (temp < 15) {
+                girls.push({icon: 'bi-person', text: 'Cazadora Biker/Cuero'});
+                girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
+                girls.push({icon: 'bi-gem', text: 'Jeans anchos'});
+            } else if (temp < 20) {
+                girls.push({icon: 'bi-suit-heart', text: 'Blazer'});
+                girls.push({icon: 'bi-person-video', text: 'Rebeca fina'});
+                girls.push({icon: 'bi-shoe-prints', text: 'Zapatillas lona'});
+            } else if (temp < 26) {
+                girls.push({icon: 'bi-brightness-high', text: 'Top / Crop top'});
+                girls.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
+                girls.push({icon: 'bi-gem', text: 'Falda Midi'});
+            } else {
+                girls.push({icon: 'bi-brightness-alt-high', text: 'Vestido ligero'});
+                girls.push({icon: 'bi-flower1', text: 'Mono corto'});
+                girls.push({icon: 'bi-water', text: 'Sandalias abiertas'});
+                girls.push({icon: 'bi-stars', text: 'Abanico'});
             }
 
-            return items;
+            // --- 4. VIENTO (AMBOS) ---
+            if (wind > 25) {
+                boys.push({icon: 'bi-wind', text: 'Cortavientos'});
+                girls.push({icon: 'bi-exclamation-triangle', text: 'Evita falda vuelo'});
+                girls.push({icon: 'bi-wind', text: 'Recógete el pelo'});
+            }
+
+            return { boys, girls };
         };
-
+        
         const updateAIText = (cur) => {
             if (!cur) return; 
             const p = aiLogic[currentPersona];
