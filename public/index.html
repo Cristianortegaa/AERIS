@@ -41,7 +41,9 @@
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
+        
         .temp-big { font-family:'Outfit'; font-weight:700; font-size: clamp(3.5rem, 10vw, 5.5rem); line-height: 1; letter-spacing: -2px; }
+        
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
@@ -268,7 +270,6 @@
 
         // --- GESTIÓN DE LOCALSTORAGE (Nombres Reales) ---
         let currentId = localStorage.getItem('lastId') || 'Madrid';
-        // Recuperamos el nombre guardado o usamos "Madrid" por defecto
         let currentCityName = localStorage.getItem('lastName') || 'Madrid';
         let currentCityRegion = localStorage.getItem('lastRegion') || '';
         
@@ -395,7 +396,7 @@
             const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed);
             const clothingContainer = document.getElementById('clothing-advice');
             
-            // Icono pequeño tarjeta principal
+            // Icono pequeño tarjeta principal (siempre del chico por defecto o genérico)
             const outfitDisplay = document.getElementById('outfit-display');
             if(outfitDisplay) {
                 const mainItem = clothes.boys[0] ? clothes.boys[0].text : '--';
@@ -525,6 +526,7 @@
             });
         }
 
+        // --- SELECT CITY (CORREGIDO PARA USAR QUERY PARAMS) ---
         const selectCity = (city) => {
             if(searchInput) searchInput.value = '';
             if(suggestionsList) suggestionsList.classList.remove('show');
@@ -611,18 +613,21 @@
 
         // --- GET WEATHER (MODIFICADO PARA USAR EL NOMBRE CORRECTO) ---
         async function getWeather(id) {
-            
-            // --- PROTECCIÓN MÓVIL: SI FALLA, LIMPIA SKELETONS ---
             try {
+                // Recuperamos nombre y región de LocalStorage para enviarlos al backend
                 const storedName = localStorage.getItem('lastName') || 'Ubicación';
                 const storedRegion = localStorage.getItem('lastRegion') || '';
+                
+                // Añadimos el nombre a la URL para que el backend lo use
                 const res = await fetch(`/api/weather/${id}?name=${encodeURIComponent(storedName)}&region=${encodeURIComponent(storedRegion)}`);
+                
                 const data = await res.json();
                 if(data.error) throw new Error(data.error);
 
                 const cur = data.current;
                 const loc = data.location;
                 
+                // Actualizamos info global
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 lastWeatherData = cur;
 
@@ -648,26 +653,31 @@
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
 
-                // --- CORRECCIÓN CALIDAD AIRE ---
+                // --- CORRECCIÓN CALIDAD AIRE (AQI 0-500) ---
                 const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
                 const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
                 const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
+                
+                // 1. Determinar Texto y Color según estándar US EPA
                 let aqiText = "Buena";
-                let aqiColor = "#4ade80"; 
+                let aqiColor = "#4ade80"; // Verde
+                
                 if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; }
                 else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; }
                 else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; }
                 else if (aqi > 100) { aqiText = "Dañina (Sensibles)"; aqiColor = "#f97316"; }
-                else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } 
+                else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } // Amarillo
 
+                // 2. Calcular porcentaje real para la barra (Escala máx 300 habitual)
                 let aqiPercent = (aqi / 300) * 100;
-                if (aqiPercent > 100) aqiPercent = 100;
+                if (aqiPercent > 100) aqiPercent = 100; // Tope visual
 
+                // 3. Pintar en pantalla
                 document.getElementById('aqi-val').innerText = aqi;
                 document.getElementById('aqi-text').innerText = aqiText;
-                document.getElementById('aqi-text').style.color = aqiColor;
-                document.getElementById('pm25').innerText = pm25 + (typeof pm25 === 'number' ? ' µg/m³' : '');
-                document.getElementById('pm10').innerText = pm10 + (typeof pm10 === 'number' ? ' µg/m³' : '');
+                document.getElementById('aqi-text').style.color = aqiColor; // Color al texto también
+                document.getElementById('pm25').innerText = pm25;
+                document.getElementById('pm10').innerText = pm10;
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
                 renderRainChart(data.nowcast, data.hourly);
@@ -687,15 +697,28 @@
 
                 updateAIText(cur);
 
-                const nowEpoch = Math.floor(Date.now()/1000) - 3600; 
+                // --- FIX: FILTRAR HORAS PASADAS (Para que empiece desde la hora actual de la ciudad) ---
+                const localCityTime = new Date(data.current.localTime); // Viene del backend en hora local
+                const currentHour = localCityTime.getHours(); 
+
                 const hCont = document.getElementById('hourly');
                 if(hCont) {
                     hCont.innerHTML = data.hourly
-                        .filter(h => h.epoch >= nowEpoch)
-                        .slice(0, 24)
+                        .filter(h => {
+                            // Filtramos solo las horas que sean >= a la hora actual de la ciudad
+                            const forecastHour = parseInt(h.hourOnly.split(':')[0]);
+                            // Simple check: mostramos desde la hora actual en adelante (o del día siguiente)
+                            // Como la API devuelve 24h, solo tenemos que saltar las que ya pasaron hoy.
+                            // PERO CUIDADO: La API OpenMeteo Hourly devuelve 48h o más por defecto a veces.
+                            // Aquí simplificamos mostrando las próximas 24 slots tal cual vienen del backend
+                            // PERO el backend ya nos da las horas.
+                            // Mejor estrategia visual: Mostrar desde la hora que coincida con 'currentHour'
+                            return true; // Dejamos que el backend (que ya da las próximas 24h) mande
+                        })
+                        .slice(currentHour, currentHour + 24) // HACK VISUAL: Empezar el scroll en la hora actual
                         .map(h => `
                             <div class="hourly-item" style="animation: fadeIn 0.5s">
-                                <div class="small opacity-75 fw-bold mb-1">${h.fullDate.split(' ')[1]}</div>
+                                <div class="small opacity-75 fw-bold mb-1">${h.hourOnly}</div>
                                 <i class="bi ${h.icon} fs-4" style="color:var(--text)"></i>
                                 <div class="fw-bold fs-5">${h.temp}°</div>
                                 <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">${h.rainProb>0?h.rainProb+'%':''}</div>
@@ -737,6 +760,7 @@
 
             } catch (e) {
                 console.error(e);
+                // SI FALLA, QUITAMOS SKELETONS PARA QUE NO SE QUEDE CARGANDO ETERNAMENTE
                 document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
                 document.getElementById('desc').innerText = "Sin conexión";
             }
@@ -757,12 +781,15 @@
         const geoBtn = document.getElementById('geoBtn');
         if(geoBtn) geoBtn.addEventListener('click', () => {
              if(!navigator.geolocation) return;
+             // Reset visual a skeleton
              document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
              
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                  const city = await res.json();
-                 if(city.id) selectCity({id: city.id, name: city.name || 'Tu Ubicación', region: ''});
+                 // GEO NO DA NOMBRE PRECISO, PERO EL BACKEND LO PONE GENERICO
+                 // Si queremos nombre real, habría que hacer reverse geo en frontend, pero para simpleza:
+                 if(city.id) selectCity({id: city.id, name: 'Tu Ubicación', region: ''});
              });
         });
 
@@ -775,34 +802,16 @@
                     try {
                         const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                         const city = await res.json();
-                        
-                        // PRIORIZAMOS SIEMPRE EL GPS
-                        if (city.id) {
-                            selectCity({
-                                id: city.id,
-                                name: city.name || 'Tu Ubicación',
-                                region: city.region || ''
-                            });
-                        } else {
-                            // Fallback
-                            const last = localStorage.getItem('lastId') || 'Madrid';
-                            getWeather(last);
-                        }
-                    } catch(e) { 
-                        const last = localStorage.getItem('lastId') || 'Madrid';
-                        getWeather(last); 
-                    }
+                        if (city.id) { selectCity({id: city.id, name: 'Tu Ubicación', region: ''}); }
+                        else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
+                    } catch(e) { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
                 },
                 (err) => { 
-                    const last = localStorage.getItem('lastId') || 'Madrid';
-                    getWeather(last); 
+                    getWeather(localStorage.getItem('lastId') || 'Madrid'); 
                 },
-                { timeout: 5000, enableHighAccuracy: true }
+                { timeout: 5000 }
             );
-        } else { 
-            const last = localStorage.getItem('lastId') || 'Madrid';
-            getWeather(last); 
-        }
+        } else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
     </script>
     
     <script>
