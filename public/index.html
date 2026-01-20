@@ -59,16 +59,7 @@
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
-        
-        /* Typography Adjusted */
-        .temp-big { 
-            font-family:'Outfit'; 
-            font-weight:700; 
-            font-size: clamp(3.5rem, 10vw, 5.5rem); /* Responsive Font Size */
-            line-height: 1; 
-            letter-spacing: -2px; 
-        }
-        
+        .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
@@ -123,8 +114,22 @@
         }
         .share-btn:hover { background: var(--accent); color: white; transform: scale(1.1); }
         
-        /* OUTFIT ICON */
-        .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
+        /* CLOTHING CARD STYLE */
+        .clothing-tag {
+            background: rgba(var(--accent-rgb), 0.1); 
+            border: 1px solid var(--glass-border);
+            padding: 8px 14px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+            background: rgba(255,255,255,0.4);
+        }
+        [data-theme="dark"] .clothing-tag { background: rgba(255,255,255,0.1); }
+        .clothing-tag:hover { transform: scale(1.05); }
     </style>
 </head>
 <body data-theme="light">
@@ -172,34 +177,31 @@
             <button class="share-btn" id="shareBtn" title="Compartir"><i class="bi bi-camera-fill"></i></button>
 
             <div class="d-flex justify-content-between align-items-start">
-                <div style="flex: 1; min-width: 0; padding-right: 10px;"> <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; min-height: 1em;"></h5>
-                    <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; min-height: 1.2em; line-height: 1.2; word-wrap: break-word;"></div>
+                <div style="flex-grow: 1; max-width: 70%; display: flex; flex-direction: column;"> 
+                    <h5 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; min-height: 1em;"></h5>
+                    <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; min-height: 1.2em; line-height: 1.2;"></div>
                 </div>
-                
-                <div id="weather-icon-container" style="width: 100px; height: 100px; flex-shrink: 0; display:flex; align-items:center; justify-content:center;">
+                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: -15px; margin-right: -15px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
                     <div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>
                 </div>
             </div>
             
-            <div class="mt-3 d-flex align-items-end justify-content-between">
+            <div class="mt-1 d-flex align-items-end">
                 <div class="d-flex flex-column">
                     <div id="temp" class="temp-big skeleton" style="line-height:0.9; width: 140px; min-height: 0.8em; margin-bottom: 10px;"></div>
                     <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
                         Sensación: <span id="feels-like" class="skeleton" style="width: 30px; display:inline-block">--</span>°
                     </div>
                 </div>
-                <div class="mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
+                <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
                     <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                     <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                 </div>
             </div>
 
-            <div class="d-flex gap-3 flex-wrap mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
+            <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
                 <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
                 <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
-                <span id="outfit-display" style="display:none;">
-                    <i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span>
-                </span>
                 <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
             </div>
 
@@ -209,6 +211,17 @@
                     <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; min-height: 2em; display:block"></span>
                     <span id="tip-icon" class="fs-4">🤖</span>
                 </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
+                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
+            </h6>
+            <div id="clothing-advice" class="d-flex flex-wrap gap-2">
+                <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
+                <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
+                <div class="skeleton" style="width: 60px; height: 30px; border-radius: 50px;"></div>
             </div>
         </div>
 
@@ -316,14 +329,46 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- LÓGICA DE ROPA (OUTFIT) ---
-        const getOutfit = (temp, isRaining) => {
-            if (isRaining) return { text: "Impermeable", icon: "bi-umbrella" };
-            if (temp >= 25) return { text: "Camiseta", icon: "bi-brightness-high" };
-            if (temp >= 18) return { text: "Manga corta", icon: "bi-person" };
-            if (temp >= 12) return { text: "Sudadera", icon: "bi-person-badge" };
-            if (temp >= 5) return { text: "Abrigo", icon: "bi-snow" };
-            return { text: "Bufanda", icon: "bi-snow2" };
+        // --- FUNCION PARA GENERAR LISTA DE ROPA ---
+        const getClothingList = (temp, desc, wind) => {
+            let items = [];
+            desc = desc.toLowerCase();
+
+            if (desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta')) {
+                items.push({icon: 'bi-umbrella', text: 'Paraguas'});
+                items.push({icon: 'bi-droplet', text: 'Chubasquero'});
+            }
+            if (desc.includes('nieve') || desc.includes('nevada')) {
+                items.push({icon: 'bi-snow', text: 'Botas nieve'});
+            }
+
+            if (temp < 0) {
+                items.push({icon: 'bi-thermometer-snow', text: 'Térmica'});
+                items.push({icon: 'bi-snow2', text: 'Abrigo plumas'});
+                items.push({icon: 'bi-emoji-dizzy', text: 'Bufanda y Guantes'});
+            } else if (temp < 10) {
+                items.push({icon: 'bi-person-fill', text: 'Abrigo'});
+                items.push({icon: 'bi-layers', text: 'Jersey grueso'});
+            } else if (temp < 16) {
+                items.push({icon: 'bi-person', text: 'Chaqueta ligera'});
+                items.push({icon: 'bi-layers-half', text: 'Sudadera'});
+            } else if (temp < 22) {
+                items.push({icon: 'bi-person-video', text: 'Manga larga'});
+                items.push({icon: 'bi-gem', text: 'Vaqueros'});
+            } else if (temp < 28) {
+                items.push({icon: 'bi-brightness-high', text: 'Manga corta'});
+                items.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
+            } else {
+                items.push({icon: 'bi-brightness-alt-high', text: 'Tirantes/Lino'});
+                items.push({icon: 'bi-water', text: 'Mucha agua'});
+                items.push({icon: 'bi-sun', text: 'Gorra'});
+            }
+
+            if (wind > 20 && temp < 25) {
+                items.push({icon: 'bi-wind', text: 'Cortavientos'});
+            }
+
+            return items;
         };
 
         const updateAIText = (cur) => {
@@ -342,26 +387,25 @@
             const frase = frases[Math.floor(Math.random() * frases.length)];
             document.getElementById('tip-text').innerText = frase;
 
-            // ACTUALIZAR ROPA
-            const outfit = getOutfit(cur.temp, isRaining);
-            const outfitContainer = document.getElementById('outfit-display');
-            if(outfitContainer) {
-                outfitContainer.style.display = 'inline-block';
-                outfitContainer.innerHTML = `<i class="bi ${outfit.icon} text-primary outfit-icon"></i> <span style="font-size: 0.8rem; font-weight: bold; opacity: 0.8;">${outfit.text}</span>`;
+            // ACTUALIZAR ROPA CARD
+            const clothingList = getClothingList(cur.temp, cur.desc, cur.windSpeed);
+            const clothingContainer = document.getElementById('clothing-advice');
+            if(clothingContainer) {
+                clothingContainer.innerHTML = clothingList.map(item => `
+                    <div class="clothing-tag">
+                        <i class="bi ${item.icon} text-primary"></i> ${item.text}
+                    </div>
+                `).join('');
             }
         };
 
-        // --- LÓGICA DE COMPARTIR (SHARE) ---
         document.getElementById('shareBtn').addEventListener('click', () => {
             const element = document.getElementById('capture-card');
             const btn = document.getElementById('shareBtn');
-            btn.style.display = 'none'; // Ocultar botón en la foto
+            btn.style.display = 'none'; 
             
-            html2canvas(element, { 
-                backgroundColor: null, 
-                scale: 2 // Mayor calidad
-            }).then(canvas => {
-                btn.style.display = 'flex'; // Restaurar botón
+            html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => {
+                btn.style.display = 'flex'; 
                 const link = document.createElement('a');
                 link.download = `aeris-clima-${currentCityInfo.name}.png`;
                 link.href = canvas.toDataURL();
