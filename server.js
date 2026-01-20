@@ -1,17 +1,16 @@
-require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-const { Sequelize, DataTypes } = require('sequelize');
 const cors = require('cors');
+const { Sequelize, DataTypes } = require('sequelize');
 
 const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// --- BASE DE DATOS ---
+// --- BASE DE DATOS (Caché) ---
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: './weather_db_v27.sqlite',
+    storage: './weather_cache_om.sqlite',
     logging: false
 });
 
@@ -21,136 +20,185 @@ const WeatherCache = sequelize.define('WeatherCache', {
     updatedAt: { type: DataTypes.DATE }
 });
 
-// --- ICONOS ---
-const mapIcon = (code, isDay) => {
+// --- DICCIONARIO WMO (Traductor de códigos Open-Meteo a Texto/Iconos) ---
+const decodeWMO = (code, isDay = 1) => {
+    // Códigos: https://open-meteo.com/en/docs
     const c = parseInt(code);
-    if (c === 1000) return isDay ? 'bi-sun' : 'bi-moon';
-    if (c === 1003) return isDay ? 'bi-cloud-sun' : 'bi-cloud-moon';
-    if ([1006, 1009].includes(c)) return 'bi-clouds';
-    if ([1030, 1135, 1147].includes(c)) return 'bi-cloud-haze2';
-    if ([1063, 1180, 1183, 1186, 1189, 1240].includes(c)) return 'bi-cloud-drizzle';
-    if ([1192, 1195, 1198, 1201, 1243, 1246].includes(c)) return 'bi-cloud-rain-heavy';
-    if ([1066, 1114, 1210, 1213, 1216, 1219, 1222, 1225].includes(c)) return 'bi-cloud-snow';
-    if ([1087, 1273, 1276, 1279, 1282].includes(c)) return 'bi-cloud-lightning-rain';
-    return 'bi-cloud';
+    const daySuffix = isDay ? 'sun' : 'moon'; // Para iconos día/noche
+    
+    // 0: Despejado
+    if (c === 0) return { text: "Despejado", icon: isDay ? 'bi-sun' : 'bi-moon' };
+    // 1-3: Nublado
+    if (c === 1) return { text: "Mayormente despejado", icon: isDay ? 'bi-cloud-sun' : 'bi-cloud-moon' };
+    if (c === 2) return { text: "Parcialmente nublado", icon: isDay ? 'bi-cloud' : 'bi-cloud-moon' };
+    if (c === 3) return { text: "Cielo cubierto", icon: 'bi-clouds' };
+    // 45-48: Niebla
+    if ([45, 48].includes(c)) return { text: "Niebla", icon: 'bi-cloud-haze2' };
+    // 51-57: Llovizna
+    if ([51, 53, 55, 56, 57].includes(c)) return { text: "Llovizna", icon: 'bi-cloud-drizzle' };
+    // 61-67: Lluvia
+    if ([61, 63, 65, 66, 67].includes(c)) return { text: "Lluvia", icon: 'bi-cloud-rain' };
+    // 71-77: Nieve
+    if ([71, 73, 75, 77].includes(c)) return { text: "Nieve", icon: 'bi-cloud-snow' };
+    // 80-82: Chubascos
+    if ([80, 81, 82].includes(c)) return { text: "Chubascos", icon: 'bi-cloud-rain-heavy' };
+    // 85-86: Chubascos Nieve
+    if ([85, 86].includes(c)) return { text: "Nieve fuerte", icon: 'bi-snow' };
+    // 95-99: Tormenta
+    if ([95, 96, 99].includes(c)) return { text: "Tormenta", icon: 'bi-cloud-lightning-rain' };
+    
+    return { text: "Desconocido", icon: 'bi-cloud' };
 };
 
-// --- API BÚSQUEDA ---
+// --- API BÚSQUEDA (Geocoding Open-Meteo) ---
 app.get('/api/search/:query', async (req, res) => {
     try {
-        if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key");
-        const url = `https://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${encodeURIComponent(req.params.query)}`;
+        const query = req.params.query;
+        const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=es&format=json`;
         const response = await axios.get(url);
-        res.json(response.data);
+        
+        if (!response.data.results) return res.json([]);
+
+        // Mapeamos al formato que espera el Frontend
+        const cities = response.data.results.map(city => ({
+            id: `${city.latitude},${city.longitude}`, // USAMOS LAT,LON COMO ID
+            name: city.name,
+            region: city.admin1 || city.admin2 || '',
+            country: city.country,
+            lat: city.latitude,
+            lon: city.longitude
+        }));
+        res.json(cities);
     } catch (e) {
+        console.error("Search Error:", e.message);
         res.json([]);
     }
 });
 
-// --- API GEO ---
+// --- API GEO (Reverse Geocoding) ---
 app.get('/api/geo', async (req, res) => {
-    try {
-        const { lat, lon } = req.query;
-        if (!process.env.WEATHER_API_KEY) throw new Error("Falta API Key");
-        const url = `https://api.weatherapi.com/v1/search.json?key=${process.env.WEATHER_API_KEY}&q=${lat},${lon}`;
-        const response = await axios.get(url);
-        res.json(response.data[0]);
-    } catch (e) {
-        res.status(500).json({ error: "Geo Error" });
-    }
+    // Open-Meteo no tiene Reverse Geocoding nativo fácil, devolvemos lat,lon directo
+    // El frontend ya maneja lat,lon, así que simulamos un objeto ciudad
+    const { lat, lon } = req.query;
+    res.json({
+        id: `${lat},${lon}`,
+        name: `Ubicación (${Number(lat).toFixed(2)}, ${Number(lon).toFixed(2)})`, // Nombre genérico temporal
+        region: '',
+        lat: lat,
+        lon: lon
+    });
 });
 
-// --- API PREVISIÓN (MEZCLADA) ---
+// --- API WEATHER (Open-Meteo Full) ---
 app.get('/api/weather/:id', async (req, res) => {
-    const locationId = req.params.id;
+    const locationId = req.params.id; // Puede ser "40.41,-3.7" o "Madrid"
+    
     try {
         await sequelize.sync();
         const cache = await WeatherCache.findByPk(locationId);
         
-        // Cache 10 min
-        if (cache && (new Date() - new Date(cache.updatedAt) < 10 * 60 * 1000)) {
+        // Cache 15 minutos
+        if (cache && (new Date() - new Date(cache.updatedAt) < 15 * 60 * 1000)) {
             return res.json(JSON.parse(cache.data));
         }
 
-        const q = isNaN(locationId) ? locationId : `id:${locationId}`;
-        
-        // 1. LLAMADA PRINCIPAL A WEATHERAPI
-        const url = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${q}&days=14&aqi=yes&alerts=no&lang=es`;
-        const response = await axios.get(url);
-        const data = response.data;
+        // 1. Obtener Coordenadas
+        let lat, lon, cityName = "Ubicación";
+        let regionName = "";
 
-        // 2. LLAMADA SECUNDARIA A OPEN-METEO (Para Lluvia Minuto a Minuto)
-        let rainForecast = null;
-        try {
-            const { lat, lon } = data.location;
-            // Pedimos datos cada 15 min de precipitación
-            const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&forecast_days=1&timezone=auto`;
-            const omResponse = await axios.get(openMeteoUrl);
-            rainForecast = omResponse.data.minutely_15; // Objeto con { time: [], precipitation: [] }
-        } catch (omError) {
-            console.error("OpenMeteo Error (Rain):", omError.message);
-            // Si falla, seguimos sin romper la app, rainForecast será null
+        if (locationId.includes(',')) {
+            [lat, lon] = locationId.split(',');
+            // Intentamos recuperar nombre real si tenemos suerte (opcional), si no, usamos ID
+        } else {
+            // Si llega un nombre (legacy), buscamos coordenadas primero
+            const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`;
+            const geoRes = await axios.get(geoUrl);
+            if (!geoRes.data.results) throw new Error("Ciudad no encontrada");
+            lat = geoRes.data.results[0].latitude;
+            lon = geoRes.data.results[0].longitude;
+            cityName = geoRes.data.results[0].name;
+            regionName = geoRes.data.results[0].admin1 || "";
         }
 
-        // Extraer AQI
-        const aqiData = data.current.air_quality || {};
-        const usEpaIndex = aqiData['us-epa-index'] || 1; 
+        // 2. Pedir DATOS CLIMA + CALIDAD AIRE (Paralelo)
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto`;
+        
+        const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`;
 
+        const [weatherRes, airRes] = await Promise.all([
+            axios.get(weatherUrl),
+            axios.get(airUrl).catch(() => ({ data: { current: {} } })) // Si falla aire, no romper
+        ]);
+
+        const w = weatherRes.data;
+        const a = airRes.data;
+
+        // 3. Traducir al formato de tu App (WeatherAPI Style)
+        const currentWMO = decodeWMO(w.current.weather_code, w.current.is_day);
+        
         const finalData = {
-            location: { 
-                name: data.location.name, 
-                region: data.location.region,
-                lat: data.location.lat,
-                lon: data.location.lon
+            location: {
+                name: cityName === "Ubicación" ? locationId : cityName, // Fallback nombre
+                region: regionName,
+                lat: lat,
+                lon: lon
             },
             current: {
-                temp: Math.round(data.current.temp_c),
-                feelsLike: Math.round(data.current.feelslike_c),
-                humidity: data.current.humidity,
-                pressure: data.current.pressure_mb,
-                windSpeed: Math.round(data.current.wind_kph),
-                desc: data.current.condition.text,
-                icon_code: data.current.condition.code, // Añadido para Lottie
-                icon: mapIcon(data.current.condition.code, data.current.is_day),
-                isDay: data.current.is_day === 1,
-                uv: data.current.uv,
-                aqi: usEpaIndex,
-                pm25: Math.round(aqiData.pm2_5 || 0),
-                pm10: Math.round(aqiData.pm10 || 0)
+                temp: Math.round(w.current.temperature_2m),
+                feelsLike: Math.round(w.current.apparent_temperature),
+                humidity: w.current.relative_humidity_2m,
+                windSpeed: Math.round(w.current.wind_speed_10m),
+                desc: currentWMO.text,
+                icon: currentWMO.icon,
+                isDay: w.current.is_day === 1,
+                uv: w.daily.uv_index_max[0], // Usamos el max del día como referencia hoy
+                aqi: a.current.us_aqi || 1,
+                pm25: a.current.pm2_5 || 0,
+                pm10: a.current.pm10 || 0
             },
-            // AÑADIMOS EL DATO DE OPEN-METEO AQUÍ
-            nowcast: rainForecast, 
-            hourly: [
-                ...data.forecast.forecastday[0].hour,
-                ...(data.forecast.forecastday[1] ? data.forecast.forecastday[1].hour : [])
-            ].map(h => ({
-                epoch: h.time_epoch,
-                fullDate: h.time,
-                temp: Math.round(h.temp_c),
-                rainProb: h.chance_of_rain,
-                icon: mapIcon(h.condition.code, h.is_day)
-            })),
-            daily: data.forecast.forecastday.map(d => ({
-                fecha: d.date,
-                tempMax: Math.round(d.day.maxtemp_c),
-                tempMin: Math.round(d.day.mintemp_c),
-                uv: d.day.uv,
-                sunrise: d.astro.sunrise,
-                sunset: d.astro.sunset,
-                icon: mapIcon(d.day.condition.code, 1),
-                desc: d.day.condition.text,
-                rainProbMax: d.day.daily_chance_of_rain
-            }))
+            // Gráfico de lluvia (Minutely 15)
+            nowcast: {
+                time: w.minutely_15.time,
+                precipitation: w.minutely_15.precipitation
+            },
+            // Horas
+            hourly: w.hourly.time.map((t, i) => {
+                const hourWMO = decodeWMO(w.hourly.weather_code[i], w.hourly.is_day[i]);
+                return {
+                    epoch: new Date(t).getTime() / 1000,
+                    fullDate: t.replace('T', ' '), // Formato ISO a "YYYY-MM-DD HH:MM"
+                    temp: Math.round(w.hourly.temperature_2m[i]),
+                    rainProb: w.hourly.precipitation_probability[i],
+                    icon: hourWMO.icon
+                };
+            }),
+            // Días
+            daily: w.daily.time.map((t, i) => {
+                const dayWMO = decodeWMO(w.daily.weather_code[i], 1);
+                return {
+                    fecha: t,
+                    tempMax: Math.round(w.daily.temperature_2m_max[i]),
+                    tempMin: Math.round(w.daily.temperature_2m_min[i]),
+                    uv: w.daily.uv_index_max[i],
+                    sunrise: w.daily.sunrise[i].split('T')[1],
+                    sunset: w.daily.sunset[i].split('T')[1],
+                    icon: dayWMO.icon,
+                    desc: dayWMO.text,
+                    rainProbMax: w.daily.precipitation_probability_max[i]
+                };
+            })
         };
 
+        // Si buscamos por coordenadas, intentamos dar un nombre mejor en el caché si podemos (opcional)
+        // Por ahora guardamos
         await WeatherCache.upsert({ locationId, data: JSON.stringify(finalData), updatedAt: new Date() });
         res.json(finalData);
 
     } catch (error) {
         console.error("API Error:", error.message);
-        res.status(500).json({ error: "Error obteniendo datos" });
+        res.status(500).json({ error: "Error obteniendo datos de Open-Meteo" });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Aeris V27 HTTPS en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Aeris Open-Meteo Edition en puerto ${PORT}`));

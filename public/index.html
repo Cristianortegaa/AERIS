@@ -59,7 +59,16 @@
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
-        .temp-big { font-family:'Outfit'; font-weight:700; font-size:4.5rem; line-height:1; letter-spacing: -2px; }
+        
+        /* Typography Adjusted */
+        .temp-big { 
+            font-family:'Outfit'; 
+            font-weight:700; 
+            font-size: clamp(3.5rem, 10vw, 5.5rem); 
+            line-height: 1; 
+            letter-spacing: -2px; 
+        }
+        
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
@@ -103,8 +112,8 @@
 
         /* SHARE BUTTON FIXED */
         .share-btn {
-            position: absolute; top: 10px; right: 10px; /* Ajustado para que no se pegue */
-            width: 36px; height: 36px; /* Un poco más pequeño y elegante */
+            position: absolute; top: 10px; right: 10px;
+            width: 36px; height: 36px;
             border-radius: 50%;
             background: rgba(255,255,255,0.25);
             border: 1px solid var(--glass-border);
@@ -245,11 +254,7 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
+                </div>
         </div>
 
         <div class="glass-card">
@@ -337,7 +342,7 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- FUNCION DOBLE: ROPA MODERNIZADA (CHICOS/CHICAS) ---
+        // --- LÓGICA ROPA ---
         const getClothingList = (temp, desc, wind) => {
             let boys = [];
             let girls = [];
@@ -442,6 +447,7 @@
             }
         };
 
+        // --- SHARE ---
         document.getElementById('shareBtn').addEventListener('click', () => {
             const element = document.getElementById('capture-card');
             const btn = document.getElementById('shareBtn');
@@ -541,6 +547,7 @@
             const id = city.id || city.name;
             localStorage.setItem('lastId', id);
             
+            // RESET A SKELETON
             document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => {
                 el.classList.add('skeleton');
                 el.style.removeProperty('height'); 
