@@ -395,7 +395,8 @@
         // --- SPLASH LOGIC ---
         window.addEventListener('load', () => {
             setTimeout(() => {
-                document.getElementById('splash-screen').classList.add('hidden');
+                const splash = document.getElementById('splash-screen');
+                if(splash) splash.classList.add('hidden');
             }, 2000); 
         });
 
@@ -514,6 +515,11 @@
         if(closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
         if(overlay) overlay.addEventListener('click', closeSidebar);
 
+        // --- FUNCIÓN DE LIMPIEZA DE ACENTOS (FIX PEÑÍSCOLA) ---
+        const normalizeInput = (str) => {
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        };
+
         const searchInput = document.getElementById('citySearch');
         const suggestionsList = document.getElementById('suggestions');
         let searchTimeout;
@@ -523,7 +529,9 @@
                 if (e.target.value.length < 3) return suggestionsList.classList.remove('show');
                 searchTimeout = setTimeout(async () => {
                     try {
-                        const res = await fetch(`/api/search/${encodeURIComponent(e.target.value)}`);
+                        // AQUÍ APLICAMOS LA MAGIA: Convertimos "Peñíscola" a "Peniscola" antes de buscar
+                        const cleanQuery = normalizeInput(e.target.value);
+                        const res = await fetch(`/api/search/${encodeURIComponent(cleanQuery)}`);
                         const cities = await res.json();
                         suggestionsList.innerHTML = '';
                         cities.forEach(c => {
@@ -553,16 +561,24 @@
             getWeather(id);
         };
 
-        const renderRainChart = (nowcast) => {
+        const renderRainChart = (nowcast, hourlyData) => {
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
             if(!nowcast || !nowcast.time || nowcast.time.length === 0) { card.style.display = 'none'; return; }
-            const now = new Date();
-            const currentHour = now.getHours();
-            let startIndex = nowcast.time.findIndex(t => t.includes(`T${String(currentHour).padStart(2,'0')}:`));
+            
+            const nowEpoch = Math.floor(Date.now()/1000);
+            const currentHourlyItem = hourlyData.find(h => h.epoch >= nowEpoch - 1800);
+            
+            if(!currentHourlyItem) { card.style.display = 'none'; return; }
+
+            const localHourStr = currentHourlyItem.fullDate.split(' ')[1].split(':')[0];
+            let startIndex = nowcast.time.findIndex(t => t.includes(`T${localHourStr}:`));
+            
             if(startIndex === -1) startIndex = 0;
+
             const timeLabels = [];
             const precipData = [];
+            
             for(let i=0; i<5; i++) {
                 if(startIndex + i < nowcast.precipitation.length) {
                     precipData.push(nowcast.precipitation[startIndex + i]);
@@ -571,6 +587,7 @@
                     timeLabels.push(hourMin);
                 }
             }
+            
             const totalRain = precipData.reduce((a,b) => a+b, 0);
             if(totalRain <= 0.1) { card.style.display = 'none'; return; }
             
@@ -618,7 +635,6 @@
 
                 updateHeartUI();
 
-                // 1. Limpiar Skeleton classes
                 const skeletons = document.querySelectorAll('.skeleton');
                 skeletons.forEach(el => {
                     el.classList.remove('skeleton');
@@ -639,7 +655,7 @@
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
 
-                renderRainChart(data.nowcast);
+                renderRainChart(data.nowcast, data.hourly);
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
@@ -665,11 +681,9 @@
                 const aqiPercent = Math.min(((aqi - 1) / 5) * 100, 100);
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
-                // UPDATE AI
                 updateAIText(cur);
 
-                // FIX HORA ACTUAL + 23 SIGUIENTES
-                const nowEpoch = Math.floor(Date.now()/1000) - 3600; // Restamos 1 hora para asegurar
+                const nowEpoch = Math.floor(Date.now()/1000) - 3600; 
                 const hCont = document.getElementById('hourly');
                 if(hCont) {
                     hCont.innerHTML = data.hourly
@@ -687,10 +701,12 @@
 
                 const dCont = document.getElementById('daily');
                 if(dCont) {
-                    dCont.innerHTML = data.daily.map(d => `
+                    dCont.innerHTML = data.daily.map(d => {
+                        const safeDate = new Date(d.fecha + 'T12:00:00');
+                        return `
                         <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important; animation: fadeIn 0.5s">
                             <div style="width:35%" class="fw-bold text-capitalize">
-                                <div>${new Date(d.fecha).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div>
+                                <div>${safeDate.toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div>
                                 <div class="small opacity-50 d-flex gap-2" style="font-size:0.7rem">
                                     <span><i class="bi bi-sunrise"></i> ${d.sunrise}</span>
                                     <span><i class="bi bi-sunset"></i> ${d.sunset}</span>
@@ -704,7 +720,7 @@
                                 <span style="color:#ef4444">${d.tempMax}°</span> <span class="opacity-50 mx-1">/</span> <span style="color:#3b82f6">${d.tempMin}°</span>
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                 }
 
                 const newTheme = cur.isDay ? 'light' : 'dark';
