@@ -60,7 +60,6 @@
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         
-        /* Typography Adjusted */
         .temp-big { 
             font-family:'Outfit'; 
             font-weight:700; 
@@ -295,8 +294,13 @@
             }, 2000); 
         });
 
+        // --- GESTIÓN DE LOCALSTORAGE (Nombres Reales) ---
         let currentId = localStorage.getItem('lastId') || 'Madrid';
-        let currentCityInfo = { id: 'Madrid', name: 'Madrid', region: '' };
+        // Recuperamos el nombre guardado o usamos "Madrid" por defecto
+        let currentCityName = localStorage.getItem('lastName') || 'Madrid';
+        let currentCityRegion = localStorage.getItem('lastRegion') || '';
+        
+        let currentCityInfo = { id: currentId, name: currentCityName, region: currentCityRegion };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
         let rainChartInstance = null;
         let lastWeatherData = null;
@@ -342,7 +346,7 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- LÓGICA ROPA ---
+        // --- ROPA ---
         const getClothingList = (temp, desc, wind) => {
             let boys = [];
             let girls = [];
@@ -541,13 +545,21 @@
             });
         }
 
+        // --- SELECT CITY (CORREGIDO PARA USAR QUERY PARAMS) ---
         const selectCity = (city) => {
             if(searchInput) searchInput.value = '';
             if(suggestionsList) suggestionsList.classList.remove('show');
             const id = city.id || city.name;
-            localStorage.setItem('lastId', id);
             
-            // RESET A SKELETON
+            // GUARDAMOS NOMBRE Y REGIÓN PARA NO PERDERLOS AL RECARGAR
+            localStorage.setItem('lastId', id);
+            localStorage.setItem('lastName', city.name);
+            localStorage.setItem('lastRegion', city.region || '');
+            
+            // Actualizamos variables globales para que el Share funcione al instante
+            currentId = id;
+            currentCityInfo = { id: id, name: city.name, region: city.region || '' };
+
             document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => {
                 el.classList.add('skeleton');
                 el.style.removeProperty('height'); 
@@ -618,14 +630,23 @@
             });
         };
 
+        // --- GET WEATHER (MODIFICADO PARA USAR EL NOMBRE CORRECTO) ---
         async function getWeather(id) {
             try {
-                const res = await fetch(`/api/weather/${id}`);
+                // Recuperamos nombre y región de LocalStorage para enviarlos al backend
+                const storedName = localStorage.getItem('lastName') || 'Ubicación';
+                const storedRegion = localStorage.getItem('lastRegion') || '';
+                
+                // Añadimos el nombre a la URL para que el backend lo use
+                const res = await fetch(`/api/weather/${id}?name=${encodeURIComponent(storedName)}&region=${encodeURIComponent(storedRegion)}`);
+                
                 const data = await res.json();
                 if(data.error) throw new Error(data.error);
 
                 const cur = data.current;
                 const loc = data.location;
+                
+                // Actualizamos info global
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 lastWeatherData = cur;
 
@@ -753,7 +774,9 @@
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                  const city = await res.json();
-                 if(city.id || city.name) getWeather(city.id || city.name);
+                 // GEO NO DA NOMBRE PRECISO, PERO EL BACKEND LO PONE GENERICO
+                 // Si queremos nombre real, habría que hacer reverse geo en frontend, pero para simpleza:
+                 if(city.id) selectCity({id: city.id, name: 'Tu Ubicación', region: ''});
              });
         });
 
@@ -766,8 +789,12 @@
                     try {
                         const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                         const city = await res.json();
-                        if (city.id || city.name) { getWeather(city.id || city.name); } 
-                        else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
+                        // Al inicio, intentamos cargar geo, pero si ya hay LastId guardado, usamos lastId para mantener nombre
+                        if(!localStorage.getItem('lastId')) {
+                             if (city.id) { selectCity({id: city.id, name: 'Tu Ubicación', region: ''}); }
+                        } else {
+                             getWeather(localStorage.getItem('lastId'));
+                        }
                     } catch(e) { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
                 },
                 (err) => { getWeather(localStorage.getItem('lastId') || 'Madrid'); },
