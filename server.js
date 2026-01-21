@@ -63,13 +63,10 @@ app.get('/api/search/:query', async (req, res) => {
             // ARRAY DE PARTES VALIDAS
             let parts = [];
 
-            // 1. Región (admin1): Solo si existe, no es null, no es undefined y no es igual al nombre
             if (city.admin1 && city.admin1 !== city.name) parts.push(city.admin1);
             
-            // 2. País: Solo si existe
             if (city.country) parts.push(city.country);
 
-            // 3. LIMPIEZA FINAL: Filtramos cualquier cosa que no sea un texto válido
             const regionText = parts
                 .filter(p => p && p !== 'undefined' && p.trim() !== '') 
                 .join(', ');
@@ -77,8 +74,9 @@ app.get('/api/search/:query', async (req, res) => {
             return {
                 id: `${city.latitude},${city.longitude}`, 
                 name: city.name,
-                region: regionText, 
-                country_code: city.country_code,
+                region: regionText || '', 
+                country: city.country || '',
+                country_code: city.country_code || '',
                 lat: city.latitude,
                 lon: city.longitude
             };

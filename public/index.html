@@ -485,7 +485,8 @@
                         suggestionsList.innerHTML = '';
                         cities.forEach(c => {
                             const li = document.createElement('li'); li.className = 'suggestion-item';
-                            li.innerHTML = `<span>${c.name}</span><small>${c.region}, ${c.country}</small>`;
+                            const regionParts = [c.region, c.country].filter(p => p && p.trim()).join(', ');
+                            li.innerHTML = `<span>${c.name}</span><small>${regionParts || 'Sin región'}</small>`;
                             li.onclick = () => selectCity(c); suggestionsList.appendChild(li);
                         });
                         if(cities.length) suggestionsList.classList.add('show');
