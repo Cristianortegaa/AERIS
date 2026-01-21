@@ -516,39 +516,105 @@
             getWeather(id);
         };
 
+        // --- FUNCIÓN GRÁFICA DE LLUVIA (Lógica Estricta) ---
         const renderRainChart = (nowcast, hourlyData) => {
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
-            if(!nowcast || !nowcast.time || nowcast.time.length === 0) { card.style.display = 'none'; return; }
-            const nowEpoch = Math.floor(Date.now()/1000);
-            const currentHourlyItem = hourlyData.find(h => h.epoch >= nowEpoch - 1800);
-            if(!currentHourlyItem) { card.style.display = 'none'; return; }
-            const localHourStr = currentHourlyItem.displayTime.split(':')[0];
-            let startIndex = nowcast.time.findIndex(t => t.includes(`T${localHourStr}:`));
-            if(startIndex === -1) startIndex = 0;
-            const timeLabels = [];
-            const precipData = [];
-            for(let i=0; i<5; i++) {
-                if(startIndex + i < nowcast.precipitation.length) {
-                    precipData.push(nowcast.precipitation[startIndex + i]);
-                    const fullTime = nowcast.time[startIndex + i];
-                    const hourMin = fullTime.split('T')[1]; 
-                    timeLabels.push(hourMin);
+            
+            // 1. INTENTO: Radar Minuto a Minuto (Más preciso)
+            let timeLabels = [];
+            let precipData = [];
+            let source = 'radar';
+
+            if (nowcast && nowcast.time && nowcast.time.length > 0) {
+                // Buscamos el índice de la hora actual
+                const nowISO = new Date().toISOString().slice(0, 16); // "2024-01-20T19:38"
+                // Aproximación simple: buscamos la hora más cercana
+                let startIndex = nowcast.time.findIndex(t => t >= nowISO);
+                if (startIndex === -1) startIndex = 0;
+
+                // Cogemos los siguientes 60 mins (4 puntos de 15 min)
+                for(let i=0; i<5; i++) {
+                    if (startIndex + i < nowcast.precipitation.length) {
+                        precipData.push(nowcast.precipitation[startIndex + i]);
+                        const t = nowcast.time[startIndex + i].split('T')[1];
+                        timeLabels.push(t);
+                    }
                 }
             }
+
+            // 2. INTENTO: Si el radar da todo 0 o falla, miramos predicción por HORAS
+            const totalRadarRain = precipData.reduce((a,b) => a+b, 0);
+            
+            if (totalRadarRain === 0 && hourlyData) {
+                source = 'hourly';
+                precipData = [];
+                timeLabels = [];
+                
+                // Buscamos las próximas 5 horas
+                // hourlyData ya viene filtrado desde la hora actual en el backend
+                for(let i=0; i<5; i++) {
+                    if (hourlyData[i]) {
+                        // Usamos 'precip' si existe (nueva API), si no 'rainProb' como fallback visual (escalado)
+                        let val = hourlyData[i].precip !== undefined ? hourlyData[i].precip : 0;
+                        precipData.push(val);
+                        timeLabels.push(hourlyData[i].displayTime);
+                    }
+                }
+            }
+
+            // 3. DECISIÓN FINAL: ¿Llueve o no?
             const totalRain = precipData.reduce((a,b) => a+b, 0);
-            if(totalRain <= 0.1) { card.style.display = 'none'; return; }
+            
+            // UMBRAL: Si la suma de lluvia es menor a 0.1mm, NO MOSTRAMOS NADA
+            if (totalRain < 0.1) {
+                card.style.display = 'none';
+                return;
+            }
+
+            // Si llegamos aquí, ES QUE LLUEVE -> MOSTRAR TARJETA
             card.style.display = 'block';
-            summary.innerText = totalRain > 2 ? "Lluvia Fuerte" : (totalRain > 0.5 ? "Lluvia Moderada" : "Lluvia Ligera");
+            
+            // Texto resumen inteligente
+            if (totalRain > 5) summary.innerText = "Lluvia Fuerte";
+            else if (totalRain > 1) summary.innerText = "Lluvia Moderada";
+            else summary.innerText = "Lluvia Ligera";
+
+            // Pintar Gráfica
             const ctx = document.getElementById('rainChart').getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 150);
             gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
             gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
+
             if(rainChartInstance) rainChartInstance.destroy();
+            
             rainChartInstance = new Chart(ctx, {
                 type: 'line',
-                data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.4 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: true, intersect: false } }, scales: { x: { grid: { display: false }, ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } } }, y: { display: false, min: 0, suggestedMax: Math.max(...precipData) * 1.5 } }, animation: { duration: 1200, easing: 'easeOutQuart' }, layout: { padding: { top: 10, left: -5, right: -5 } } }
+                data: {
+                    labels: timeLabels,
+                    datasets: [{
+                        label: 'mm',
+                        data: precipData,
+                        backgroundColor: gradient,
+                        borderColor: '#38bdf8',
+                        borderWidth: 2,
+                        pointRadius: 3, // Puntos visibles para ver mejor los datos
+                        pointBackgroundColor: '#fff',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: true, mode: 'index', intersect: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } } },
+                        y: { display: false, min: 0, suggestedMax: Math.max(...precipData) * 1.5 }
+                    },
+                    animation: { duration: 1000 },
+                    layout: { padding: { top: 10, left: 5, right: 5, bottom: 0 } }
+                }
             });
         };
 
