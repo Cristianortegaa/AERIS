@@ -60,20 +60,23 @@ app.get('/api/search/:query', async (req, res) => {
         if (!response.data.results) return res.json([]);
 
         const cities = response.data.results.map(city => {
-            // LÓGICA DE LIMPIEZA:
+            // LÓGICA DE LIMPIEZA EXTREMA:
             let regionParts = [];
-            // Solo añadimos la región si existe y no es igual al nombre de la ciudad
+            
+            // 1. Añadir región si existe y no es igual a la ciudad
             if (city.admin1 && city.admin1 !== city.name) regionParts.push(city.admin1);
+            
+            // 2. Añadir país si existe
             if (city.country) regionParts.push(city.country);
             
-            // Unimos con comas y filtramos lo que esté vacío
-            const regionText = regionParts.filter(Boolean).join(', ');
+            // 3. Filtrar cualquier valor nulo, undefined o vacío Y unir con comas
+            const regionText = regionParts.filter(part => part && part !== 'undefined').join(', ');
 
             return {
                 id: `${city.latitude},${city.longitude}`, 
                 name: city.name,
                 region: regionText, // Esto enviamos al frontend, limpio
-                country_code: city.country_code, // Para banderas si quieres
+                country_code: city.country_code,
                 lat: city.latitude,
                 lon: city.longitude
             };
@@ -92,7 +95,13 @@ app.get('/api/geo', async (req, res) => {
         });
         const addr = response.data.address;
         const realName = addr.city || addr.town || addr.village || addr.municipality || "Ubicación";
-        const region = addr.state || addr.country || "";
+        
+        // Limpieza también aquí por si acaso
+        let regionParts = [];
+        if (addr.state) regionParts.push(addr.state);
+        if (addr.country) regionParts.push(addr.country);
+        const region = regionParts.filter(Boolean).join(', ');
+
         res.json({ id: `${lat},${lon}`, name: realName, region: region, lat, lon });
     } catch (e) {
         res.json({ id: `${lat},${lon}`, name: "Ubicación Detectada", region: "GPS", lat, lon });
@@ -161,7 +170,7 @@ app.get('/api/weather/:id', async (req, res) => {
                 temp: Math.round(w.hourly.temperature_2m[i]),
                 rainProb: w.hourly.precipitation_probability[i],
                 icon: decodeWMO(w.hourly.weather_code[i], w.hourly.is_day[i]).icon
-            })).filter(h => true), // Filter logic handled in frontend
+            })),
             daily: w.daily.time.map((t, i) => ({
                 fecha: t,
                 tempMax: Math.round(w.daily.temperature_2m_max[i]),
