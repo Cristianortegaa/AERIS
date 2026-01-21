@@ -51,7 +51,7 @@ const decodeWMO = (code, isDay = 1) => {
     return { text: textMap[c] || "Variable", icon: icon };
 };
 
-// --- BÚSQUEDA CORREGIDA (NO MÁS UNDEFINED) ---
+// --- BÚSQUEDA BLINDADA CONTRA 'UNDEFINED' ---
 app.get('/api/search/:query', async (req, res) => {
     try {
         const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(req.params.query)}&count=8&language=es&format=json`;
@@ -60,22 +60,24 @@ app.get('/api/search/:query', async (req, res) => {
         if (!response.data.results) return res.json([]);
 
         const cities = response.data.results.map(city => {
-            // LÓGICA DE LIMPIEZA EXTREMA:
-            let regionParts = [];
+            // ARRAY DE PARTES VALIDAS
+            let parts = [];
+
+            // 1. Región (admin1): Solo si existe, no es null, no es undefined y no es igual al nombre
+            if (city.admin1 && city.admin1 !== city.name) parts.push(city.admin1);
             
-            // 1. Añadir región si existe y no es igual a la ciudad
-            if (city.admin1 && city.admin1 !== city.name) regionParts.push(city.admin1);
-            
-            // 2. Añadir país si existe
-            if (city.country) regionParts.push(city.country);
-            
-            // 3. Filtrar cualquier valor nulo, undefined o vacío Y unir con comas
-            const regionText = regionParts.filter(part => part && part !== 'undefined').join(', ');
+            // 2. País: Solo si existe
+            if (city.country) parts.push(city.country);
+
+            // 3. LIMPIEZA FINAL: Filtramos cualquier cosa que no sea un texto válido
+            const regionText = parts
+                .filter(p => p && p !== 'undefined' && p.trim() !== '') 
+                .join(', ');
 
             return {
                 id: `${city.latitude},${city.longitude}`, 
                 name: city.name,
-                region: regionText, // Esto enviamos al frontend, limpio
+                region: regionText, 
                 country_code: city.country_code,
                 lat: city.latitude,
                 lon: city.longitude
