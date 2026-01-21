@@ -60,22 +60,14 @@ app.get('/api/search/:query', async (req, res) => {
         if (!response.data.results) return res.json([]);
 
         const cities = response.data.results.map(city => {
-            // ARRAY DE PARTES VALIDAS
-            let parts = [];
-
-            if (city.admin1 && city.admin1 !== city.name) parts.push(city.admin1);
-            
-            if (city.country) parts.push(city.country);
-
-            const regionText = parts
-                .filter(p => p && p !== 'undefined' && p.trim() !== '') 
-                .join(', ');
+            const region = (city.admin1 && city.admin1 !== city.name) ? city.admin1 : '';
+            const country = city.country || '';
 
             return {
                 id: `${city.latitude},${city.longitude}`, 
                 name: city.name,
-                region: regionText || '', 
-                country: city.country || '',
+                region: region,
+                country: country,
                 country_code: city.country_code || '',
                 lat: city.latitude,
                 lon: city.longitude
