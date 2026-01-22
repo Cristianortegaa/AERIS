@@ -299,9 +299,8 @@
 
         if (Notification.permission === 'granted') notifyBtn.classList.add('active');
 
-        // FUNCIÓN CORREGIDA: LÓGICA DE ALERTA DE LLUVIA
-        const checkRainAlert = (nowcast) => {
-            if (!nowcast || !nowcast.time || nowcast.precipitation.length === 0) return;
+        // FUNCIÓN CORREGIDA: LÓGICA DE ALERTA DE LLUVIA (HÍBRIDA RADAR/HORAS)
+        const checkRainAlert = (nowcast, hourlyData) => {
             if (Notification.permission !== 'granted') return;
 
             // Evitar spam (1 hora entre alertas)
@@ -309,17 +308,36 @@
             const now = Date.now();
             if (lastAlert && (now - parseInt(lastAlert) < 60 * 60 * 1000)) return;
 
-            // Miramos lluvia AHORA y en el FUTURO (próximos 45 min)
-            const currentRain = nowcast.precipitation[0] || 0;
-            const futureRain = (nowcast.precipitation[1] || 0) + (nowcast.precipitation[2] || 0);
+            let rainDetected = false;
             
-            // NUEVA CONDICIÓN: Si hay lluvia (ahora O después) mayor a 0.2mm, avisar
-            const totalRainSoon = currentRain + futureRain;
+            // 1. REVISAR RADAR (Minuto a minuto)
+            if (nowcast && nowcast.time && nowcast.precipitation.length > 0) {
+                // Sumamos la lluvia de los próximos 60 min (4 slots de 15m)
+                // Simplificación: miramos los primeros 4 valores disponibles
+                let sum = 0;
+                for(let i=0; i<4; i++) {
+                    sum += (nowcast.precipitation[i] || 0);
+                }
+                if (sum > 0) rainDetected = true;
+            }
 
-            if (totalRainSoon > 0.2) {
-                const msg = currentRain > 0.1 ? "🌧️ Está lloviendo en " : "🌧️ Va a llover pronto en ";
-                new Notification(msg + currentCityInfo.name, { 
-                    body: "Se detecta precipitación en tu zona.",
+            // 2. REVISAR HORAS (Plan B si radar falla o es zona rural)
+            if (!rainDetected && hourlyData) {
+                // Miramos las próximas 2 horas
+                for(let i=0; i<2; i++) {
+                    if (hourlyData[i]) {
+                        // Usamos precipitación directa si existe, o prob. lluvia > 60%
+                        const p = hourlyData[i].precip !== undefined ? hourlyData[i].precip : 0;
+                        const prob = hourlyData[i].rainProb || 0;
+                        if (p > 0 || prob > 60) rainDetected = true;
+                    }
+                }
+            }
+
+            // 3. DISPARAR NOTIFICACIÓN
+            if (rainDetected) {
+                new Notification("🌧️ Alerta de Lluvia", { 
+                    body: `Se detecta lluvia actual o inminente en ${currentCityInfo.name}.`,
                     icon: "logo.png",
                     vibrate: [200, 100, 200]
                 });
@@ -331,7 +349,7 @@
             try {
                 const res = await fetch(`/api/weather/${id}`);
                 const data = await res.json();
-                checkRainAlert(data.nowcast);
+                checkRainAlert(data.nowcast, data.hourly);
             } catch(e) {}
         };
 
@@ -707,8 +725,8 @@
                 // LLAMADA A LA LÓGICA INTELIGENTE DE LLUVIA
                 renderRainChart(data.nowcast, data.hourly);
                 
-                // Checkear notificaciones
-                checkRainAlert(data.nowcast);
+                // Checkear notificaciones (PASAMOS LOS DATOS HORARIOS TAMBIÉN)
+                checkRainAlert(data.nowcast, data.hourly);
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
