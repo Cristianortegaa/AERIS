@@ -203,15 +203,8 @@
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
-                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
-            </h6>
-            <div id="clothing-advice">
-                <div class="d-flex flex-wrap gap-2">
-                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
-                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
-                </div>
-            </div>
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)"><i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY</h6>
+            <div id="clothing-advice"><div class="d-flex flex-wrap gap-2"><div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div><div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div></div></div>
         </div>
 
         <div class="glass-card" id="rain-card" style="display:none; transition: opacity 0.5s ease;">
@@ -226,11 +219,7 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
+                </div>
         </div>
 
         <div class="glass-card">
@@ -267,91 +256,55 @@
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
-            // Iniciar comprobación periódica de lluvia
             if (Notification.permission === 'granted') {
                 document.getElementById('notifyBtn').classList.add('active');
-                setInterval(() => {
-                    const id = currentCityInfo.id || 'Madrid';
-                    fetchDataForNotification(id);
-                }, 15 * 60 * 1000); 
             }
         });
 
-        // --- SISTEMA DE NOTIFICACIONES ---
-        const notifyBtn = document.getElementById('notifyBtn');
-        
-        notifyBtn.addEventListener('click', () => {
-            if (!("Notification" in window)) {
-                alert("Tu navegador no soporta notificaciones");
-                return;
-            }
-            if (Notification.permission === "granted") {
-                new Notification("Aeris Weather", { body: "Las notificaciones ya están activas.", icon: "logo.png" });
-            } else if (Notification.permission !== "denied") {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        notifyBtn.classList.add('active');
-                        new Notification("¡Notificaciones activadas!", { body: "Te avisaremos si hay lluvia.", icon: "logo.png" });
-                    }
-                });
-            }
-        });
-
-        if (Notification.permission === 'granted') notifyBtn.classList.add('active');
-
-        // FUNCIÓN CORREGIDA: LÓGICA DE ALERTA DE LLUVIA (HÍBRIDA RADAR/HORAS)
-        const checkRainAlert = (nowcast, hourlyData) => {
-            if (Notification.permission !== 'granted') return;
-
-            // Evitar spam (1 hora entre alertas)
-            const lastAlert = localStorage.getItem('lastRainAlert');
-            const now = Date.now();
-            if (lastAlert && (now - parseInt(lastAlert) < 60 * 60 * 1000)) return;
-
-            let rainDetected = false;
+        // --- PUSH: REGISTRO REAL ---
+        async function registerPush() {
+            if (!('serviceWorker' in navigator)) return;
+            const register = await navigator.serviceWorker.register('/service-worker.js');
+            const response = await fetch('/api/vapid-key');
+            const { key } = await response.json();
             
-            // 1. REVISAR RADAR (Minuto a minuto)
-            if (nowcast && nowcast.time && nowcast.precipitation.length > 0) {
-                // Sumamos la lluvia de los próximos 60 min (4 slots de 15m)
-                // Simplificación: miramos los primeros 4 valores disponibles
-                let sum = 0;
-                for(let i=0; i<4; i++) {
-                    sum += (nowcast.precipitation[i] || 0);
+            const urlBase64ToUint8Array = (base64String) => {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+                return outputArray;
+            }
+
+            const subscription = await register.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(key)
+            });
+
+            await fetch('/api/subscribe', {
+                method: 'POST',
+                body: JSON.stringify({
+                    subscription: subscription,
+                    lat: parseFloat(currentCityInfo.id.split(',')[0]),
+                    lon: parseFloat(currentCityInfo.id.split(',')[1]),
+                    city: currentCityInfo.name
+                }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            alert("✅ Notificaciones activadas. Te avisaremos aunque cierres la app.");
+        }
+
+        const notifyBtn = document.getElementById('notifyBtn');
+        notifyBtn.addEventListener('click', () => {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    notifyBtn.classList.add('active');
+                    registerPush();
                 }
-                if (sum > 0) rainDetected = true;
-            }
-
-            // 2. REVISAR HORAS (Plan B si radar falla o es zona rural)
-            if (!rainDetected && hourlyData) {
-                // Miramos las próximas 2 horas
-                for(let i=0; i<2; i++) {
-                    if (hourlyData[i]) {
-                        // Usamos precipitación directa si existe, o prob. lluvia > 60%
-                        const p = hourlyData[i].precip !== undefined ? hourlyData[i].precip : 0;
-                        const prob = hourlyData[i].rainProb || 0;
-                        if (p > 0 || prob > 60) rainDetected = true;
-                    }
-                }
-            }
-
-            // 3. DISPARAR NOTIFICACIÓN
-            if (rainDetected) {
-                new Notification("🌧️ Alerta de Lluvia", { 
-                    body: `Se detecta lluvia actual o inminente en ${currentCityInfo.name}.`,
-                    icon: "logo.png",
-                    vibrate: [200, 100, 200]
-                });
-                localStorage.setItem('lastRainAlert', now);
-            }
-        };
-
-        const fetchDataForNotification = async (id) => {
-            try {
-                const res = await fetch(`/api/weather/${id}`);
-                const data = await res.json();
-                checkRainAlert(data.nowcast, data.hourly);
-            } catch(e) {}
-        };
+            });
+        });
 
         // --- GESTIÓN GLOBAL ---
         let currentId = localStorage.getItem('lastId') || 'Madrid';
@@ -363,326 +316,87 @@
         let lastWeatherData = null;
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
-        // --- LÓGICA PERSONALIDAD ---
-        const aiLogic = {
-            normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate.", "Busca sombra."], cold: ["Abrígate.", "Hace frío."], rain: ["Paraguas.", "Lluvia."], nice: ["Disfruta.", "Buen día."] } },
-            zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente el calor.", "Fluye."], cold: ["Abraza el frío.", "Paz."], rain: ["Lluvia sana.", "Escucha."], nice: ["Armonía.", "Presente."] } },
-            villano: { icon: "😈", name: "Villano", tips: { hot: ["Te derrites.", "Sufre."], cold: ["Congélate.", "Hielo."], rain: ["Mójate.", "Diluvio."], nice: ["Sospechoso.", "Espera."] } },
-            madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema, factor 50.", "Bebe agua."], cold: ["¿Llevas camiseta interior?", "Ponte la rebeca."], rain: ["¡Ni se te ocurra salir sin paraguas!", "Mójate no."], nice: ["Sal un poco.", "Come algo."] } },
-            gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda.", "Cardio."], cold: ["Entrena fuera.", "Corre."], rain: ["Sin excusas.", "Dale duro."], nice: ["Entrena ya.", "Vitamina D."] } },
-            cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Alta radiación.", "Calor."], cold: ["Baja térmica.", "Frío."], rain: ["Precipitación.", "H2O."], nice: ["Óptimo.", "Estable."] } },
-            gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta al sol.", "Calor."], cold: ["Manta.", "Estufa."], rain: ["Agua no.", "Casa."], nice: ["Cazar.", "Jugar."] } },
-            pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Sol abrasador.", "Ron."], cold: ["Viento gélido.", "Mar."], rain: ["Tormenta.", "Cubierta."], nice: ["Viento a favor.", "Navega."] } },
-            poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol dorado.", "Ardor."], cold: ["Aire gélido.", "Invierno."], rain: ["Lanto del cielo.", "Gris."], nice: ["Brisa suave.", "Luz."] } }
-        };
-
+        // --- ZONA MODAL, AI, ROPA ---
+        const aiLogic = { normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate.", "Busca sombra."], cold: ["Abrígate.", "Hace frío."], rain: ["Paraguas.", "Lluvia."], nice: ["Disfruta.", "Buen día."] } }, zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente el calor.", "Fluye."], cold: ["Abraza el frío.", "Paz."], rain: ["Lluvia sana.", "Escucha."], nice: ["Armonía.", "Presente."] } }, villano: { icon: "😈", name: "Villano", tips: { hot: ["Te derrites.", "Sufre."], cold: ["Congélate.", "Hielo."], rain: ["Mójate.", "Diluvio."], nice: ["Sospechoso.", "Espera."] } }, madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema.", "Bebe agua."], cold: ["Ponte la rebeca."], rain: ["¡Ni se te ocurra salir sin paraguas!"], nice: ["Sal un poco."] } }, gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda.", "Cardio."], cold: ["Entrena fuera.", "Corre."], rain: ["Sin excusas.", "Dale duro."], nice: ["Entrena ya."] } }, cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Alta radiación."], cold: ["Baja térmica."], rain: ["Precipitación."], nice: ["Óptimo."] } }, gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta al sol."], cold: ["Manta."], rain: ["Agua no."], nice: ["Cazar."] } }, pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Sol abrasador."], cold: ["Viento gélido."], rain: ["Tormenta."], nice: ["Viento a favor."] } }, poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol dorado."], cold: ["Aire gélido."], rain: ["Lanto del cielo."], nice: ["Brisa suave."] } } };
         const modal = document.getElementById('personaModal');
         const modalContent = document.getElementById('personaGrid');
-
-        const openPersonaModal = () => {
-            modalContent.innerHTML = '';
-            Object.keys(aiLogic).forEach(key => {
-                const p = aiLogic[key];
-                const isActive = key === currentPersona ? 'active' : '';
-                const div = document.createElement('div');
-                div.className = `persona-option ${isActive}`;
-                div.onclick = () => selectPersona(key);
-                div.innerHTML = `<span class="persona-icon">${p.icon}</span><span class="persona-name">${p.name}</span>`;
-                modalContent.appendChild(div);
-            });
-            modal.classList.add('show');
-        };
-
-        const selectPersona = (key) => {
-            currentPersona = key;
-            localStorage.setItem('aeris_persona', key);
-            modal.classList.remove('show');
-            if(lastWeatherData) updateAIText(lastWeatherData);
-        };
-
+        const openPersonaModal = () => { modalContent.innerHTML = ''; Object.keys(aiLogic).forEach(key => { const p = aiLogic[key]; const isActive = key === currentPersona ? 'active' : ''; const div = document.createElement('div'); div.className = `persona-option ${isActive}`; div.onclick = () => selectPersona(key); div.innerHTML = `<span class="persona-icon">${p.icon}</span><span class="persona-name">${p.name}</span>`; modalContent.appendChild(div); }); modal.classList.add('show'); };
+        const selectPersona = (key) => { currentPersona = key; localStorage.setItem('aeris_persona', key); modal.classList.remove('show'); if(lastWeatherData) updateAIText(lastWeatherData); };
         document.getElementById('ai-toggle').addEventListener('click', openPersonaModal);
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- ROPA ---
         const getClothingList = (temp, desc, wind) => {
-            let boys = [];
-            let girls = [];
+            let boys = [], girls = [];
             desc = desc.toLowerCase();
             const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubascos');
             const isSnowing = desc.includes('nieve') || desc.includes('nevada');
-
-            if (isRaining) {
-                boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
-                boys.push({icon: 'bi-cloud-rain', text: 'Cortavientos'});
-                girls.push({icon: 'bi-umbrella', text: 'Paraguas'});
-                girls.push({icon: 'bi-cloud-rain', text: 'Trench'});
-                girls.push({icon: 'bi-boot', text: 'Botas agua'});
-            }
-            if (isSnowing) {
-                boys.push({icon: 'bi-snow', text: 'Botas montaña'});
-                girls.push({icon: 'bi-snow', text: 'Botas peluche'});
-            }
-
-            if (temp < 5) {
-                boys.push({icon: 'bi-snow2', text: 'Plumas'});
-                boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro'});
-                girls.push({icon: 'bi-snow2', text: 'Puffer'});
-                girls.push({icon: 'bi-thermometer-snow', text: 'Térmica'});
-            } else if (temp < 12) {
-                boys.push({icon: 'bi-person-fill', text: 'Abrigo'});
-                boys.push({icon: 'bi-layers', text: 'Jersey'});
-                girls.push({icon: 'bi-person-fill', text: 'Abrigo largo'});
-                girls.push({icon: 'bi-layers', text: 'Jersey Oversize'});
-            } else if (temp < 18) {
-                boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
-                boys.push({icon: 'bi-layers-half', text: 'Chaleco'});
-                girls.push({icon: 'bi-person', text: 'Biker'});
-                girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
-            } else if (temp < 24) {
-                boys.push({icon: 'bi-person-video', text: 'Sobrecamisa'});
-                boys.push({icon: 'bi-gem', text: 'Cargo'});
-                girls.push({icon: 'bi-suit-heart', text: 'Blazer'});
-                girls.push({icon: 'bi-gem', text: 'Jeans anchos'});
-            } else if (temp < 30) {
-                boys.push({icon: 'bi-brightness-high', text: 'Camiseta'});
-                boys.push({icon: 'bi-sunglasses', text: 'Gafas'});
-                girls.push({icon: 'bi-brightness-high', text: 'Top'});
-                girls.push({icon: 'bi-sunglasses', text: 'Gafas'});
-            } else {
-                boys.push({icon: 'bi-brightness-alt-high', text: 'Lino'});
-                boys.push({icon: 'bi-water', text: 'Sandalias'});
-                girls.push({icon: 'bi-flower1', text: 'Vestido'});
-                girls.push({icon: 'bi-water', text: 'Sandalias'});
-            }
+            if (isRaining) { boys.push({icon: 'bi-umbrella', text: 'Paraguas'}); girls.push({icon: 'bi-umbrella', text: 'Paraguas'}); }
+            if (temp < 12) { boys.push({icon: 'bi-person-fill', text: 'Abrigo'}); girls.push({icon: 'bi-person-fill', text: 'Abrigo'}); }
+            else if (temp < 20) { boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); }
+            else { boys.push({icon: 'bi-brightness-high', text: 'Camiseta'}); girls.push({icon: 'bi-brightness-high', text: 'Top'}); }
             return { boys, girls };
         };
+        const updateAIText = (cur) => { if (!cur) return; const p = aiLogic[currentPersona]; document.getElementById('tip-icon').innerText = p.icon; let key = 'nice'; if (cur.desc.toLowerCase().includes('lluvia')) key = 'rain'; else if (cur.temp > 28) key = 'hot'; else if (cur.temp < 10) key = 'cold'; const frases = p.tips[key]; document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)]; const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed); const clothingContainer = document.getElementById('clothing-advice'); if(clothingContainer) { let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; clothingContainer.innerHTML = html; } };
 
-        const updateAIText = (cur) => {
-            if (!cur) return; 
-            const p = aiLogic[currentPersona];
-            document.getElementById('tip-icon').innerText = p.icon;
-            
-            let key = 'nice';
-            const desc = cur.desc.toLowerCase();
-            const isRaining = desc.includes('lluvia') || desc.includes('tormenta') || desc.includes('llovizna');
-            if (isRaining) key = 'rain';
-            else if (cur.temp > 28) key = 'hot';
-            else if (cur.temp < 10) key = 'cold';
-            
-            const frases = p.tips[key];
-            const frase = frases[Math.floor(Math.random() * frases.length)];
-            document.getElementById('tip-text').innerText = frase;
-
-            const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed);
-            const clothingContainer = document.getElementById('clothing-advice');
-            const outfitDisplay = document.getElementById('outfit-display');
-            
-            if(outfitDisplay) {
-                const mainItem = clothes.boys[0] ? clothes.boys[0].text : '--';
-                outfitDisplay.style.display = 'inline-block';
-                outfitDisplay.innerHTML = `<i class="bi bi-person-standing-dress outfit-icon"></i> <span style="font-size: 0.8rem; font-weight: bold; opacity: 0.8;">${mainItem}</span>`;
-            }
-
-            if(clothingContainer) {
-                let html = '';
-                html += `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem; display:block; margin-bottom:4px;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">`;
-                html += clothes.boys.map(item => `<div class="clothing-tag"><i class="bi ${item.icon} text-primary"></i> ${item.text}</div>`).join('');
-                html += `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem; display:block; margin-bottom:4px; margin-top:4px;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">`;
-                html += clothes.girls.map(item => `<div class="clothing-tag" style="background: rgba(236, 72, 153, 0.15); border-color: rgba(236, 72, 153, 0.2);"><i class="bi ${item.icon}" style="color: #db2777;"></i> ${item.text}</div>`).join('');
-                html += `</div></div>`;
-                clothingContainer.innerHTML = html;
-            }
-        };
-
-        // --- SHARE, FAVS, SEARCH ---
-        document.getElementById('shareBtn').addEventListener('click', () => {
-            const element = document.getElementById('capture-card');
-            const btn = document.getElementById('shareBtn');
-            btn.style.display = 'none'; 
-            html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => {
-                btn.style.display = 'flex'; 
-                const link = document.createElement('a');
-                link.download = `aeris-clima-${currentCityInfo.name}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-            }).catch(() => {
-                btn.style.display = 'flex';
-                alert('Error al generar imagen');
-            });
-        });
-
-        const updateHeartUI = () => {
-            const heart = document.getElementById('favHeart');
-            if(!heart) return;
-            const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id));
-            heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3';
-        };
-
-        const toggleFavorite = () => {
-            const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id));
-            if (index > -1) { favorites.splice(index, 1); } else { favorites.push({ ...currentCityInfo }); }
-            localStorage.setItem('aeris_favs', JSON.stringify(favorites));
-            updateHeartUI();
-            renderFavorites();
-        };
-
-        const renderFavorites = () => {
-            const list = document.getElementById('favList');
-            if(!list) return;
-            list.innerHTML = '';
-            if(favorites.length === 0) {
-                list.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center h-100 opacity-50 mt-5" style="color:var(--text)"><i class="bi bi-bookmark-star display-4 mb-3"></i><span>Aún no tienes favoritos</span></div>`;
-                return;
-            }
-            favorites.forEach(city => {
-                const li = document.createElement('li');
-                li.className = 'fav-item';
-                li.innerHTML = `<div class="fav-item-info"><span class="fav-name">${city.name}</span><span class="fav-region">${city.region}</span></div><div class="fav-delete" title="Borrar"><i class="bi bi-trash3-fill"></i></div>`;
-                li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); };
-                li.querySelector('.fav-delete').onclick = (e) => { e.stopPropagation(); favorites = favorites.filter(f => String(f.id) !== String(city.id)); localStorage.setItem('aeris_favs', JSON.stringify(favorites)); renderFavorites(); updateHeartUI(); };
-                list.appendChild(li);
-            });
-        };
-
+        // --- FAVORITOS Y SEARCH ---
+        const updateHeartUI = () => { const heart = document.getElementById('favHeart'); if(!heart) return; const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id)); heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3'; };
+        const toggleFavorite = () => { const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id)); if (index > -1) { favorites.splice(index, 1); } else { favorites.push({ ...currentCityInfo }); } localStorage.setItem('aeris_favs', JSON.stringify(favorites)); updateHeartUI(); renderFavorites(); };
+        const renderFavorites = () => { const list = document.getElementById('favList'); if(!list) return; list.innerHTML = ''; favorites.forEach(city => { const li = document.createElement('li'); li.className = 'fav-item'; li.innerHTML = `<div class="fav-item-info"><span class="fav-name">${city.name}</span><span class="fav-region">${city.region}</span></div><div class="fav-delete"><i class="bi bi-trash3-fill"></i></div>`; li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); }; li.querySelector('.fav-delete').onclick = (e) => { e.stopPropagation(); favorites = favorites.filter(f => String(f.id) !== String(city.id)); localStorage.setItem('aeris_favs', JSON.stringify(favorites)); renderFavorites(); updateHeartUI(); }; list.appendChild(li); }); };
         const openSidebar = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); };
         const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
+        document.getElementById('favMenuBtn').addEventListener('click', openSidebar); document.getElementById('closeSidebar').addEventListener('click', closeSidebar); document.getElementById('overlay').addEventListener('click', closeSidebar);
         
-        const overlay = document.getElementById('overlay');
-        const favMenuBtn = document.getElementById('favMenuBtn');
-        const closeSidebarBtn = document.getElementById('closeSidebar');
-
-        if(favMenuBtn) favMenuBtn.addEventListener('click', openSidebar);
-        if(closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
-        if(overlay) overlay.addEventListener('click', closeSidebar);
-
         const normalizeInput = (str) => { return str.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); };
-
-        const searchInput = document.getElementById('citySearch');
-        const suggestionsList = document.getElementById('suggestions');
-        let searchTimeout;
-        if(searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(searchTimeout);
-                if (e.target.value.length < 3) return suggestionsList.classList.remove('show');
-                searchTimeout = setTimeout(async () => {
-                    try {
-                        const cleanQuery = normalizeInput(e.target.value);
-                        const res = await fetch(`/api/search/${encodeURIComponent(cleanQuery)}`);
-                        const cities = await res.json();
-                        suggestionsList.innerHTML = '';
-                        cities.forEach(c => {
-                            const li = document.createElement('li'); li.className = 'suggestion-item';
-                            li.innerHTML = `<span>${c.name}</span><small>${c.region}, ${c.country}</small>`;
-                            li.onclick = () => selectCity(c); suggestionsList.appendChild(li);
-                        });
-                        if(cities.length) suggestionsList.classList.add('show');
-                    } catch(e) {}
-                }, 300);
-            });
-        }
-
-        const selectCity = (city) => {
-            if(searchInput) searchInput.value = '';
-            if(suggestionsList) suggestionsList.classList.remove('show');
-            const id = city.id || city.name;
-            localStorage.setItem('lastId', id);
-            localStorage.setItem('lastName', city.name);
-            localStorage.setItem('lastRegion', city.region || '');
-            currentId = id;
-            currentCityInfo = { id: id, name: city.name, region: city.region || '' };
-            document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); });
-            document.getElementById('weather-icon-container').innerHTML = '<div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>';
-            getWeather(id);
-        };
+        const searchInput = document.getElementById('citySearch'); const suggestionsList = document.getElementById('suggestions'); let searchTimeout;
+        if(searchInput) { searchInput.addEventListener('input', (e) => { clearTimeout(searchTimeout); if (e.target.value.length < 3) return suggestionsList.classList.remove('show'); searchTimeout = setTimeout(async () => { try { const cleanQuery = normalizeInput(e.target.value); const res = await fetch(`/api/search/${encodeURIComponent(cleanQuery)}`); const cities = await res.json(); suggestionsList.innerHTML = ''; cities.forEach(c => { const li = document.createElement('li'); li.className = 'suggestion-item'; li.innerHTML = `<span>${c.name}</span><small>${c.region}, ${c.country_code}</small>`; li.onclick = () => selectCity(c); suggestionsList.appendChild(li); }); if(cities.length) suggestionsList.classList.add('show'); } catch(e) {} }, 300); }); }
+        const selectCity = (city) => { if(searchInput) searchInput.value = ''; if(suggestionsList) suggestionsList.classList.remove('show'); const id = city.id || city.name; localStorage.setItem('lastId', id); localStorage.setItem('lastName', city.name); localStorage.setItem('lastRegion', city.region || ''); currentId = id; currentCityInfo = { id: id, name: city.name, region: city.region || '' }; document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); }); getWeather(id); };
 
         const renderRainChart = (nowcast, hourlyData) => {
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
-            
-            // 1. INTENTO: Radar Minuto a Minuto (Más preciso)
-            let timeLabels = [];
-            let precipData = [];
-            let source = 'radar';
+            let timeLabels = [], precipData = [];
 
+            // 1. Radar
             if (nowcast && nowcast.time && nowcast.time.length > 0) {
                 const nowISO = new Date().toISOString().slice(0, 16); 
                 let startIndex = nowcast.time.findIndex(t => t >= nowISO);
                 if (startIndex === -1) startIndex = 0;
-
                 for(let i=0; i<5; i++) {
                     if (startIndex + i < nowcast.precipitation.length) {
                         precipData.push(nowcast.precipitation[startIndex + i]);
-                        const t = nowcast.time[startIndex + i].split('T')[1];
-                        timeLabels.push(t);
+                        timeLabels.push(nowcast.time[startIndex + i].split('T')[1]);
                     }
                 }
             }
 
-            // 2. INTENTO: Si el radar da todo 0 o falla, miramos predicción por HORAS
-            const totalRadarRain = precipData.reduce((a,b) => a+b, 0);
-            
-            if (totalRadarRain === 0 && hourlyData) {
-                source = 'hourly';
-                precipData = [];
-                timeLabels = [];
+            // 2. Fallback Horas
+            const totalRadar = precipData.reduce((a,b)=>a+b,0);
+            if (totalRadar === 0 && hourlyData) {
+                precipData = []; timeLabels = [];
                 for(let i=0; i<5; i++) {
                     if (hourlyData[i]) {
-                        let val = hourlyData[i].precip !== undefined ? hourlyData[i].precip : 0;
-                        precipData.push(val);
+                        precipData.push(hourlyData[i].precip || 0);
                         timeLabels.push(hourlyData[i].displayTime);
                     }
                 }
             }
 
-            // 3. DECISIÓN FINAL: ¿Llueve o no?
-            const totalRain = precipData.reduce((a,b) => a+b, 0);
-            if (totalRain < 0.1) {
-                card.style.display = 'none';
-                return;
-            }
+            const total = precipData.reduce((a,b)=>a+b,0);
+            if (total < 0.1) { card.style.display = 'none'; return; }
 
             card.style.display = 'block';
-            if (totalRain > 5) summary.innerText = "Lluvia Fuerte";
-            else if (totalRain > 1) summary.innerText = "Lluvia Moderada";
-            else summary.innerText = "Lluvia Ligera";
+            summary.innerText = total > 5 ? "Lluvia Fuerte" : (total > 1 ? "Lluvia Moderada" : "Lluvia Ligera");
 
             const ctx = document.getElementById('rainChart').getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 150);
             gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
             gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
-
             if(rainChartInstance) rainChartInstance.destroy();
-            rainChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: timeLabels,
-                    datasets: [{
-                        label: 'mm',
-                        data: precipData,
-                        backgroundColor: gradient,
-                        borderColor: '#38bdf8',
-                        borderWidth: 2,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#fff',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: true, mode: 'index', intersect: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: 'rgba(100,116,139,0.7)', font: { size: 11, family: 'Plus Jakarta Sans' } } },
-                        y: { display: false, min: 0, suggestedMax: Math.max(...precipData) * 1.5 }
-                    },
-                    animation: { duration: 1000 },
-                    layout: { padding: { top: 10, left: 5, right: 5, bottom: 0 } }
-                }
-            });
+            rainChartInstance = new Chart(ctx, { type: 'line', data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { display: false, min: 0 } }, animation: { duration: 1000 }, layout: { padding: { top: 10, left: 5, right: 5, bottom: 0 } } } });
         };
 
+        // --- GET WEATHER ---
         async function getWeather(id) {
             try {
                 const storedName = localStorage.getItem('lastName') || 'Ubicación';
@@ -701,32 +415,14 @@
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
-                const iconContainer = document.getElementById('weather-icon-container');
-                iconContainer.innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
+                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
 
-                // AQI
-                const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
-                const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
-                const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
-                let aqiText = "Buena"; let aqiColor = "#4ade80"; 
-                if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; } else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; } else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; } else if (aqi > 100) { aqiText = "Sensible"; aqiColor = "#f97316"; } else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } 
-                let aqiPercent = (aqi / 300) * 100; if (aqiPercent > 100) aqiPercent = 100;
-                document.getElementById('aqi-val').innerText = aqi;
-                document.getElementById('aqi-text').innerText = aqiText;
-                document.getElementById('aqi-text').style.color = aqiColor;
-                document.getElementById('pm25').innerText = pm25 + (typeof pm25 === 'number' ? ' µg/m³' : '');
-                document.getElementById('pm10').innerText = pm10 + (typeof pm10 === 'number' ? ' µg/m³' : '');
-                document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
-
-                // LLAMADA A LA LÓGICA INTELIGENTE DE LLUVIA
                 renderRainChart(data.nowcast, data.hourly);
-                
-                // Checkear notificaciones (PASAMOS LOS DATOS HORARIOS TAMBIÉN)
-                checkRainAlert(data.nowcast, data.hourly);
+                updateAIText(cur);
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
@@ -735,77 +431,20 @@
                     document.getElementById('min-temp').classList.remove('skeleton');
                 }
 
-                if(loc.lat && loc.lon) {
-                    const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
-                    const iframe = document.getElementById('radar-frame');
-                    if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
-                }
-
-                updateAIText(cur);
-
                 const localDate = new Date(cur.time);
                 const currentHour = localDate.getHours();
                 const hCont = document.getElementById('hourly');
-                if(hCont) {
-                    hCont.innerHTML = data.hourly.slice(currentHour, currentHour + 24).map(h => `
-                        <div class="hourly-item" style="animation: fadeIn 0.5s">
-                            <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                            <i class="bi ${h.icon} fs-4" style="color:var(--text)"></i>
-                            <div class="fw-bold fs-5">${h.temp}°</div>
-                            <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">${h.rainProb>0?h.rainProb+'%':''}</div>
-                        </div>
-                    `).join('');
-                }
+                if(hCont) hCont.innerHTML = data.hourly.slice(currentHour, currentHour + 24).map(h => `<div class="hourly-item"><div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div><i class="bi ${h.icon} fs-4"></i><div class="fw-bold fs-5">${h.temp}°</div><div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">${h.rainProb>0?h.rainProb+'%':''}</div></div>`).join('');
 
                 const dCont = document.getElementById('daily');
-                if(dCont) {
-                    dCont.innerHTML = data.daily.map(d => {
-                        const safeDate = new Date(d.fecha);
-                        return `
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important; animation: fadeIn 0.5s">
-                            <div style="width:35%" class="fw-bold text-capitalize">
-                                <div>${safeDate.toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div>
-                                <div class="small opacity-50 d-flex gap-2" style="font-size:0.7rem">
-                                    <span><i class="bi bi-sunrise"></i> ${d.sunrise}</span>
-                                    <span><i class="bi bi-sunset"></i> ${d.sunset}</span>
-                                </div>
-                            </div>
-                            <div class="d-flex flex-column align-items-center" style="width:25%">
-                                <i class="bi ${d.icon} fs-5" style="color:var(--accent)"></i>
-                                <small class="text-primary fw-bold" style="font-size:0.7rem">${d.rainProbMax > 0 ? d.rainProbMax + '%' : ''}</small>
-                            </div>
-                            <div class="text-end fw-bold" style="width:30%">
-                                <span style="color:#ef4444">${d.tempMax}°</span> <span class="opacity-50 mx-1">/</span> <span style="color:#3b82f6">${d.tempMin}°</span>
-                            </div>
-                        </div>
-                    `}).join('');
-                }
+                if(dCont) dCont.innerHTML = data.daily.map(d => `<div class="d-flex justify-content-between align-items-center py-3 border-bottom"><div style="width:35%" class="fw-bold text-capitalize"><div>${new Date(d.fecha).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div><div class="small opacity-50 d-flex gap-2"><span><i class="bi bi-sunrise"></i> ${d.sunrise}</span><span><i class="bi bi-sunset"></i> ${d.sunset}</span></div></div><div class="d-flex flex-column align-items-center" style="width:25%"><i class="bi ${d.icon} fs-5"></i><small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small></div><div class="text-end fw-bold" style="width:30%"><span style="color:#ef4444">${d.tempMax}°</span> / <span style="color:#3b82f6">${d.tempMin}°</span></div></div>`).join('');
 
-                const newTheme = cur.isDay ? 'light' : 'dark';
-                document.body.setAttribute('data-theme', newTheme);
-                const themeBtn = document.getElementById('themeBtn');
-                if(themeBtn) { 
-                    themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>'; 
-                    document.documentElement.style.setProperty('--invert-close', newTheme === 'dark' ? '1' : '0');
-                }
             } catch (e) {
                 console.error(e);
                 document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
                 document.getElementById('desc').innerText = "Sin conexión";
             }
         }
-
-        const refreshBtn = document.getElementById('refreshBtn');
-        if(refreshBtn) refreshBtn.addEventListener('click', () => getWeather(localStorage.getItem('lastId') || 'Madrid'));
-        
-        const themeBtn = document.getElementById('themeBtn');
-        if(themeBtn) themeBtn.addEventListener('click', () => {
-            const current = document.body.getAttribute('data-theme');
-            const newTheme = current === 'dark' ? 'light' : 'dark';
-            document.body.setAttribute('data-theme', newTheme);
-            themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>';
-            document.documentElement.style.setProperty('--invert-close', newTheme === 'dark' ? '1' : '0');
-        });
 
         const geoBtn = document.getElementById('geoBtn');
         if(geoBtn) geoBtn.addEventListener('click', () => {
