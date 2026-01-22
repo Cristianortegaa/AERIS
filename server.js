@@ -118,8 +118,8 @@ setInterval(async () => {
                 }
             }
 
-            // SI LLUEVE > 0.1mm, ENVIAR AVISO
-            if (rainSum > 0.1) {
+            // SI LLUEVE >= 0.1mm, ENVIAR AVISO
+            if (rainSum >= 0.1) {
                 let intensity = "ligera";
                 if (rainSum > 2) intensity = "moderada";
                 if (rainSum > 5) intensity = "FUERTE";
