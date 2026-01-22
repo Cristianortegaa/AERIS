@@ -1,6 +1,6 @@
-const CACHE_NAME = 'aeris-v2'; // ¡Cambiamos a V2!
+const CACHE_NAME = 'aeris-v2'; 
 const ASSETS_TO_CACHE = [
-  '/logo.png', // Solo guardamos imágenes y librerías, NO el index.html
+  '/logo.png', 
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
   'https://cdn.jsdelivr.net/npm/chart.js',
@@ -8,7 +8,7 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Fuerza al SW nuevo a activarse inmediatamente
+  self.skipWaiting(); 
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
@@ -22,11 +22,10 @@ self.addEventListener('activate', (event) => {
       }));
     })
   );
-  self.clients.claim(); // Toma el control de la página inmediatamente
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // ESTRATEGIA: Network First para HTML y API (Siempre intenta descargar lo nuevo)
   if (event.request.mode === 'navigate' || event.request.url.includes('/api/')) {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -36,7 +35,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ESTRATEGIA: Cache First para imágenes y estilos (Para que cargue rápido)
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);

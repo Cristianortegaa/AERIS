@@ -85,7 +85,7 @@
         .overlay.show { opacity: 1; pointer-events: all; }
 
         .share-btn {
-            position: absolute; top: 10px; right: 10px;
+            position: absolute; top: 15px; right: 15px;
             width: 36px; height: 36px;
             border-radius: 50%;
             background: rgba(255,255,255,0.25);
@@ -173,22 +173,23 @@
                 </div>
             </div>
             
-            <div class="mt-1 d-flex align-items-end">
+            <div class="mt-2 d-flex align-items-end justify-content-between">
                 <div class="d-flex flex-column">
                     <div id="temp" class="temp-big skeleton" style="line-height:0.9; width: 140px; min-height: 0.8em; margin-bottom: 10px;"></div>
                     <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
                         Sensación: <span id="feels-like" class="skeleton" style="width: 30px; display:inline-block">--</span>°
                     </div>
                 </div>
-                <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
+                <div class="mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
                     <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                     <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                 </div>
             </div>
 
-            <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
+            <div class="d-flex gap-3 flex-wrap mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
                 <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
                 <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
+                <span id="outfit-display" style="display:none;"><i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span></span>
                 <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
             </div>
 
@@ -197,6 +198,18 @@
                 <div class="ai-container" id="ai-toggle" style="opacity: 0.9;">
                     <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; min-height: 2em; display:block"></span>
                     <span id="tip-icon" class="fs-4">🤖</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
+                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
+            </h6>
+            <div id="clothing-advice">
+                <div class="d-flex flex-wrap gap-2">
+                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
+                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
                 </div>
             </div>
         </div>
@@ -217,16 +230,6 @@
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)"><i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY</h6>
-            <div id="clothing-advice">
-                <div class="d-flex flex-wrap gap-2">
-                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
-                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
-                </div>
             </div>
         </div>
 
@@ -264,14 +267,13 @@
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
-            // Iniciar comprobación periódica de lluvia si las notificaciones están activas
+            // Iniciar comprobación periódica de lluvia
             if (Notification.permission === 'granted') {
                 document.getElementById('notifyBtn').classList.add('active');
                 setInterval(() => {
                     const id = currentCityInfo.id || 'Madrid';
-                    // Llamada silenciosa para actualizar datos y comprobar lluvia
                     fetchDataForNotification(id);
-                }, 15 * 60 * 1000); // Chequear cada 15 min
+                }, 15 * 60 * 1000); 
             }
         });
 
@@ -289,7 +291,7 @@
                 Notification.requestPermission().then(permission => {
                     if (permission === "granted") {
                         notifyBtn.classList.add('active');
-                        new Notification("¡Notificaciones activadas!", { body: "Te avisaremos si va a llover pronto.", icon: "logo.png" });
+                        new Notification("¡Notificaciones activadas!", { body: "Te avisaremos si hay lluvia.", icon: "logo.png" });
                     }
                 });
             }
@@ -297,27 +299,27 @@
 
         if (Notification.permission === 'granted') notifyBtn.classList.add('active');
 
-        // Función para chequear lluvia (Smart Rain Alert)
+        // FUNCIÓN CORREGIDA: LÓGICA DE ALERTA DE LLUVIA
         const checkRainAlert = (nowcast) => {
             if (!nowcast || !nowcast.time || nowcast.precipitation.length === 0) return;
             if (Notification.permission !== 'granted') return;
 
-            // Evitar spam: si ya avisamos en la última hora, no avisar otra vez
+            // Evitar spam (1 hora entre alertas)
             const lastAlert = localStorage.getItem('lastRainAlert');
             const now = Date.now();
             if (lastAlert && (now - parseInt(lastAlert) < 60 * 60 * 1000)) return;
 
-            // Lógica: Miramos los próximos 30 minutos
-            // Indice 0 es "ahora mismo", 1 es "en 15 min", 2 es "en 30 min"
-            // Queremos avisar si NO llueve ahora, pero SÍ va a llover pronto.
-            
-            // Aproximación simple con los primeros slots disponibles
+            // Miramos lluvia AHORA y en el FUTURO (próximos 45 min)
             const currentRain = nowcast.precipitation[0] || 0;
             const futureRain = (nowcast.precipitation[1] || 0) + (nowcast.precipitation[2] || 0);
+            
+            // NUEVA CONDICIÓN: Si hay lluvia (ahora O después) mayor a 0.2mm, avisar
+            const totalRainSoon = currentRain + futureRain;
 
-            if (currentRain < 0.1 && futureRain > 0.5) {
-                new Notification("🌧️ ¡Va a llover!", { 
-                    body: "Se espera lluvia en los próximos 15-30 minutos en " + currentCityInfo.name,
+            if (totalRainSoon > 0.2) {
+                const msg = currentRain > 0.1 ? "🌧️ Está lloviendo en " : "🌧️ Va a llover pronto en ";
+                new Notification(msg + currentCityInfo.name, { 
+                    body: "Se detecta precipitación en tu zona.",
                     icon: "logo.png",
                     vibrate: [200, 100, 200]
                 });
@@ -327,7 +329,6 @@
 
         const fetchDataForNotification = async (id) => {
             try {
-                // Fetch silencioso solo para checkear
                 const res = await fetch(`/api/weather/${id}`);
                 const data = await res.json();
                 checkRainAlert(data.nowcast);
@@ -706,7 +707,7 @@
                 // LLAMADA A LA LÓGICA INTELIGENTE DE LLUVIA
                 renderRainChart(data.nowcast, data.hourly);
                 
-                // Chequear si debemos notificar lluvia inmediatamente
+                // Checkear notificaciones
                 checkRainAlert(data.nowcast);
 
                 if (data.daily && data.daily.length > 0) {
