@@ -41,6 +41,7 @@
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
+        .btn-icon.active { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
         
         .temp-big { font-family:'Outfit'; font-weight:700; font-size: clamp(3.5rem, 10vw, 5.5rem); line-height: 1; letter-spacing: -2px; }
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
@@ -144,13 +145,19 @@
 
     <div class="container pt-3">
         <div class="nav-bar">
-            <button class="btn-icon" id="favMenuBtn"><i class="bi bi-list-stars fs-5"></i></button>
-            <div class="search-group">
+            <div class="d-flex gap-2">
+                <button class="btn-icon" id="favMenuBtn"><i class="bi bi-list-stars fs-5"></i></button>
+                <button class="btn-icon" id="notifyBtn"><i class="bi bi-bell fs-5"></i></button>
+            </div>
+            
+            <div class="search-group ms-2">
                 <input type="text" class="search-input" id="citySearch" placeholder="Buscar ciudad..." autocomplete="off">
                 <ul class="suggestions-list" id="suggestions"></ul>
             </div>
-            <button class="btn-icon" id="geoBtn"><i class="bi bi-geo-alt-fill fs-5"></i></button>
-            <button class="btn-icon" id="themeBtn"><i class="bi bi-moon-stars-fill fs-5"></i></button>
+            <div class="d-flex gap-2 ms-2">
+                <button class="btn-icon" id="geoBtn"><i class="bi bi-geo-alt-fill fs-5"></i></button>
+                <button class="btn-icon" id="themeBtn"><i class="bi bi-moon-stars-fill fs-5"></i></button>
+            </div>
         </div>
 
         <div class="glass-card" id="capture-card">
@@ -182,6 +189,7 @@
             <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
                 <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
                 <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
+                <span id="outfit-display" style="display:none; margin-left: 5px;"><i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span></span>
                 <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
             </div>
 
@@ -190,6 +198,16 @@
                 <div class="ai-container" id="ai-toggle" style="opacity: 0.9;">
                     <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; min-height: 2em; display:block"></span>
                     <span id="tip-icon" class="fs-4">🤖</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)"><i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY</h6>
+            <div id="clothing-advice">
+                <div class="d-flex flex-wrap gap-2">
+                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
+                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
                 </div>
             </div>
         </div>
@@ -210,18 +228,6 @@
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
-                <i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY
-            </h6>
-            <div id="clothing-advice">
-                <div class="d-flex flex-wrap gap-2">
-                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
-                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
-                </div>
             </div>
         </div>
 
@@ -258,11 +264,78 @@
 
     <script>
         window.addEventListener('load', () => {
-            setTimeout(() => {
-                document.getElementById('splash-screen').classList.add('hidden');
-            }, 2000); 
+            setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
+            // Iniciar comprobación periódica de lluvia si las notificaciones están activas
+            if (Notification.permission === 'granted') {
+                document.getElementById('notifyBtn').classList.add('active');
+                setInterval(() => {
+                    const id = currentCityInfo.id || 'Madrid';
+                    // Llamada silenciosa para actualizar datos y comprobar lluvia
+                    fetchDataForNotification(id);
+                }, 15 * 60 * 1000); // Chequear cada 15 min
+            }
         });
 
+        // --- SISTEMA DE NOTIFICACIONES ---
+        const notifyBtn = document.getElementById('notifyBtn');
+        
+        notifyBtn.addEventListener('click', () => {
+            if (!("Notification" in window)) {
+                alert("Tu navegador no soporta notificaciones");
+                return;
+            }
+            if (Notification.permission === "granted") {
+                new Notification("Aeris Weather", { body: "Las notificaciones ya están activas.", icon: "logo.png" });
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        notifyBtn.classList.add('active');
+                        new Notification("¡Notificaciones activadas!", { body: "Te avisaremos si va a llover pronto.", icon: "logo.png" });
+                    }
+                });
+            }
+        });
+
+        if (Notification.permission === 'granted') notifyBtn.classList.add('active');
+
+        // Función para chequear lluvia (Smart Rain Alert)
+        const checkRainAlert = (nowcast) => {
+            if (!nowcast || !nowcast.time || nowcast.precipitation.length === 0) return;
+            if (Notification.permission !== 'granted') return;
+
+            // Evitar spam: si ya avisamos en la última hora, no avisar otra vez
+            const lastAlert = localStorage.getItem('lastRainAlert');
+            const now = Date.now();
+            if (lastAlert && (now - parseInt(lastAlert) < 60 * 60 * 1000)) return;
+
+            // Lógica: Miramos los próximos 30 minutos
+            // Indice 0 es "ahora mismo", 1 es "en 15 min", 2 es "en 30 min"
+            // Queremos avisar si NO llueve ahora, pero SÍ va a llover pronto.
+            
+            // Aproximación simple con los primeros slots disponibles
+            const currentRain = nowcast.precipitation[0] || 0;
+            const futureRain = (nowcast.precipitation[1] || 0) + (nowcast.precipitation[2] || 0);
+
+            if (currentRain < 0.1 && futureRain > 0.5) {
+                new Notification("🌧️ ¡Va a llover!", { 
+                    body: "Se espera lluvia en los próximos 15-30 minutos en " + currentCityInfo.name,
+                    icon: "logo.png",
+                    vibrate: [200, 100, 200]
+                });
+                localStorage.setItem('lastRainAlert', now);
+            }
+        };
+
+        const fetchDataForNotification = async (id) => {
+            try {
+                // Fetch silencioso solo para checkear
+                const res = await fetch(`/api/weather/${id}`);
+                const data = await res.json();
+                checkRainAlert(data.nowcast);
+            } catch(e) {}
+        };
+
+        // --- GESTIÓN GLOBAL ---
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityName = localStorage.getItem('lastName') || 'Madrid';
         let currentCityRegion = localStorage.getItem('lastRegion') || '';
@@ -270,18 +343,19 @@
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
         let rainChartInstance = null;
         let lastWeatherData = null;
-
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
+
+        // --- LÓGICA PERSONALIDAD ---
         const aiLogic = {
-            normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hace calor, hidrátate.", "Busca sombra hoy."], cold: ["Abrígate bien hoy.", "Hace frío fuera."], rain: ["No olvides el paraguas.", "Riesgo de lluvia."], nice: ["Disfruta del buen tiempo.", "Día perfecto para salir."] } },
-            zen: { icon: "🧘", name: "Zen", tips: { hot: ["El sol nutre tu energía.", "Fluye con el calor."], cold: ["La quietud del frío es paz.", "Abraza el silencio."], rain: ["La lluvia limpia el alma.", "Escucha las gotas caer."], nice: ["Armonía perfecta hoy.", "Conecta con el presente."] } },
-            villano: { icon: "😈", name: "Villano", tips: { hot: ["Te vas a derretir, humano.", "El asfalto es lava."], cold: ["Se te congelarán las ideas.", "Ni el yeti sale hoy."], rain: ["Pelo encrespado garantizado.", "El cielo llora por ti."], nice: ["Hace bueno... sospechoso.", "Disfruta antes del fin."] } },
-            madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema, factor 50.", "Bebe agua, hijo."], cold: ["¿Llevas camiseta interior?", "Abrígate o te enfermas."], rain: ["¡Ni se te ocurra salir sin paraguas!", "No te mojes los pies."], nice: ["Come algo antes de salir.", "Sal a que te dé el aire."] } },
-            gym: { icon: "💪", name: "Gym Bro", tips: { hot: ["Sudar es grasa llorando.", "¡Calor para definir!"], cold: ["El frío no es excusa. ¡Entrena!", "Corre para calentarte."], rain: ["Correr bajo la lluvia es épico.", "No te saltes el leg day."], nice: ["Día perfecto para entrenar fuera.", "Vitamina D y pesas."] } },
-            cientifico: { icon: "🧪", name: "Científico", tips: { hot: ["Radiación solar elevada.", "Termodinámica extrema hoy."], cold: ["Descenso térmico molecular.", "Cristalización posible."], rain: ["Precipitación de H2O inminente.", "Hidratación atmosférica alta."], nice: ["Condiciones atmosféricas óptimas.", "Homeostasis climática."] } },
-            gato: { icon: "🐱", name: "Gato", tips: { hot: ["Dormiré al sol todo el día.", "El suelo está calentito."], cold: ["No pienso salir de la cama.", "Humano, sube la calefacción."], rain: ["Odio el agua. Miau.", "Ni me mires, no salgo."], nice: ["A cazar moscas en el jardín.", "Día perfecto para siesta."] } },
-            pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["El sol quema como mil cañones.", "¡A sudar la gota gorda!"], cold: ["Frío como el corazón de mi ex.", "Ron para calentarse."], rain: ["Tormenta a estribor, grumete.", "¡A baldear la cubierta!"], nice: ["Viento en popa a toda vela.", "Buen día para saquear."] } },
-            poeta: { icon: "📜", name: "Poeta", tips: { hot: ["El sol besa la tierra con ardor.", "Luz dorada inunda todo."], cold: ["El invierno susurra secretos.", "Manto gélido cubre el mundo."], rain: ["Lágrimas del cielo caen.", "Melancolía gris en el aire."], nice: ["La brisa acaricia tu rostro.", "Un poema de día."] } }
+            normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate.", "Busca sombra."], cold: ["Abrígate.", "Hace frío."], rain: ["Paraguas.", "Lluvia."], nice: ["Disfruta.", "Buen día."] } },
+            zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente el calor.", "Fluye."], cold: ["Abraza el frío.", "Paz."], rain: ["Lluvia sana.", "Escucha."], nice: ["Armonía.", "Presente."] } },
+            villano: { icon: "😈", name: "Villano", tips: { hot: ["Te derrites.", "Sufre."], cold: ["Congélate.", "Hielo."], rain: ["Mójate.", "Diluvio."], nice: ["Sospechoso.", "Espera."] } },
+            madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema, factor 50.", "Bebe agua."], cold: ["¿Llevas camiseta interior?", "Ponte la rebeca."], rain: ["¡Ni se te ocurra salir sin paraguas!", "Mójate no."], nice: ["Sal un poco.", "Come algo."] } },
+            gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda.", "Cardio."], cold: ["Entrena fuera.", "Corre."], rain: ["Sin excusas.", "Dale duro."], nice: ["Entrena ya.", "Vitamina D."] } },
+            cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Alta radiación.", "Calor."], cold: ["Baja térmica.", "Frío."], rain: ["Precipitación.", "H2O."], nice: ["Óptimo.", "Estable."] } },
+            gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta al sol.", "Calor."], cold: ["Manta.", "Estufa."], rain: ["Agua no.", "Casa."], nice: ["Cazar.", "Jugar."] } },
+            pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Sol abrasador.", "Ron."], cold: ["Viento gélido.", "Mar."], rain: ["Tormenta.", "Cubierta."], nice: ["Viento a favor.", "Navega."] } },
+            poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol dorado.", "Ardor."], cold: ["Aire gélido.", "Invierno."], rain: ["Lanto del cielo.", "Gris."], nice: ["Brisa suave.", "Luz."] } }
         };
 
         const modal = document.getElementById('personaModal');
@@ -312,19 +386,20 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
+        // --- ROPA ---
         const getClothingList = (temp, desc, wind) => {
             let boys = [];
             let girls = [];
             desc = desc.toLowerCase();
-            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
+            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubascos');
             const isSnowing = desc.includes('nieve') || desc.includes('nevada');
 
             if (isRaining) {
                 boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
                 boys.push({icon: 'bi-cloud-rain', text: 'Cortavientos'});
                 girls.push({icon: 'bi-umbrella', text: 'Paraguas'});
-                girls.push({icon: 'bi-cloud-rain', text: 'Trench / Gabardina'});
-                girls.push({icon: 'bi-boot', text: 'Botas de agua'});
+                girls.push({icon: 'bi-cloud-rain', text: 'Trench'});
+                girls.push({icon: 'bi-boot', text: 'Botas agua'});
             }
             if (isSnowing) {
                 boys.push({icon: 'bi-snow', text: 'Botas montaña'});
@@ -332,37 +407,36 @@
             }
 
             if (temp < 5) {
-                boys.push({icon: 'bi-snow2', text: 'Plumas gordo'});
-                boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro lana'});
-                girls.push({icon: 'bi-snow2', text: 'Puffer Jacket'});
-                girls.push({icon: 'bi-thermometer-snow', text: 'Leggins térmicos'});
+                boys.push({icon: 'bi-snow2', text: 'Plumas'});
+                boys.push({icon: 'bi-emoji-dizzy', text: 'Gorro'});
+                girls.push({icon: 'bi-snow2', text: 'Puffer'});
+                girls.push({icon: 'bi-thermometer-snow', text: 'Térmica'});
             } else if (temp < 12) {
-                boys.push({icon: 'bi-person-fill', text: 'Abrigo paño'});
-                boys.push({icon: 'bi-layers', text: 'Jersey cuello alto'});
+                boys.push({icon: 'bi-person-fill', text: 'Abrigo'});
+                boys.push({icon: 'bi-layers', text: 'Jersey'});
                 girls.push({icon: 'bi-person-fill', text: 'Abrigo largo'});
                 girls.push({icon: 'bi-layers', text: 'Jersey Oversize'});
             } else if (temp < 18) {
-                boys.push({icon: 'bi-person-hoodie', text: 'Hoodie/Sudadera'});
-                boys.push({icon: 'bi-layers-half', text: 'Chaleco acolchado'});
-                girls.push({icon: 'bi-person', text: 'Biker / Cuero'});
+                boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
+                boys.push({icon: 'bi-layers-half', text: 'Chaleco'});
+                girls.push({icon: 'bi-person', text: 'Biker'});
                 girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
             } else if (temp < 24) {
                 boys.push({icon: 'bi-person-video', text: 'Sobrecamisa'});
-                boys.push({icon: 'bi-gem', text: 'Pantalón Cargo'});
+                boys.push({icon: 'bi-gem', text: 'Cargo'});
                 girls.push({icon: 'bi-suit-heart', text: 'Blazer'});
                 girls.push({icon: 'bi-gem', text: 'Jeans anchos'});
             } else if (temp < 30) {
-                boys.push({icon: 'bi-brightness-high', text: 'Camiseta Oversize'});
-                boys.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
-                girls.push({icon: 'bi-brightness-high', text: 'Crop top'});
-                girls.push({icon: 'bi-sunglasses', text: 'Gafas de sol'});
+                boys.push({icon: 'bi-brightness-high', text: 'Camiseta'});
+                boys.push({icon: 'bi-sunglasses', text: 'Gafas'});
+                girls.push({icon: 'bi-brightness-high', text: 'Top'});
+                girls.push({icon: 'bi-sunglasses', text: 'Gafas'});
             } else {
-                boys.push({icon: 'bi-brightness-alt-high', text: 'Camisa Lino'});
+                boys.push({icon: 'bi-brightness-alt-high', text: 'Lino'});
                 boys.push({icon: 'bi-water', text: 'Sandalias'});
-                girls.push({icon: 'bi-flower1', text: 'Vestido ligero'});
-                girls.push({icon: 'bi-water', text: 'Sandalias abiertas'});
+                girls.push({icon: 'bi-flower1', text: 'Vestido'});
+                girls.push({icon: 'bi-water', text: 'Sandalias'});
             }
-
             return { boys, girls };
         };
 
@@ -384,8 +458,8 @@
 
             const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed);
             const clothingContainer = document.getElementById('clothing-advice');
-            
             const outfitDisplay = document.getElementById('outfit-display');
+            
             if(outfitDisplay) {
                 const mainItem = clothes.boys[0] ? clothes.boys[0].text : '--';
                 outfitDisplay.style.display = 'inline-block';
@@ -403,6 +477,7 @@
             }
         };
 
+        // --- SHARE, FAVS, SEARCH ---
         document.getElementById('shareBtn').addEventListener('click', () => {
             const element = document.getElementById('capture-card');
             const btn = document.getElementById('shareBtn');
@@ -480,8 +555,7 @@
                         suggestionsList.innerHTML = '';
                         cities.forEach(c => {
                             const li = document.createElement('li'); li.className = 'suggestion-item';
-                            const regionParts = [c.region, c.country].filter(p => p && p.trim()).join(', ');
-                            li.innerHTML = `<span>${c.name}</span><small>${regionParts || 'Sin región'}</small>`;
+                            li.innerHTML = `<span>${c.name}</span><small>${c.region}, ${c.country}</small>`;
                             li.onclick = () => selectCity(c); suggestionsList.appendChild(li);
                         });
                         if(cities.length) suggestionsList.classList.add('show');
@@ -504,7 +578,6 @@
             getWeather(id);
         };
 
-        // --- FUNCIÓN GRÁFICA DE LLUVIA (Lógica Estricta) ---
         const renderRainChart = (nowcast, hourlyData) => {
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
@@ -515,13 +588,10 @@
             let source = 'radar';
 
             if (nowcast && nowcast.time && nowcast.time.length > 0) {
-                // Buscamos el índice de la hora actual
-                const nowISO = new Date().toISOString().slice(0, 16); // "2024-01-20T19:38"
-                // Aproximación simple: buscamos la hora más cercana
+                const nowISO = new Date().toISOString().slice(0, 16); 
                 let startIndex = nowcast.time.findIndex(t => t >= nowISO);
                 if (startIndex === -1) startIndex = 0;
 
-                // Cogemos los siguientes 60 mins (4 puntos de 15 min)
                 for(let i=0; i<5; i++) {
                     if (startIndex + i < nowcast.precipitation.length) {
                         precipData.push(nowcast.precipitation[startIndex + i]);
@@ -538,12 +608,8 @@
                 source = 'hourly';
                 precipData = [];
                 timeLabels = [];
-                
-                // Buscamos las próximas 5 horas
-                // hourlyData ya viene filtrado desde la hora actual en el backend
                 for(let i=0; i<5; i++) {
                     if (hourlyData[i]) {
-                        // Usamos 'precip' si existe (nueva API), si no 'rainProb' como fallback visual (escalado)
                         let val = hourlyData[i].precip !== undefined ? hourlyData[i].precip : 0;
                         precipData.push(val);
                         timeLabels.push(hourlyData[i].displayTime);
@@ -553,29 +619,22 @@
 
             // 3. DECISIÓN FINAL: ¿Llueve o no?
             const totalRain = precipData.reduce((a,b) => a+b, 0);
-            
-            // UMBRAL: Si la suma de lluvia es menor a 0.1mm, NO MOSTRAMOS NADA
             if (totalRain < 0.1) {
                 card.style.display = 'none';
                 return;
             }
 
-            // Si llegamos aquí, ES QUE LLUEVE -> MOSTRAR TARJETA
             card.style.display = 'block';
-            
-            // Texto resumen inteligente
             if (totalRain > 5) summary.innerText = "Lluvia Fuerte";
             else if (totalRain > 1) summary.innerText = "Lluvia Moderada";
             else summary.innerText = "Lluvia Ligera";
 
-            // Pintar Gráfica
             const ctx = document.getElementById('rainChart').getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 150);
             gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
             gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
 
             if(rainChartInstance) rainChartInstance.destroy();
-            
             rainChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -586,7 +645,7 @@
                         backgroundColor: gradient,
                         borderColor: '#38bdf8',
                         borderWidth: 2,
-                        pointRadius: 3, // Puntos visibles para ver mejor los datos
+                        pointRadius: 3,
                         pointBackgroundColor: '#fff',
                         fill: true,
                         tension: 0.4
@@ -645,7 +704,11 @@
                 document.getElementById('pm10').innerText = pm10 + (typeof pm10 === 'number' ? ' µg/m³' : '');
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
+                // LLAMADA A LA LÓGICA INTELIGENTE DE LLUVIA
                 renderRainChart(data.nowcast, data.hourly);
+                
+                // Chequear si debemos notificar lluvia inmediatamente
+                checkRainAlert(data.nowcast);
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
@@ -662,7 +725,6 @@
 
                 updateAIText(cur);
 
-                // HOURLY
                 const localDate = new Date(cur.time);
                 const currentHour = localDate.getHours();
                 const hCont = document.getElementById('hourly');
@@ -747,22 +809,14 @@
                     try {
                         const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                         const city = await res.json();
-                        // SIEMPRE forzamos GPS al inicio si está disponible
-                        if (city.id) { 
-                            selectCity({id: city.id, name: city.name, region: city.region}); 
-                        } else {
-                             getWeather(localStorage.getItem('lastId') || 'Madrid');
-                        }
+                        if (city.id) { selectCity({id: city.id, name: city.name, region: city.region}); }
+                        else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
                     } catch(e) { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
                 },
-                (err) => { 
-                    getWeather(localStorage.getItem('lastId') || 'Madrid'); 
-                },
+                (err) => { getWeather(localStorage.getItem('lastId') || 'Madrid'); },
                 { timeout: 4000, enableHighAccuracy: false }
             );
-        } else { 
-            getWeather(localStorage.getItem('lastId') || 'Madrid'); 
-        }
+        } else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
     </script>
     <script>
     if ('serviceWorker' in navigator) {
