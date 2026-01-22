@@ -173,23 +173,23 @@
                 </div>
             </div>
             
-            <div class="mt-2 d-flex align-items-end justify-content-between">
+            <div class="mt-1 d-flex align-items-end">
                 <div class="d-flex flex-column">
                     <div id="temp" class="temp-big skeleton" style="line-height:0.9; width: 140px; min-height: 0.8em; margin-bottom: 10px;"></div>
                     <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
                         Sensación: <span id="feels-like" class="skeleton" style="width: 30px; display:inline-block">--</span>°
                     </div>
                 </div>
-                <div class="mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
+                <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
                     <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                     <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
                 </div>
             </div>
 
-            <div class="d-flex gap-3 flex-wrap mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
+            <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
                 <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
                 <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
-                <span id="outfit-display" style="display:none;"><i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span></span>
+                <span id="outfit-display" style="display:none; margin-left: 5px;"><i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span></span>
                 <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
             </div>
 
@@ -204,7 +204,12 @@
 
         <div class="glass-card">
             <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)"><i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY</h6>
-            <div id="clothing-advice"><div class="d-flex flex-wrap gap-2"><div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div><div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div></div></div>
+            <div id="clothing-advice">
+                <div class="d-flex flex-wrap gap-2">
+                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
+                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
+                </div>
+            </div>
         </div>
 
         <div class="glass-card" id="rain-card" style="display:none; transition: opacity 0.5s ease;">
@@ -256,6 +261,7 @@
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
+            // Comprobamos si ya está registrado en el service worker
             if (Notification.permission === 'granted') {
                 document.getElementById('notifyBtn').classList.add('active');
             }
@@ -264,24 +270,28 @@
         // --- PUSH: REGISTRO REAL ---
         async function registerPush() {
             if (!('serviceWorker' in navigator)) return;
-            const register = await navigator.serviceWorker.register('/service-worker.js');
-            const response = await fetch('/api/vapid-key');
-            const { key } = await response.json();
+            const register = await navigator.serviceWorker.ready;
             
-            const urlBase64ToUint8Array = (base64String) => {
-                const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-                const rawData = window.atob(base64);
-                const outputArray = new Uint8Array(rawData.length);
-                for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-                return outputArray;
+            // Comprobar si ya existe suscripción
+            let subscription = await register.pushManager.getSubscription();
+            if (!subscription) {
+                const response = await fetch('/api/vapid-key');
+                const { key } = await response.json();
+                const urlBase64ToUint8Array = (base64String) => {
+                    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                    const rawData = window.atob(base64);
+                    const outputArray = new Uint8Array(rawData.length);
+                    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+                    return outputArray;
+                }
+                subscription = await register.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(key)
+                });
             }
 
-            const subscription = await register.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(key)
-            });
-
+            // Enviar suscripción al backend
             await fetch('/api/subscribe', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -293,15 +303,17 @@
                 headers: { 'Content-Type': 'application/json' }
             });
 
-            alert("✅ Notificaciones activadas. Te avisaremos aunque cierres la app.");
+            alert("🔔 ¡Activado! Te avisaremos si llueve aunque cierres la app.");
+            document.getElementById('notifyBtn').classList.add('active');
         }
 
         const notifyBtn = document.getElementById('notifyBtn');
         notifyBtn.addEventListener('click', () => {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
-                    notifyBtn.classList.add('active');
-                    registerPush();
+                    registerPush(); // LLAMADA AL SERVIDOR
+                } else {
+                    alert("Debes permitir notificaciones.");
                 }
             });
         });
@@ -316,8 +328,8 @@
         let lastWeatherData = null;
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
-        // --- ZONA MODAL, AI, ROPA ---
-        const aiLogic = { normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate.", "Busca sombra."], cold: ["Abrígate.", "Hace frío."], rain: ["Paraguas.", "Lluvia."], nice: ["Disfruta.", "Buen día."] } }, zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente el calor.", "Fluye."], cold: ["Abraza el frío.", "Paz."], rain: ["Lluvia sana.", "Escucha."], nice: ["Armonía.", "Presente."] } }, villano: { icon: "😈", name: "Villano", tips: { hot: ["Te derrites.", "Sufre."], cold: ["Congélate.", "Hielo."], rain: ["Mójate.", "Diluvio."], nice: ["Sospechoso.", "Espera."] } }, madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema.", "Bebe agua."], cold: ["Ponte la rebeca."], rain: ["¡Ni se te ocurra salir sin paraguas!"], nice: ["Sal un poco."] } }, gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda.", "Cardio."], cold: ["Entrena fuera.", "Corre."], rain: ["Sin excusas.", "Dale duro."], nice: ["Entrena ya."] } }, cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Alta radiación."], cold: ["Baja térmica."], rain: ["Precipitación."], nice: ["Óptimo."] } }, gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta al sol."], cold: ["Manta."], rain: ["Agua no."], nice: ["Cazar."] } }, pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Sol abrasador."], cold: ["Viento gélido."], rain: ["Tormenta."], nice: ["Viento a favor."] } }, poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol dorado."], cold: ["Aire gélido."], rain: ["Lanto del cielo."], nice: ["Brisa suave."] } } };
+        // --- AI, ROPA, SHARE... (CÓDIGO ESTÁNDAR) ---
+        const aiLogic = { normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate."], cold: ["Abrígate."], rain: ["Paraguas."], nice: ["Disfruta."] } }, zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente."], cold: ["Paz."], rain: ["Fluye."], nice: ["Armonía."] } }, villano: { icon: "😈", name: "Villano", tips: { hot: ["Sufre."], cold: ["Hielo."], rain: ["Diluvio."], nice: ["Espera."] } }, madre: { icon: "👵", name: "Madre", tips: { hot: ["Crema."], cold: ["Rebeca."], rain: ["Paraguas!"], nice: ["Come."] } }, gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda."], cold: ["Corre."], rain: ["Dale."], nice: ["Entrena."] } }, cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Radiación."], cold: ["Baja T."], rain: ["H2O."], nice: ["Óptimo."] } }, gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta."], cold: ["Manta."], rain: ["Agua no."], nice: ["Jugar."] } }, pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Ron."], cold: ["Mar."], rain: ["Tormenta."], nice: ["Navega."] } }, poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol."], cold: ["Frío."], rain: ["Llanto."], nice: ["Luz."] } } };
         const modal = document.getElementById('personaModal');
         const modalContent = document.getElementById('personaGrid');
         const openPersonaModal = () => { modalContent.innerHTML = ''; Object.keys(aiLogic).forEach(key => { const p = aiLogic[key]; const isActive = key === currentPersona ? 'active' : ''; const div = document.createElement('div'); div.className = `persona-option ${isActive}`; div.onclick = () => selectPersona(key); div.innerHTML = `<span class="persona-icon">${p.icon}</span><span class="persona-name">${p.name}</span>`; modalContent.appendChild(div); }); modal.classList.add('show'); };
@@ -329,8 +341,7 @@
         const getClothingList = (temp, desc, wind) => {
             let boys = [], girls = [];
             desc = desc.toLowerCase();
-            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubascos');
-            const isSnowing = desc.includes('nieve') || desc.includes('nevada');
+            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             if (isRaining) { boys.push({icon: 'bi-umbrella', text: 'Paraguas'}); girls.push({icon: 'bi-umbrella', text: 'Paraguas'}); }
             if (temp < 12) { boys.push({icon: 'bi-person-fill', text: 'Abrigo'}); girls.push({icon: 'bi-person-fill', text: 'Abrigo'}); }
             else if (temp < 20) { boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); }
@@ -339,7 +350,8 @@
         };
         const updateAIText = (cur) => { if (!cur) return; const p = aiLogic[currentPersona]; document.getElementById('tip-icon').innerText = p.icon; let key = 'nice'; if (cur.desc.toLowerCase().includes('lluvia')) key = 'rain'; else if (cur.temp > 28) key = 'hot'; else if (cur.temp < 10) key = 'cold'; const frases = p.tips[key]; document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)]; const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed); const clothingContainer = document.getElementById('clothing-advice'); if(clothingContainer) { let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; clothingContainer.innerHTML = html; } };
 
-        // --- FAVORITOS Y SEARCH ---
+        document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
+        
         const updateHeartUI = () => { const heart = document.getElementById('favHeart'); if(!heart) return; const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id)); heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3'; };
         const toggleFavorite = () => { const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id)); if (index > -1) { favorites.splice(index, 1); } else { favorites.push({ ...currentCityInfo }); } localStorage.setItem('aeris_favs', JSON.stringify(favorites)); updateHeartUI(); renderFavorites(); };
         const renderFavorites = () => { const list = document.getElementById('favList'); if(!list) return; list.innerHTML = ''; favorites.forEach(city => { const li = document.createElement('li'); li.className = 'fav-item'; li.innerHTML = `<div class="fav-item-info"><span class="fav-name">${city.name}</span><span class="fav-region">${city.region}</span></div><div class="fav-delete"><i class="bi bi-trash3-fill"></i></div>`; li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); }; li.querySelector('.fav-delete').onclick = (e) => { e.stopPropagation(); favorites = favorites.filter(f => String(f.id) !== String(city.id)); localStorage.setItem('aeris_favs', JSON.stringify(favorites)); renderFavorites(); updateHeartUI(); }; list.appendChild(li); }); };
@@ -347,9 +359,10 @@
         const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
         document.getElementById('favMenuBtn').addEventListener('click', openSidebar); document.getElementById('closeSidebar').addEventListener('click', closeSidebar); document.getElementById('overlay').addEventListener('click', closeSidebar);
         
-        const normalizeInput = (str) => { return str.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); };
+        const normalizeInput = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const searchInput = document.getElementById('citySearch'); const suggestionsList = document.getElementById('suggestions'); let searchTimeout;
         if(searchInput) { searchInput.addEventListener('input', (e) => { clearTimeout(searchTimeout); if (e.target.value.length < 3) return suggestionsList.classList.remove('show'); searchTimeout = setTimeout(async () => { try { const cleanQuery = normalizeInput(e.target.value); const res = await fetch(`/api/search/${encodeURIComponent(cleanQuery)}`); const cities = await res.json(); suggestionsList.innerHTML = ''; cities.forEach(c => { const li = document.createElement('li'); li.className = 'suggestion-item'; li.innerHTML = `<span>${c.name}</span><small>${c.region}, ${c.country_code}</small>`; li.onclick = () => selectCity(c); suggestionsList.appendChild(li); }); if(cities.length) suggestionsList.classList.add('show'); } catch(e) {} }, 300); }); }
+        
         const selectCity = (city) => { if(searchInput) searchInput.value = ''; if(suggestionsList) suggestionsList.classList.remove('show'); const id = city.id || city.name; localStorage.setItem('lastId', id); localStorage.setItem('lastName', city.name); localStorage.setItem('lastRegion', city.region || ''); currentId = id; currentCityInfo = { id: id, name: city.name, region: city.region || '' }; document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); }); getWeather(id); };
 
         const renderRainChart = (nowcast, hourlyData) => {
@@ -396,7 +409,6 @@
             rainChartInstance = new Chart(ctx, { type: 'line', data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { display: false, min: 0 } }, animation: { duration: 1000 }, layout: { padding: { top: 10, left: 5, right: 5, bottom: 0 } } } });
         };
 
-        // --- GET WEATHER ---
         async function getWeather(id) {
             try {
                 const storedName = localStorage.getItem('lastName') || 'Ubicación';
@@ -415,11 +427,25 @@
                 document.getElementById('city').innerText = loc.name;
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
+                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
-                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
+
+                // AQI
+                const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
+                const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
+                const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
+                let aqiText = "Buena"; let aqiColor = "#4ade80"; 
+                if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; } else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; } else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; } else if (aqi > 100) { aqiText = "Sensible"; aqiColor = "#f97316"; } else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } 
+                let aqiPercent = (aqi / 300) * 100; if (aqiPercent > 100) aqiPercent = 100;
+                document.getElementById('aqi-val').innerText = aqi;
+                document.getElementById('aqi-text').innerText = aqiText;
+                document.getElementById('aqi-text').style.color = aqiColor;
+                document.getElementById('pm25').innerText = pm25 + (typeof pm25 === 'number' ? ' µg/m³' : '');
+                document.getElementById('pm10').innerText = pm10 + (typeof pm10 === 'number' ? ' µg/m³' : '');
+                document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
                 renderRainChart(data.nowcast, data.hourly);
                 updateAIText(cur);
@@ -431,6 +457,12 @@
                     document.getElementById('min-temp').classList.remove('skeleton');
                 }
 
+                if(loc.lat && loc.lon) {
+                    const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
+                    const iframe = document.getElementById('radar-frame');
+                    if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
+                }
+
                 const localDate = new Date(cur.time);
                 const currentHour = localDate.getHours();
                 const hCont = document.getElementById('hourly');
@@ -439,11 +471,7 @@
                 const dCont = document.getElementById('daily');
                 if(dCont) dCont.innerHTML = data.daily.map(d => `<div class="d-flex justify-content-between align-items-center py-3 border-bottom"><div style="width:35%" class="fw-bold text-capitalize"><div>${new Date(d.fecha).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div><div class="small opacity-50 d-flex gap-2"><span><i class="bi bi-sunrise"></i> ${d.sunrise}</span><span><i class="bi bi-sunset"></i> ${d.sunset}</span></div></div><div class="d-flex flex-column align-items-center" style="width:25%"><i class="bi ${d.icon} fs-5"></i><small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small></div><div class="text-end fw-bold" style="width:30%"><span style="color:#ef4444">${d.tempMax}°</span> / <span style="color:#3b82f6">${d.tempMin}°</span></div></div>`).join('');
 
-            } catch (e) {
-                console.error(e);
-                document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
-                document.getElementById('desc').innerText = "Sin conexión";
-            }
+            } catch (e) { console.error(e); }
         }
 
         const geoBtn = document.getElementById('geoBtn');
@@ -456,9 +484,6 @@
                  if(city.id) selectCity({id: city.id, name: city.name, region: city.region});
              });
         });
-
-        const favHeart = document.getElementById('favHeart');
-        if(favHeart) favHeart.addEventListener('click', toggleFavorite);
 
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aeris-v3-pro'; 
+const CACHE_NAME = 'aeris-v4-pro'; 
 const ASSETS_TO_CACHE = [
   '/', 
   '/index.html',
@@ -27,21 +27,20 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(caches.match(event.request).then((response) => response || fetch(event.request)));
 });
 
-// --- NOTIFICACIONES SUPER CURRADAS ---
+// --- NOTIFICACIONES CURRADAS ---
 self.addEventListener('push', function(event) {
-    const data = event.data ? event.data.json() : { title: "Aeris", body: "Nueva info del tiempo" };
+    const data = event.data ? event.data.json() : { title: "Aeris", body: "Alerta de tiempo" };
     
     const options = {
         body: data.body,
-        icon: '/logo.png', // Logo grande
-        badge: '/logo.png', // Icono pequeño barra estado
-        vibrate: [200, 100, 200, 100, 200], // Vibración distintiva
-        tag: 'aeris-rain', // Reemplaza alertas viejas
+        icon: '/logo.png',
+        badge: '/logo.png', // Icono para barra de estado
+        vibrate: [200, 100, 200], // Patrón de vibración
+        tag: 'aeris-rain', // Reemplaza la anterior si hay nueva info
         renotify: true,
         data: { url: '/' },
         actions: [
-            { action: 'open', title: '🌧️ Ver Ahora' },
-            { action: 'radar', title: '📡 Radar' }
+            { action: 'open', title: '👀 Ver Detalles' }
         ]
     };
 
