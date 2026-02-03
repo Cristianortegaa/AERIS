@@ -287,8 +287,12 @@
         });
 
         // --- PUSH: REGISTRO REAL ---
-        async function registerPush() {
+        async function registerPush(silent = false) {
             if (!('serviceWorker' in navigator)) return;
+            
+            // Si es silencioso (actualización automática) y no tenemos permiso, no hacemos nada
+            if (silent && Notification.permission !== 'granted') return;
+
             const register = await navigator.serviceWorker.ready;
             
             let subscription = await register.pushManager.getSubscription();
@@ -309,26 +313,34 @@
                 });
             }
 
+            // Usamos lat/lon guardados explícitamente para evitar errores con búsquedas de texto
+            const lat = currentCityInfo.lat || parseFloat(currentCityInfo.id.split(',')[0]);
+            const lon = currentCityInfo.lon || parseFloat(currentCityInfo.id.split(',')[1]);
+
+            if (!lat || !lon) return; // Si no hay coordenadas válidas, abortamos
+
             await fetch('/api/subscribe', {
                 method: 'POST',
                 body: JSON.stringify({
                     subscription: subscription,
-                    lat: parseFloat(currentCityInfo.id.split(',')[0]),
-                    lon: parseFloat(currentCityInfo.id.split(',')[1]),
+                    lat: lat,
+                    lon: lon,
                     city: currentCityInfo.name
                 }),
                 headers: { 'Content-Type': 'application/json' }
             });
 
-            alert("🔔 ¡Activado! Te avisaremos si llueve aunque cierres la app.");
-            document.getElementById('notifyBtn').classList.add('active');
+            if (!silent) {
+                alert(`🔔 ¡Activado! Te avisaremos si llueve o nieva en ${currentCityInfo.name}.`);
+                document.getElementById('notifyBtn').classList.add('active');
+            }
         }
 
         const notifyBtn = document.getElementById('notifyBtn');
         notifyBtn.addEventListener('click', () => {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
-                    registerPush();
+                    registerPush(false);
                 } else {
                     alert("Debes permitir notificaciones.");
                 }
@@ -339,14 +351,121 @@
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityName = localStorage.getItem('lastName') || 'Madrid';
         let currentCityRegion = localStorage.getItem('lastRegion') || '';
-        let currentCityInfo = { id: currentId, name: currentCityName, region: currentCityRegion };
+        // Inicializamos con valores seguros, lat/lon se llenarán al cargar
+        let currentCityInfo = { id: currentId, name: currentCityName, region: currentCityRegion, lat: null, lon: null };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
         let rainChartInstance = null;
         let lastWeatherData = null;
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
         // --- AI, ROPA, SHARE... ---
-        const aiLogic = { normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate.", "Busca sombra."], cold: ["Abrígate.", "Hace frío."], rain: ["Paraguas.", "Lluvia."], nice: ["Disfruta.", "Buen día."] } }, zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente el calor.", "Fluye."], cold: ["Abraza el frío.", "Paz."], rain: ["Lluvia sana.", "Escucha."], nice: ["Armonía.", "Presente."] } }, villano: { icon: "😈", name: "Villano", tips: { hot: ["Te derrites.", "Sufre."], cold: ["Congélate.", "Hielo."], rain: ["Mójate.", "Diluvio."], nice: ["Sospechoso.", "Espera."] } }, madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema, factor 50.", "Bebe agua."], cold: ["¿Llevas camiseta interior?", "Ponte la rebeca."], rain: ["¡Ni se te ocurra salir sin paraguas!", "Mójate no."], nice: ["Sal un poco.", "Come algo."] } }, gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda.", "Cardio."], cold: ["Entrena fuera.", "Corre."], rain: ["Sin excusas.", "Dale duro."], nice: ["Entrena ya.", "Vitamina D."] } }, cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Alta radiación.", "Calor."], cold: ["Baja térmica.", "Frío."], rain: ["Precipitación.", "H2O."], nice: ["Óptimo.", "Estable."] } }, gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta al sol.", "Calor."], cold: ["Manta.", "Estufa."], rain: ["Agua no.", "Casa."], nice: ["Cazar.", "Jugar."] } }, pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Sol abrasador.", "Ron."], cold: ["Viento gélido.", "Mar."], rain: ["Tormenta.", "Cubierta."], nice: ["Viento a favor.", "Navega."] } }, poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol dorado.", "Ardor."], cold: ["Aire gélido.", "Invierno."], rain: ["Lanto del cielo.", "Gris."], nice: ["Brisa suave.", "Luz."] } } };
+        const aiLogic = {
+            normal: { icon: "🤖", name: "Normal", tips: { 
+                hot: ["Mantente hidratado.", "Evita el sol directo.", "Usa ropa ligera.", "Busca la sombra.", "Día caluroso, precaución."], 
+                cold: ["Abrígate bien.", "Usa capas.", "Protege tu garganta.", "Hace frío ahí fuera.", "Mantén el calor corporal."], 
+                rain: ["Lleva paraguas.", "Suelo resbaladizo.", "Conduce con cuidado.", "Día de lluvia.", "Posibles chubascos."], 
+                snow: ["Precaución con el hielo.", "Abrígate al máximo.", "Disfruta la nieve.", "Calzado antideslizante.", "Nieve en camino."],
+                wind: ["Cuidado con objetos voladores.", "Asegura ventanas.", "Viento fuerte.", "Evita zonas arboladas.", "Sujeta el sombrero."],
+                nice: ["Día perfecto.", "Disfruta del aire libre.", "Condiciones agradables.", "Aprovecha el día.", "Tiempo estable."] 
+            }},
+            zen: { icon: "🧘", name: "Zen", tips: { 
+                hot: ["Siente el calor como energía.", "Fluye con la temperatura.", "El sol nutre tu espíritu.", "Respira el verano.", "Calma interior ante el calor."], 
+                cold: ["El frío aclara la mente.", "Abraza la quietud del invierno.", "Medita con el frescor.", "Paz helada.", "El frío es solo una sensación."], 
+                rain: ["El agua limpia el alma.", "Escucha el ritmo de la lluvia.", "La naturaleza bebe.", "Deja que fluya.", "Gotas de consciencia."], 
+                snow: ["Silencio blanco.", "Pureza cristalina.", "El mundo descansa.", "Contempla la blancura.", "Paz invernal."],
+                wind: ["Deja que el viento se lleve lo malo.", "Cambios en el aire.", "Sé flexible como el bambú.", "El aire renueva.", "Susurros del viento."],
+                nice: ["Armonía perfecta.", "El universo sonríe.", "Equilibrio natural.", "Gratitud por este día.", "Presente perfecto."] 
+            }},
+            villano: { icon: "😈", name: "Villano", tips: { 
+                hot: ["¡Que arda el mundo!", "Sufre mortal.", "El asfalto se derrite, excelente.", "Sudor y lágrimas.", "Un horno perfecto."], 
+                cold: ["Congélate hasta los huesos.", "El invierno eterno se acerca.", "Tiembla, insignificante.", "Hielo en tu corazón.", "Perfecto para mis planes fríos."], 
+                rain: ["¡Diluvio universal!", "Mójate, miserable.", "Truenos de destrucción.", "El cielo llora por ti.", "Caos acuático."], 
+                snow: ["Sepultados en blanco.", "Frío mortal.", "La era de hielo comienza.", "Resbala y cae.", "Blanco como el miedo."],
+                wind: ["¡Volad, necios!", "El viento aullará mi nombre.", "Destrucción aérea.", "Arrancaré los árboles.", "Tormenta perfecta."],
+                nice: ["Demasiada calma... sospechoso.", "Odio los días bonitos.", "La calma antes de mi tormenta.", "Qué asco de sol.", "Aburrido..."] 
+            }},
+            madre: { icon: "👵", name: "Madre", tips: { 
+                hot: ["Ponte crema, factor 50 mínimo.", "Bebe agua, no refrescos.", "No salgas a las horas malas.", "¿Llevas gorra?", "Come fruta fresca."], 
+                cold: ["Ponte la camiseta interior.", "¿Llevas los riñones tapados?", "Cierra la boca que entra frío.", "Tómate un caldito.", "No andes descalzo."], 
+                rain: ["¡Ni se te ocurra salir sin paraguas!", "Ponte las botas de agua.", "No te mojes los pies.", "Cuidado que resbala.", "Llámame cuando llegues."], 
+                snow: ["¡Ni se te ocurra coger el coche!", "Abrígate que te congelas.", "Comete el potaje caliente.", "Guantes, gorro y bufanda.", "Quédate en casa mejor."],
+                wind: ["Cuidado con las macetas.", "Cierra bien las ventanas.", "No te pongas falda.", "Se te va a volar el pelo.", "Ten cuidado con los ojos."],
+                nice: ["Sal a que te dé el aire.", "Qué día más bueno para lavar.", "Abre las ventanas que ventile.", "Disfruta hijo.", "Come bien."] 
+            }},
+            gym: { icon: "💪", name: "Gym", tips: { 
+                hot: ["Suda esa grasa.", "Hidratación y electrolitos.", "Entrena sin camiseta.", "El calor quema calorías.", "No pain no gain."], 
+                cold: ["El frío endurece el carácter.", "Entrena para entrar en calor.", "No hay excusas.", "Corre más rápido.", "Músculos calientes."], 
+                rain: ["¿Lluvia? Más épico.", "Correr bajo la lluvia es de pros.", "El agua no encoge.", "Entrena en casa si tienes miedo.", "Modo bestia activado."], 
+                snow: ["Rocky entrenaba en la nieve.", "Cardio extremo.", "Sentadillas en la nieve.", "Fuerza mental.", "Hielo para los músculos."],
+                wind: ["Resistencia aerodinámica.", "Corre contra el viento.", "Entrenamiento de fuerza.", "Mantén el equilibrio.", "El viento te hace fuerte."],
+                nice: ["Día de PR (Récord Personal).", "Vitamina D para la testosterona.", "Sal a correr.", "El clima perfecto para crecer.", "A tope hoy."] 
+            }},
+            cientifico: { icon: "🧪", name: "Ciencia", tips: { 
+                hot: ["Alta radiación UV detectada.", "Termodinámica elevada.", "Evaporación acelerada.", "Riesgo de insolación.", "Moléculas excitadas."], 
+                cold: ["Descenso térmico significativo.", "Baja energía cinética.", "Cristalización posible.", "Hipotermia teórica.", "Conservación de energía."], 
+                rain: ["Precipitación líquida en curso.", "Ciclo del agua activo.", "Humedad relativa 100%.", "Cumulonimbus presentes.", "Hidrodinámica aplicada."], 
+                snow: ["Precipitación sólida.", "Estructuras cristalinas hexagonales.", "Albedo elevado.", "Punto de congelación alcanzado.", "Física de fluidos."],
+                wind: ["Flujo de aire turbulento.", "Diferencial de presión.", "Velocidad eólica alta.", "Aerodinámica inestable.", "Fuerza de arrastre."],
+                nice: ["Condiciones atmosféricas óptimas.", "Homeostasis ambiental.", "Visibilidad máxima.", "Presión estable.", "Variables ideales."] 
+            }},
+            gato: { icon: "🐱", name: "Gato", tips: { 
+                hot: ["Siesta al sol.", "El suelo está calentito.", "Demasiado calor para cazar.", "Me derrito.", "Búscame en la sombra."], 
+                cold: ["Manta y estufa.", "No pienso salir.", "Hazme hueco en la cama.", "Mis patas están frías.", "Odio el invierno."], 
+                rain: ["Agua no, gracias.", "Miro por la ventana.", "Qué asco de mojado.", "Me quedo en el sofá.", "Ruido molesto."], 
+                snow: ["¿Qué es esta cosa blanca?", "Frío en las almohadillas.", "Cazar copos.", "Me hundo.", "Quiero entrar."],
+                wind: ["El viento me despeina.", "Cosas volando para cazar.", "No me gusta el ruido.", "Orejas atrás.", "Peligro invisible."],
+                nice: ["A cazar pájaros.", "Revolcarse en la hierba.", "Día de aventuras.", "Miau de felicidad.", "El sol es mío."] 
+            }},
+            pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { 
+                hot: ["¡Sol abrasador, marineros!", "El ron se calienta.", "Calma chicha.", "Sudad como cerdos.", "Ni una nube a la vista."], 
+                cold: ["Viento gélido del norte.", "Se me congelan los garfios.", "Mar de hielo.", "Abrigaos, ratas.", "Frío como la tumba."], 
+                rain: ["¡Tormenta a la vista!", "Baldear la cubierta.", "Agua dulce para beber.", "El mar se pica.", "Rayos y centellas."], 
+                snow: ["Nieve en las velas.", "El kraken se congela.", "Blanco como un hueso.", "Resbaladizo como anguila.", "Invierno en alta mar."],
+                wind: ["¡Izad las velas!", "Viento en popa.", "Sujetad el sombrero.", "El mar ruge.", "A toda vela."],
+                nice: ["Buen viento y buena mar.", "Rumbo al tesoro.", "Día para navegar.", "El horizonte brilla.", "Fortuna sonríe."] 
+            }},
+            poeta: { icon: "📜", name: "Poeta", tips: { 
+                hot: ["El sol besa la tierra con ardor.", "Luz dorada que ciega.", "Verano eterno en el alma.", "Calor que abraza.", "Danza de fuego."], 
+                cold: ["El invierno susurra en los cristales.", "Manto de silencio helado.", "Aliento de vapor.", "La naturaleza duerme.", "Frío melancólico."], 
+                rain: ["Lanto del cielo gris.", "Melodía de gotas.", "La tierra respira humedad.", "Cristales empañados.", "Tristeza líquida."], 
+                snow: ["Danza de estrellas blancas.", "Silencio algodonoso.", "El mundo se viste de novia.", "Pureza efímera.", "Cristal frío."],
+                wind: ["Susurros de antiguos dioses.", "El aire cuenta historias.", "Danza invisible.", "Fuerza etérea.", "Canción de tormenta."],
+                nice: ["Luz que acaricia.", "Azul infinito.", "La brisa promete.", "Día de versos.", "Paz en el horizonte."] 
+            }},
+            gamer: { icon: "🎮", name: "Gamer", tips: { 
+                hot: ["Overheating detectado.", "Baja el brillo.", "Los fans de la CPU a tope.", "Lag por calor.", "Gráficos demasiado brillantes."], 
+                cold: ["Refrigeración líquida natural.", "Mis manos están congeladas, no puedo aim.", "Ponte skin de invierno.", "Mapa de hielo.", "Baja temperatura de la GPU."], 
+                rain: ["Efectos de partículas al máximo.", "Renderizando lluvia.", "Baja visibilidad.", "Suelo resbaladizo activado.", "Ambiente Silent Hill."], 
+                snow: ["Evento de Navidad activado.", "Texturas blancas.", "Físicas de nieve.", "Cuidado con el respawn.", "Mapa de invierno."],
+                wind: ["Físicas de viento realistas.", "Proyectiles desviados.", "Ruido ambiental alto.", "Vuela con el glider.", "Resistencia al movimiento."],
+                nice: ["FPS estables.", "Ping bajo.", "Gráficos Ultra.", "Buen día para grindear.", "Sin lag."] 
+            }},
+            abuela: { icon: "🧶", name: "Abuela", tips: { 
+                hot: ["Baja la persiana hijo.", "Tómate una horchata.", "No andes al sol.", "Qué calor hace.", "Abanícate."], 
+                cold: ["Ponte la rebequita.", "Te he hecho un jersey.", "Come caliente.", "No cojas frío.", "Arrímate al brasero."], 
+                rain: ["Se me va a mojar la ropa tendida.", "Día de migas.", "No salgas que te pones malo.", "Qué manera de llover.", "Reza a Santa Bárbara."], 
+                snow: ["Qué bonito pero qué frío.", "Cuidado no te caigas.", "Chocolate con churros.", "Manta y ganchillo.", "No vayas lejos."],
+                wind: ["Cierra el portón.", "Qué aire hace.", "Se vuelan las macetas.", "Ponte pañuelo.", "Mal tiempo."],
+                nice: ["Qué día más hermoso.", "Sal a pasear.", "Estás muy pálido, toma el sol.", "Bendito sea Dios.", "Disfruta de la juventud."] 
+            }},
+            comediante: { icon: "🤡", name: "Risitas", tips: { 
+                hot: ["Hace tanto calor que las gallinas ponen huevos fritos.", "Estoy sudando como testigo falso.", "Más calor que en una comunión en agosto.", "Me derrito bombón.", "El sol paga impuestos hoy."], 
+                cold: ["Hace un frío que se congelan las ideas.", "Más frío que el abrazo de una suegra.", "Pingüinos con bufanda.", "Se me han caído los dedos.", "Frío polar."], 
+                rain: ["Llueve más que cuando enterraron a Zafra.", "Día de sofá y peli... mentira, a trabajar.", "Se ha roto el cielo.", "Operación Arca de Noé.", "Me encojo con el agua."], 
+                snow: ["Nieve... o caspa de gigante.", "A hacer ángeles... o demonios.", "Resbalón y vídeo viral.", "Muñeco de nieve deforme.", "Blanca Navidad... en marzo."],
+                wind: ["Se me vuela el peluquín.", "Viento que te peina.", "Agárrate a una farola.", "Volando voy.", "Aire acondicionado natural."],
+                nice: ["Día sospechosamente bueno.", "El sol ha salido, milagro.", "A vivir la vida.", "Sonríe que es gratis.", "Ni frío ni calor, 0 grados."] 
+            }},
+            astrologo: { icon: "🔮", name: "Astro", tips: { 
+                hot: ["El Sol está en su cénit.", "Energía de fuego intensa.", "Carga tus cristales.", "Aura dorada.", "Mercurio está caliente."], 
+                cold: ["Saturno trae frío.", "Energía de contracción.", "Medita en la oscuridad.", "Hielo cósmico.", "Alineación gélida."], 
+                rain: ["Neptuno rige las aguas.", "Limpieza emocional.", "Fluye con las mareas.", "Lluvia de estrellas... líquida.", "Conexión profunda."], 
+                snow: ["Silencio espiritual.", "Cristalización de intenciones.", "Pureza blanca.", "Energía estancada.", "Manto astral."],
+                wind: ["Urano trae cambios.", "Vientos de transformación.", "Limpia tu aura.", "Mensajes del aire.", "Movimiento etéreo."],
+                nice: ["Júpiter bendice el día.", "Vibración alta.", "Armonía cósmica.", "El universo conspira a favor.", "Luz estelar."] 
+            }}
+        };
+
         const modal = document.getElementById('personaModal');
         const modalContent = document.getElementById('personaGrid');
         const openPersonaModal = () => { modalContent.innerHTML = ''; Object.keys(aiLogic).forEach(key => { const p = aiLogic[key]; const isActive = key === currentPersona ? 'active' : ''; const div = document.createElement('div'); div.className = `persona-option ${isActive}`; div.onclick = () => selectPersona(key); div.innerHTML = `<span class="persona-icon">${p.icon}</span><span class="persona-name">${p.name}</span>`; modalContent.appendChild(div); }); modal.classList.add('show'); };
@@ -355,17 +474,113 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        const getClothingList = (temp, desc, wind) => {
+        const getClothingList = (temp, desc, wind, uv) => {
             let boys = [], girls = [];
             desc = desc.toLowerCase();
-            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
-            if (isRaining) { boys.push({icon: 'bi-umbrella', text: 'Paraguas'}); girls.push({icon: 'bi-umbrella', text: 'Paraguas'}); }
-            if (temp < 12) { boys.push({icon: 'bi-person-fill', text: 'Abrigo'}); girls.push({icon: 'bi-person-fill', text: 'Abrigo'}); }
-            else if (temp < 20) { boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); }
-            else { boys.push({icon: 'bi-brightness-high', text: 'Camiseta'}); girls.push({icon: 'bi-brightness-high', text: 'Top'}); }
-            return { boys, girls };
+            const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
+            const isSnow = desc.includes('nieve') || desc.includes('nevada');
+            const isClear = desc.includes('despejado') || desc.includes('sol');
+            
+            // Capas base según temperatura
+            if (temp >= 30) {
+                boys.push({icon: 'bi-brightness-high', text: 'Tirantes/Fino'});
+                girls.push({icon: 'bi-brightness-high', text: 'Top/Vestido'});
+                boys.push({icon: 'bi-emoji-sunglasses', text: 'Shorts'});
+                girls.push({icon: 'bi-emoji-sunglasses', text: 'Shorts/Falda'});
+            } else if (temp >= 25) {
+                boys.push({icon: 'bi-tshirt', text: 'Camiseta corta'});
+                girls.push({icon: 'bi-tshirt', text: 'Camiseta/Blusa'});
+                boys.push({icon: 'bi-emoji-smile', text: 'Pantalón fino'});
+                girls.push({icon: 'bi-emoji-smile', text: 'Falda/Leggins'});
+            } else if (temp >= 20) {
+                boys.push({icon: 'bi-tshirt', text: 'Polo/Camiseta'});
+                girls.push({icon: 'bi-tshirt', text: 'Camiseta 3/4'});
+                boys.push({icon: 'bi-person', text: 'Jeans/Chino'});
+                girls.push({icon: 'bi-person', text: 'Jeans/Culotte'});
+            } else if (temp >= 15) {
+                boys.push({icon: 'bi-person', text: 'Camiseta+Camisa'});
+                girls.push({icon: 'bi-person', text: 'Blusa+Cardigan'});
+                boys.push({icon: 'bi-person', text: 'Pantalón largo'});
+                girls.push({icon: 'bi-person', text: 'Pantalón largo'});
+            } else if (temp >= 10) {
+                boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
+                girls.push({icon: 'bi-person-hoodie', text: 'Jersey fino'});
+                boys.push({icon: 'bi-layers', text: 'Chaqueta fina'});
+                girls.push({icon: 'bi-layers', text: 'Trench/Cazadora'});
+            } else if (temp >= 5) {
+                boys.push({icon: 'bi-person-fill', text: 'Jersey gordo'});
+                girls.push({icon: 'bi-person-fill', text: 'Jersey lana'});
+                boys.push({icon: 'bi-bricks', text: 'Abrigo'});
+                girls.push({icon: 'bi-bricks', text: 'Abrigo paño'});
+            } else {
+                boys.push({icon: 'bi-snow2', text: 'Térmica'});
+                girls.push({icon: 'bi-snow2', text: 'Térmica'});
+                boys.push({icon: 'bi-person-fill', text: 'Plumífero'});
+                girls.push({icon: 'bi-person-fill', text: 'Plumífero'});
+            }
+
+            // Accesorios y Calzado
+            if (isRain) {
+                boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
+                girls.push({icon: 'bi-umbrella', text: 'Paraguas'});
+                boys.push({icon: 'bi-cloud-rain', text: 'Impermeable'});
+                girls.push({icon: 'bi-cloud-rain', text: 'Chubasquero'});
+                if (temp < 15) {
+                    boys.push({icon: 'bi-boot', text: 'Botas agua'});
+                    girls.push({icon: 'bi-boot', text: 'Botas agua'});
+                }
+            }
+            
+            if (isSnow) {
+                boys.push({icon: 'bi-snow', text: 'Botas nieve'});
+                girls.push({icon: 'bi-snow', text: 'Botas nieve'});
+                boys.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
+                girls.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
+            }
+
+            if (temp < 10 || (wind > 20 && temp < 15)) {
+                boys.push({icon: 'bi-emoji-dizzy', text: 'Bufanda'});
+                girls.push({icon: 'bi-emoji-dizzy', text: 'Bufanda'});
+            }
+
+            if (temp < 5) {
+                boys.push({icon: 'bi-circle', text: 'Gorro'});
+                girls.push({icon: 'bi-circle', text: 'Gorro'});
+            }
+
+            if (uv > 5 && isClear) {
+                boys.push({icon: 'bi-sunglasses', text: 'Gafas sol'});
+                girls.push({icon: 'bi-sunglasses', text: 'Gafas sol'});
+                boys.push({icon: 'bi-capslock', text: 'Gorra'});
+                girls.push({icon: 'bi-capslock', text: 'Sombrero'});
+            }
+
+            return { boys: boys.slice(0, 4), girls: girls.slice(0, 4) };
         };
-        const updateAIText = (cur) => { if (!cur) return; const p = aiLogic[currentPersona]; document.getElementById('tip-icon').innerText = p.icon; let key = 'nice'; if (cur.desc.toLowerCase().includes('lluvia')) key = 'rain'; else if (cur.temp > 28) key = 'hot'; else if (cur.temp < 10) key = 'cold'; const frases = p.tips[key]; document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)]; const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed); const clothingContainer = document.getElementById('clothing-advice'); if(clothingContainer) { let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; clothingContainer.innerHTML = html; } };
+        
+        const updateAIText = (cur) => { 
+            if (!cur) return; 
+            const p = aiLogic[currentPersona]; 
+            document.getElementById('tip-icon').innerText = p.icon; 
+            
+            let key = 'nice'; 
+            const d = cur.desc.toLowerCase();
+            if (d.includes('nieve') || d.includes('nevada')) key = 'snow';
+            else if (d.includes('lluvia') || d.includes('llovizna') || d.includes('tormenta')) key = 'rain'; 
+            else if (cur.windSpeed > 30) key = 'wind';
+            else if (cur.temp > 30) key = 'hot'; 
+            else if (cur.temp < 10) key = 'cold'; 
+            
+            const frases = p.tips[key] || p.tips['nice']; 
+            document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)]; 
+            
+            const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, cur.uv); 
+            const clothingContainer = document.getElementById('clothing-advice'); 
+            if(clothingContainer) { 
+                let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; 
+                clothingContainer.innerHTML = html; 
+            } 
+        };
 
         document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
         
@@ -382,17 +597,23 @@
         
         const selectCity = (city) => { if(searchInput) searchInput.value = ''; if(suggestionsList) suggestionsList.classList.remove('show'); const id = city.id || city.name; localStorage.setItem('lastId', id); localStorage.setItem('lastName', city.name); localStorage.setItem('lastRegion', city.region || ''); currentId = id; currentCityInfo = { id: id, name: city.name, region: city.region || '' }; document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); }); getWeather(id); };
 
-        const renderRainChart = (nowcast, hourlyData) => {
+        const renderRainChart = (nowcast, hourlyData, currentTime) => {
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
             let timeLabels = [], precipData = [];
 
             // 1. Radar
             if (nowcast && nowcast.time && nowcast.time.length > 0) {
-                const nowISO = new Date().toISOString().slice(0, 16); 
-                let startIndex = nowcast.time.findIndex(t => t >= nowISO);
+                let startIndex = -1;
+                if (currentTime) {
+                    // Usamos la hora local de la ciudad (currentTime) para sincronizar perfectamente
+                    startIndex = nowcast.time.findIndex(t => t >= currentTime);
+                }
+                
+                // Si no encuentra la hora (ej: final del día), mostramos desde el principio o manejamos el error
                 if (startIndex === -1) startIndex = 0;
-                for(let i=0; i<5; i++) {
+
+                for(let i=0; i<6; i++) {
                     if (startIndex + i < nowcast.precipitation.length) {
                         precipData.push(nowcast.precipitation[startIndex + i]);
                         timeLabels.push(nowcast.time[startIndex + i].split('T')[1]);
@@ -483,7 +704,7 @@
                 document.getElementById('pm10').innerText = pm10 + (typeof pm10 === 'number' ? ' µg/m³' : '');
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
-                renderRainChart(data.nowcast, data.hourly);
+                renderRainChart(data.nowcast, data.hourly, cur.time);
                 updateAIText(cur);
 
                 if (data.daily && data.daily.length > 0) {
@@ -491,6 +712,12 @@
                     document.getElementById('min-temp').innerText = data.daily[0].tempMin;
                     document.getElementById('max-temp').classList.remove('skeleton');
                     document.getElementById('min-temp').classList.remove('skeleton');
+                }
+
+                // --- ACTUALIZAR NOTIFICACIONES AUTOMÁTICAMENTE ---
+                // Si el usuario ya dio permiso, actualizamos su ubicación en el servidor silenciosamente
+                if (Notification.permission === 'granted') {
+                    registerPush(true);
                 }
 
                 if(loc.lat && loc.lon) {

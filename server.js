@@ -44,14 +44,23 @@ setInterval(async () => {
     for (const user of users) {
         if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
         try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&forecast_days=1`;
+            // Pedimos precipitación minutada Y temperatura actual para distinguir nieve/lluvia
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m&forecast_days=1&timezone=auto`;
             const response = await axios.get(url);
             const nowcast = response.data.minutely_15;
+            const current = response.data.current;
+            
             let rainSum = 0; let startMin = 0; let found = false;
             if(nowcast) { for(let i=0; i<4; i++) { const val = nowcast.precipitation[i] || 0; rainSum += val; if(val > 0 && !found) { startMin = i*15; found = true; } } }
-            if (rainSum > 0.1) {
+            
+            if (rainSum > 0.2) { // Umbral un poco más alto para evitar falsos positivos
+                const isSnow = current.temperature_2m <= 2; // Si hace menos de 2ºC, asumimos nieve
+                const type = isSnow ? "Nieve" : "Lluvia";
+                const icon = isSnow ? "❄️" : "☔";
                 const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} min`;
-                await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({ title: `☔ Lluvia en ${user.city}`, body: `Se espera precipitación ${timeMsg}.`, icon: '/logo.png', badge: '/logo.png' }));
+                
+                await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({ title: `${icon} ${type} en ${user.city}`, body: `Se espera ${type.toLowerCase()} ${timeMsg}. Temp: ${current.temperature_2m}°C.`, icon: '/logo.png', badge: '/logo.png' }));
+                
                 user.lastNotification = new Date(); await user.save();
             }
         } catch (err) { if (err.statusCode === 410) await user.destroy(); }
