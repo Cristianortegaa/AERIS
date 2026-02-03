@@ -57,9 +57,9 @@ setInterval(async () => {
                 const isSnow = current.temperature_2m <= 2; // Si hace menos de 2ºC, asumimos nieve
                 const type = isSnow ? "Nieve" : "Lluvia";
                 const icon = isSnow ? "❄️" : "☔";
-                const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} min`;
+                const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
                 
-                await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({ title: `${icon} ${type} en ${user.city}`, body: `Se espera ${type.toLowerCase()} ${timeMsg}. Temp: ${current.temperature_2m}°C.`, icon: '/logo.png', badge: '/logo.png' }));
+                await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({ title: `${icon} ${type} en ${user.city}`, body: `Se espera ${type.toLowerCase()} ${timeMsg}.`, icon: '/logo.png', badge: '/logo.png' }));
                 
                 user.lastNotification = new Date(); await user.save();
             }

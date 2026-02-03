@@ -1,9 +1,10 @@
-const CACHE_NAME = 'aeris-v4-pro-colors-fix'; 
+const CACHE_NAME = 'aeris-v4-pro-final-notif'; 
 const ASSETS_TO_CACHE = [
   '/', 
   '/index.html',
   '/logo.png', 
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap'
