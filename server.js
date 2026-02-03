@@ -160,6 +160,16 @@ app.get('/api/search/:query', async (req, res) => {
 app.get('/api/geo', async (req, res) => {
     const { lat, lon } = req.query;
     try {
+        // 1. Intentar Open-Meteo (Más rápido y fiable)
+        const omUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
+        const omRes = await axios.get(omUrl);
+        if (omRes.data.results && omRes.data.results.length > 0) {
+            const r = omRes.data.results[0];
+            const region = [r.admin1, r.country].filter(Boolean).join(', ');
+            return res.json({ id: `${lat},${lon}`, name: r.name, region: region, lat, lon });
+        }
+
+        // 2. Fallback a Nominatim
         const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, { params: { lat, lon, format: 'json', zoom: 12, addressdetails: 1 }, headers: { 'User-Agent': 'AerisApp/1.0' } });
         const addr = response.data.address;
         const realName = addr.city || addr.town || addr.village || addr.municipality || "Ubicación";
@@ -176,7 +186,20 @@ app.get('/api/weather/:id', async (req, res) => {
     let forcedName = req.query.name; let forcedRegion = req.query.region || "";
     try {
         let lat, lon;
-        if (locationId.includes(',')) { [lat, lon] = locationId.split(','); } else {
+        if (locationId.includes(',')) { 
+            [lat, lon] = locationId.split(','); 
+            // Si no hay nombre forzado, o es genérico, buscamos el real
+            if (!forcedName || forcedName === 'Ubicación' || forcedName === 'Ubicación detectada') {
+                try {
+                    const omUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
+                    const omRes = await axios.get(omUrl);
+                    if (omRes.data.results && omRes.data.results.length > 0) {
+                        forcedName = omRes.data.results[0].name;
+                        forcedRegion = [omRes.data.results[0].admin1, omRes.data.results[0].country].filter(Boolean).join(', ');
+                    }
+                } catch(e) {}
+            }
+        } else {
             const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`);
             if (!geoRes.data.results) throw new Error("Ciudad no encontrada");
             lat = geoRes.data.results[0].latitude; lon = geoRes.data.results[0].longitude; locationId = `${lat},${lon}`;
