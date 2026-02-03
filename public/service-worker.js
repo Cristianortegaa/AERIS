@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aeris-v4-pro-final-fix'; 
+const CACHE_NAME = 'aeris-v4-pro-name-fix'; 
 const ASSETS_TO_CACHE = [
   '/', 
   '/index.html',

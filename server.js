@@ -190,14 +190,29 @@ app.get('/api/weather/:id', async (req, res) => {
             [lat, lon] = locationId.split(','); 
             // Si no hay nombre forzado, o es genérico, buscamos el real
             if (!forcedName || /ubicaci[oó]n/i.test(forcedName)) {
+                let found = false;
                 try {
                     const omUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
                     const omRes = await axios.get(omUrl);
                     if (omRes.data.results && omRes.data.results.length > 0) {
                         forcedName = omRes.data.results[0].name;
                         forcedRegion = [omRes.data.results[0].admin1, omRes.data.results[0].country].filter(Boolean).join(', ');
+                        found = true;
                     }
                 } catch(e) {}
+
+                // Si Open-Meteo falla, usamos Nominatim (Plan B)
+                if (!found) {
+                    try {
+                        const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, { params: { lat, lon, format: 'json', zoom: 10, addressdetails: 1 }, headers: { 'User-Agent': 'AerisApp/1.0' } });
+                        const addr = response.data.address;
+                        forcedName = addr.city || addr.town || addr.village || addr.municipality || addr.county;
+                        let regionParts = [];
+                        if (addr.state) regionParts.push(addr.state);
+                        if (addr.country) regionParts.push(addr.country);
+                        forcedRegion = regionParts.filter(Boolean).join(', ');
+                    } catch (e) {}
+                }
             }
         } else {
             const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`);
