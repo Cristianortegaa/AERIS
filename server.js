@@ -11,13 +11,13 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// --- VAPID KEYS (Notificaciones) ---
+// --- CLAVES PUSH ---
 const publicVapidKey = 'BJthRQ5myDgc7OSXzPCMftGw-nJmqzaSGq5QAcksgXr4S4VM15q1ifV48o80H1EgtW29d1u5cL0rCM1f2td8j6E';
 const privateVapidKey = '3KjvO8t8y92j34d567g890h123i456j789k012l345m';
 
 webpush.setVapidDetails('mailto:test@aeris.com', publicVapidKey, privateVapidKey);
 
-// --- BASE DE DATOS ---
+// --- DB ---
 const sequelize = new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
 
 const WeatherCache = sequelize.define('WeatherCache', {
@@ -47,7 +47,7 @@ const decodeWMO = (code, isDay = 1) => {
     return { text: textMap[c] || "Variable", icon: icon };
 };
 
-// --- RUTAS PUSH ---
+// --- API ---
 app.get('/api/vapid-key', (req, res) => res.json({ key: publicVapidKey }));
 
 app.post('/api/subscribe', async (req, res) => {
@@ -56,8 +56,7 @@ app.post('/api/subscribe', async (req, res) => {
         await Subscription.upsert({
             endpoint: subscription.endpoint,
             keys: subscription.keys,
-            lat, lon, city,
-            lastNotification: new Date(0)
+            lat, lon, city, lastNotification: new Date(0)
         });
         res.status(201).json({});
     } catch (e) { res.status(500).json({}); }
@@ -83,10 +82,7 @@ setInterval(async () => {
             if (rainSum > 0.1) {
                 const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} min`;
                 await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({
-                    title: `☔ Lluvia en ${user.city}`,
-                    body: `Se espera precipitación ${timeMsg}.`,
-                    icon: '/logo.png',
-                    badge: '/logo.png'
+                    title: `☔ Lluvia en ${user.city}`, body: `Se espera precipitación ${timeMsg}.`, icon: '/logo.png', badge: '/logo.png'
                 }));
                 user.lastNotification = new Date();
                 await user.save();
@@ -117,7 +113,7 @@ app.get('/api/search/:query', async (req, res) => {
     } catch (e) { res.json([]); }
 });
 
-// --- API WEATHER (CON ARREGLO DE NOMBRE) ---
+// --- API WEATHER (LÓGICA MAESTRA DE NOMBRE) ---
 app.get('/api/weather/:id', async (req, res) => {
     let locationId = req.params.id;
     let forcedName = req.query.name;
@@ -125,25 +121,42 @@ app.get('/api/weather/:id', async (req, res) => {
 
     try {
         let lat, lon;
+        
+        // 1. DETERMINAR COORDENADAS
         if (locationId.includes(',')) {
             [lat, lon] = locationId.split(',');
             
-            // --- CORRECCIÓN DE NOMBRE ---
-            // Si el nombre es genérico o nulo, forzamos búsqueda inversa
+            // 2. FORZAR BÚSQUEDA DE NOMBRE SI ES GENÉRICO
             const invalidNames = ['undefined', 'null', 'Ubicación', 'Ubicación detectada', 'Ubicación Detectada', ''];
+            
             if (!forcedName || invalidNames.includes(forcedName)) {
+                // INTENTO 1: OPEN-METEO
                 try {
                     const geoUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
                     const geoRes = await axios.get(geoUrl);
+                    
                     if (geoRes.data.results && geoRes.data.results.length > 0) {
                         const r = geoRes.data.results[0];
-                        forcedName = r.name; // Nombre real (Ej: Getafe)
+                        forcedName = r.name; 
                         forcedRegion = [r.admin1, r.country].filter(Boolean).join(', ');
+                    } else {
+                        throw new Error("OpenMeteo Empty");
                     }
-                } catch(err) { forcedName = "Ubicación"; }
+                } catch(err) {
+                    // INTENTO 2: NOMINATIM (FALLBACK DE PRECISIÓN)
+                    try {
+                        const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=12`;
+                        const nomRes = await axios.get(nomUrl, { headers: { 'User-Agent': 'AerisApp/1.0' } });
+                        const addr = nomRes.data.address;
+                        forcedName = addr.city || addr.town || addr.village || addr.municipality || "Ubicación";
+                        forcedRegion = [addr.state, addr.country].filter(Boolean).join(', ');
+                    } catch(e2) {
+                        forcedName = "Ubicación"; // Solo si todo falla
+                    }
+                }
             }
         } else {
-            // Búsqueda por texto (ej: id="Madrid")
+            // Si el ID no son coordenadas, buscamos por texto
             const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`);
             if (!geoRes.data.results) throw new Error("Ciudad no encontrada");
             lat = geoRes.data.results[0].latitude;
@@ -152,14 +165,16 @@ app.get('/api/weather/:id', async (req, res) => {
             if (!forcedName) forcedName = geoRes.data.results[0].name;
         }
 
+        // Cache
         const cache = await WeatherCache.findByPk(locationId);
         if (cache && (new Date() - new Date(cache.updatedAt) < 5 * 60 * 1000)) {
             const data = JSON.parse(cache.data);
-            if (forcedName) data.location.name = forcedName; 
+            if (forcedName && forcedName !== "Ubicación") data.location.name = forcedName;
             if (forcedRegion) data.location.region = forcedRegion;
             return res.json(data);
         }
 
+        // Fetch Weather
         const [wRes, aRes] = await Promise.allSettled([
             axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto`),
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`)
