@@ -235,10 +235,6 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
             </div>
         </div>
 
@@ -276,11 +272,15 @@
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
+            // Cargar tema guardado al inicio
             const savedTheme = localStorage.getItem('aeris_theme_pref');
             if (savedTheme) {
                 document.body.setAttribute('data-theme', savedTheme);
+                // Si el tema guardado es 'light', forzamos el atributo 'data-bs-theme' a 'light' para Bootstrap
+                // Si es 'dark', a 'dark'
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
             }
+
             if (Notification.permission === 'granted') {
                 document.getElementById('notifyBtn').classList.add('active');
             }
@@ -345,7 +345,7 @@
         let lastWeatherData = null;
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
-        // --- AI, ROPA ---
+        // --- AI, ROPA, SHARE... ---
         const aiLogic = { normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate.", "Busca sombra."], cold: ["Abrígate.", "Hace frío."], rain: ["Paraguas.", "Lluvia."], nice: ["Disfruta.", "Buen día."] } }, zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente el calor.", "Fluye."], cold: ["Abraza el frío.", "Paz."], rain: ["Lluvia sana.", "Escucha."], nice: ["Armonía.", "Presente."] } }, villano: { icon: "😈", name: "Villano", tips: { hot: ["Te derrites.", "Sufre."], cold: ["Congélate.", "Hielo."], rain: ["Mójate.", "Diluvio."], nice: ["Sospechoso.", "Espera."] } }, madre: { icon: "👵", name: "Madre", tips: { hot: ["Ponte crema, factor 50.", "Bebe agua."], cold: ["¿Llevas camiseta interior?", "Ponte la rebeca."], rain: ["¡Ni se te ocurra salir sin paraguas!", "Mójate no."], nice: ["Sal un poco.", "Come algo."] } }, gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda.", "Cardio."], cold: ["Entrena fuera.", "Corre."], rain: ["Sin excusas.", "Dale duro."], nice: ["Entrena ya.", "Vitamina D."] } }, cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Alta radiación.", "Calor."], cold: ["Baja térmica.", "Frío."], rain: ["Precipitación.", "H2O."], nice: ["Óptimo.", "Estable."] } }, gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta al sol.", "Calor."], cold: ["Manta.", "Estufa."], rain: ["Agua no.", "Casa."], nice: ["Cazar.", "Jugar."] } }, pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Sol abrasador.", "Ron."], cold: ["Viento gélido.", "Mar."], rain: ["Tormenta.", "Cubierta."], nice: ["Viento a favor.", "Navega."] } }, poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol dorado.", "Ardor."], cold: ["Aire gélido.", "Invierno."], rain: ["Lanto del cielo.", "Gris."], nice: ["Brisa suave.", "Luz."] } } };
         const modal = document.getElementById('personaModal');
         const modalContent = document.getElementById('personaGrid');
@@ -358,8 +358,7 @@
         const getClothingList = (temp, desc, wind) => {
             let boys = [], girls = [];
             desc = desc.toLowerCase();
-            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubascos');
-            const isSnowing = desc.includes('nieve') || desc.includes('nevada');
+            const isRaining = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             if (isRaining) { boys.push({icon: 'bi-umbrella', text: 'Paraguas'}); girls.push({icon: 'bi-umbrella', text: 'Paraguas'}); }
             if (temp < 12) { boys.push({icon: 'bi-person-fill', text: 'Abrigo'}); girls.push({icon: 'bi-person-fill', text: 'Abrigo'}); }
             else if (temp < 20) { boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); girls.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); }
@@ -368,7 +367,7 @@
         };
         const updateAIText = (cur) => { if (!cur) return; const p = aiLogic[currentPersona]; document.getElementById('tip-icon').innerText = p.icon; let key = 'nice'; if (cur.desc.toLowerCase().includes('lluvia')) key = 'rain'; else if (cur.temp > 28) key = 'hot'; else if (cur.temp < 10) key = 'cold'; const frases = p.tips[key]; document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)]; const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed); const clothingContainer = document.getElementById('clothing-advice'); if(clothingContainer) { let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; clothingContainer.innerHTML = html; } };
 
-        document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris-clima-${currentCityInfo.name}.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
+        document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
         
         const updateHeartUI = () => { const heart = document.getElementById('favHeart'); if(!heart) return; const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id)); heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3'; };
         const toggleFavorite = () => { const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id)); if (index > -1) { favorites.splice(index, 1); } else { favorites.push({ ...currentCityInfo }); } localStorage.setItem('aeris_favs', JSON.stringify(favorites)); updateHeartUI(); renderFavorites(); };
