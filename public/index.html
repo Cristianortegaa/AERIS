@@ -122,6 +122,12 @@
         [data-theme="dark"] .clothing-tag { background: rgba(255,255,255,0.1); }
         .clothing-tag:hover { transform: scale(1.05); }
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
+
+        /* Estilos específicos para Ellos (Azul) y Ellas (Rosa) */
+        .clothing-tag.boy { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #1e40af; }
+        .clothing-tag.girl { background: rgba(236, 72, 153, 0.15); border: 1px solid rgba(236, 72, 153, 0.3); color: #9d174d; }
+        [data-bs-theme="dark"] .clothing-tag.boy { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.3); }
+        [data-bs-theme="dark"] .clothing-tag.girl { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; border-color: rgba(236, 72, 153, 0.3); }
     </style>
 </head>
 <body data-theme="light">
@@ -577,7 +583,7 @@
             const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, cur.uv); 
             const clothingContainer = document.getElementById('clothing-advice'); 
             if(clothingContainer) { 
-                let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; 
+                let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag boy"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag girl"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; 
                 clothingContainer.innerHTML = html; 
             } 
         };
@@ -625,10 +631,18 @@
             const totalRadar = precipData.reduce((a,b)=>a+b,0);
             if (totalRadar === 0 && hourlyData) {
                 precipData = []; timeLabels = [];
+                
+                // FIX: Calcular índice de hora actual para que no empiece en 00:00
+                let currentHourIndex = 0;
+                if (currentTime) {
+                    currentHourIndex = parseInt(currentTime.split('T')[1].split(':')[0]);
+                }
+
                 for(let i=0; i<5; i++) {
-                    if (hourlyData[i]) {
-                        precipData.push(hourlyData[i].precip || 0);
-                        timeLabels.push(hourlyData[i].displayTime);
+                    const idx = currentHourIndex + i; // Usamos la hora actual como inicio
+                    if (hourlyData[idx]) {
+                        precipData.push(hourlyData[idx].precip || 0);
+                        timeLabels.push(hourlyData[idx].displayTime);
                     }
                 }
             }
