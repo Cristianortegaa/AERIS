@@ -26,6 +26,16 @@
         }
     });
 
+    // EXPORTAR FUNCIONES para usarlas desde index.html
+    window.setTheme = (theme, save = false) => {
+        document.documentElement.setAttribute('data-bs-theme', theme);
+        if (save) setStoredTheme(theme);
+    };
+
+    window.hasStoredTheme = () => {
+        return !!getStoredTheme();
+    };
+
     // Función global para alternar el tema (úsala en el onclick de tu botón)
     window.toggleTheme = () => {
         const current = document.documentElement.getAttribute('data-bs-theme');

@@ -421,6 +421,14 @@
                 const loc = data.location;
                 currentCityInfo = { id: id, name: loc.name, region: loc.region };
                 lastWeatherData = cur;
+
+                // --- AUTO TEMA (Día/Noche) ---
+                // Si el usuario NO ha tocado el botón de tema manualmente, usamos el del clima
+                if (window.setTheme && !window.hasStoredTheme()) {
+                    const autoTheme = cur.isDay ? 'light' : 'dark';
+                    window.setTheme(autoTheme, false); // false = no guardar, para que siga siendo dinámico
+                }
+
                 updateHeartUI();
 
                 document.querySelectorAll('.skeleton').forEach(el => { el.classList.remove('skeleton'); el.style.width = ''; el.style.height = ''; el.style.minHeight = ''; });
