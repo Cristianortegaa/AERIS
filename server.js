@@ -11,19 +11,14 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// --- CLAVES PUSH (VAPID) ---
-// Estas claves son de ejemplo. Para producción genera unas propias.
+// --- VAPID KEYS (Notificaciones) ---
 const publicVapidKey = 'BJthRQ5myDgc7OSXzPCMftGw-nJmqzaSGq5QAcksgXr4S4VM15q1ifV48o80H1EgtW29d1u5cL0rCM1f2td8j6E';
 const privateVapidKey = '3KjvO8t8y92j34d567g890h123i456j789k012l345m';
 
 webpush.setVapidDetails('mailto:test@aeris.com', publicVapidKey, privateVapidKey);
 
 // --- BASE DE DATOS ---
-const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: ':memory:', 
-    logging: false
-});
+const sequelize = new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
 
 const WeatherCache = sequelize.define('WeatherCache', {
     locationId: { type: DataTypes.STRING, primaryKey: true },
@@ -42,17 +37,17 @@ const Subscription = sequelize.define('Subscription', {
 
 sequelize.sync();
 
-// --- UTILIDADES ---
+// --- UTILS ---
 const decodeWMO = (code, isDay = 1) => {
     const c = parseInt(code);
-    const dayIcons = { 0: 'bi-sun', 1: 'bi-cloud-sun', 2: 'bi-cloud', 3: 'bi-clouds', 45: 'bi-cloud-haze2', 48: 'bi-cloud-haze2', 51: 'bi-cloud-drizzle', 53: 'bi-cloud-drizzle', 55: 'bi-cloud-drizzle', 61: 'bi-cloud-rain', 63: 'bi-cloud-rain', 65: 'bi-cloud-rain-heavy', 71: 'bi-cloud-snow', 73: 'bi-cloud-snow', 75: 'bi-snow', 80: 'bi-cloud-drizzle', 81: 'bi-cloud-rain', 82: 'bi-cloud-rain-heavy', 95: 'bi-cloud-lightning', 96: 'bi-cloud-lightning-rain', 99: 'bi-cloud-lightning-rain' };
-    const nightIcons = { 0: 'bi-moon', 1: 'bi-cloud-moon', 2: 'bi-cloud-moon', 3: 'bi-clouds' };
-    const textMap = { 0: "Despejado", 1: "Mayormente despejado", 2: "Parcialmente nublado", 3: "Nublado", 45: "Niebla", 48: "Niebla escarcha", 51: "Llovizna", 53: "Llovizna moderada", 55: "Llovizna fuerte", 61: "Lluvia leve", 63: "Lluvia", 65: "Lluvia fuerte", 71: "Nieve leve", 73: "Nieve", 75: "Nieve fuerte", 80: "Chubascos", 81: "Chubascos fuertes", 82: "Tormenta violenta", 95: "Tormenta", 96: "Tormenta con granizo", 99: "Tormenta fuerte" };
+    const dayIcons = { 0:'bi-sun', 1:'bi-cloud-sun', 2:'bi-cloud', 3:'bi-clouds', 45:'bi-cloud-haze2', 48:'bi-cloud-haze2', 51:'bi-cloud-drizzle', 53:'bi-cloud-drizzle', 55:'bi-cloud-drizzle', 61:'bi-cloud-rain', 63:'bi-cloud-rain', 65:'bi-cloud-rain-heavy', 71:'bi-cloud-snow', 73:'bi-cloud-snow', 75:'bi-snow', 80:'bi-cloud-drizzle', 81:'bi-cloud-rain', 82:'bi-cloud-rain-heavy', 95:'bi-cloud-lightning', 96:'bi-cloud-lightning-rain', 99:'bi-cloud-lightning-rain' };
+    const nightIcons = { 0:'bi-moon', 1:'bi-cloud-moon', 2:'bi-cloud-moon', 3:'bi-clouds' };
+    const textMap = { 0:"Despejado", 1:"Mayormente despejado", 2:"Parcialmente nublado", 3:"Nublado", 45:"Niebla", 48:"Niebla escarcha", 51:"Llovizna", 53:"Llovizna moderada", 55:"Llovizna fuerte", 61:"Lluvia leve", 63:"Lluvia", 65:"Lluvia fuerte", 71:"Nieve leve", 73:"Nieve", 75:"Nieve fuerte", 80:"Chubascos", 81:"Chubascos fuertes", 82:"Tormenta violenta", 95:"Tormenta", 96:"Tormenta con granizo", 99:"Tormenta fuerte" };
     let icon = isDay ? (dayIcons[c] || 'bi-cloud') : (nightIcons[c] || dayIcons[c] || 'bi-cloud');
     return { text: textMap[c] || "Variable", icon: icon };
 };
 
-// --- RUTAS API ---
+// --- RUTAS PUSH ---
 app.get('/api/vapid-key', (req, res) => res.json({ key: publicVapidKey }));
 
 app.post('/api/subscribe', async (req, res) => {
@@ -68,7 +63,7 @@ app.post('/api/subscribe', async (req, res) => {
     } catch (e) { res.status(500).json({}); }
 });
 
-// --- CRON JOB (NOTIFICACIONES) ---
+// --- CRON JOB ---
 setInterval(async () => {
     const users = await Subscription.findAll();
     for (const user of users) {
@@ -78,16 +73,18 @@ setInterval(async () => {
             const response = await axios.get(url);
             const nowcast = response.data.minutely_15;
             let rainSum = 0; let startMin = 0; let found = false;
-            for(let i=0; i<4; i++) {
-                const val = nowcast.precipitation[i] || 0;
-                rainSum += val;
-                if(val > 0 && !found) { startMin = i*15; found = true; }
+            if(nowcast) {
+                for(let i=0; i<4; i++) {
+                    const val = nowcast.precipitation[i] || 0;
+                    rainSum += val;
+                    if(val > 0 && !found) { startMin = i*15; found = true; }
+                }
             }
             if (rainSum > 0.1) {
                 const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} min`;
                 await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({
                     title: `☔ Lluvia en ${user.city}`,
-                    body: `Precipitación esperada ${timeMsg}.`,
+                    body: `Se espera precipitación ${timeMsg}.`,
                     icon: '/logo.png',
                     badge: '/logo.png'
                 }));
@@ -120,21 +117,7 @@ app.get('/api/search/:query', async (req, res) => {
     } catch (e) { res.json([]); }
 });
 
-// --- GEO (FALLBACK) ---
-app.get('/api/geo', async (req, res) => {
-    const { lat, lon } = req.query;
-    try {
-        const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, { params: { lat, lon, format: 'json', zoom: 12, addressdetails: 1 }, headers: { 'User-Agent': 'AerisApp/1.0' } });
-        const addr = response.data.address;
-        const realName = addr.city || addr.town || addr.village || addr.municipality || "Ubicación";
-        let parts = [];
-        if (addr.state) parts.push(addr.state);
-        if (addr.country) parts.push(addr.country);
-        res.json({ id: `${lat},${lon}`, name: realName, region: parts.filter(Boolean).join(', '), lat, lon });
-    } catch (e) { res.json({ id: `${lat},${lon}`, name: "Ubicación", region: "", lat, lon }); }
-});
-
-// --- WEATHER (MAESTRO) ---
+// --- API WEATHER (CON ARREGLO DE NOMBRE) ---
 app.get('/api/weather/:id', async (req, res) => {
     let locationId = req.params.id;
     let forcedName = req.query.name;
@@ -144,19 +127,23 @@ app.get('/api/weather/:id', async (req, res) => {
         let lat, lon;
         if (locationId.includes(',')) {
             [lat, lon] = locationId.split(',');
-            // SI NO HAY NOMBRE, LO BUSCAMOS AHORA MISMO
-            if (!forcedName || forcedName === 'null' || forcedName === 'Ubicación') {
+            
+            // --- CORRECCIÓN DE NOMBRE ---
+            // Si el nombre es genérico o nulo, forzamos búsqueda inversa
+            const invalidNames = ['undefined', 'null', 'Ubicación', 'Ubicación detectada', 'Ubicación Detectada', ''];
+            if (!forcedName || invalidNames.includes(forcedName)) {
                 try {
                     const geoUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
                     const geoRes = await axios.get(geoUrl);
-                    if (geoRes.data.results) {
-                        forcedName = geoRes.data.results[0].name;
+                    if (geoRes.data.results && geoRes.data.results.length > 0) {
                         const r = geoRes.data.results[0];
+                        forcedName = r.name; // Nombre real (Ej: Getafe)
                         forcedRegion = [r.admin1, r.country].filter(Boolean).join(', ');
                     }
                 } catch(err) { forcedName = "Ubicación"; }
             }
         } else {
+            // Búsqueda por texto (ej: id="Madrid")
             const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`);
             if (!geoRes.data.results) throw new Error("Ciudad no encontrada");
             lat = geoRes.data.results[0].latitude;
@@ -168,7 +155,7 @@ app.get('/api/weather/:id', async (req, res) => {
         const cache = await WeatherCache.findByPk(locationId);
         if (cache && (new Date() - new Date(cache.updatedAt) < 5 * 60 * 1000)) {
             const data = JSON.parse(cache.data);
-            if (forcedName) data.location.name = forcedName;
+            if (forcedName) data.location.name = forcedName; 
             if (forcedRegion) data.location.region = forcedRegion;
             return res.json(data);
         }
