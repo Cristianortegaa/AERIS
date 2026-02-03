@@ -412,9 +412,16 @@
 
         async function getWeather(id) {
             try {
-                const storedName = localStorage.getItem('lastName') || 'Ubicación';
+                let storedName = localStorage.getItem('lastName');
+                // Si hay un nombre genérico guardado, lo ignoramos para que busque el real
+                if (storedName === 'Ubicación' || storedName === 'Ubicación detectada') storedName = null;
+
                 const storedRegion = localStorage.getItem('lastRegion') || '';
-                const res = await fetch(`/api/weather/${id}?name=${encodeURIComponent(storedName)}&region=${encodeURIComponent(storedRegion)}`);
+                
+                let url = `/api/weather/${id}?region=${encodeURIComponent(storedRegion)}`;
+                if (storedName) url += `&name=${encodeURIComponent(storedName)}`;
+                
+                const res = await fetch(url);
                 const data = await res.json();
                 if(data.error) throw new Error(data.error);
 
