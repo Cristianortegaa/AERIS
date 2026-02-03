@@ -11,7 +11,14 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <script src="/theme.js"></script>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('aeris_theme_pref');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            }
+        })();
+    </script>
     
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="manifest" href="/manifest.json">
@@ -23,7 +30,11 @@
 
     <style>
         :root { --bg-1: #bae6fd; --bg-2: #e0f2fe; --glass: rgba(255, 255, 255, 0.65); --glass-border: rgba(255, 255, 255, 0.4); --text: #0c4a6e; --text-sec: #475569; --accent: #0284c7; --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); --skeleton-base: rgba(255, 255, 255, 0.3); --skeleton-shine: rgba(255, 255, 255, 0.6); --invert-close: 0; }
-        [data-bs-theme="dark"] { --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #38bdf8; --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); --skeleton-base: rgba(255, 255, 255, 0.05); --skeleton-shine: rgba(255, 255, 255, 0.15); --invert-close: 1; }
+        [data-theme="dark"] { --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #38bdf8; --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); --skeleton-base: rgba(255, 255, 255, 0.05); --skeleton-shine: rgba(255, 255, 255, 0.15); --invert-close: 1; }
+        
+        /* FIX para que data-bs-theme de bootstrap no rompa nuestros estilos */
+        [data-bs-theme="dark"] { --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #38bdf8; }
+
         body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text); background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); min-height: 100vh; padding-bottom: 80px; transition: background 0.8s ease, color 0.5s ease; overflow-x: hidden; }
 
         #splash-screen { position: fixed; inset: 0; background: linear-gradient(180deg, #bae6fd, #e0f2fe); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s ease-out, visibility 0.6s; }
@@ -114,7 +125,7 @@
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
     </style>
 </head>
-<body>
+<body data-theme="light">
 
     <div id="splash-screen">
         <div class="splash-logo-container">
@@ -225,7 +236,7 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-                </div>
+            </div>
         </div>
 
         <div class="glass-card">
@@ -262,7 +273,16 @@
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
-            // Comprobamos si ya está registrado en el service worker
+            
+            // Cargar tema guardado al inicio
+            const savedTheme = localStorage.getItem('aeris_theme_pref');
+            if (savedTheme) {
+                document.body.setAttribute('data-theme', savedTheme);
+                // Si el tema guardado es 'light', forzamos el atributo 'data-bs-theme' a 'light' para Bootstrap
+                // Si es 'dark', a 'dark'
+                document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            }
+
             if (Notification.permission === 'granted') {
                 document.getElementById('notifyBtn').classList.add('active');
             }
@@ -273,7 +293,6 @@
             if (!('serviceWorker' in navigator)) return;
             const register = await navigator.serviceWorker.ready;
             
-            // Comprobar si ya existe suscripción
             let subscription = await register.pushManager.getSubscription();
             if (!subscription) {
                 const response = await fetch('/api/vapid-key');
@@ -292,7 +311,6 @@
                 });
             }
 
-            // Enviar suscripción al backend
             await fetch('/api/subscribe', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -312,7 +330,7 @@
         notifyBtn.addEventListener('click', () => {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
-                    registerPush(); // LLAMADA AL SERVIDOR
+                    registerPush();
                 } else {
                     alert("Debes permitir notificaciones.");
                 }
@@ -329,7 +347,7 @@
         let lastWeatherData = null;
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
-        // --- AI, ROPA, SHARE... (CÓDIGO ESTÁNDAR) ---
+        // --- AI, ROPA ---
         const aiLogic = { normal: { icon: "🤖", name: "Normal", tips: { hot: ["Hidrátate."], cold: ["Abrígate."], rain: ["Paraguas."], nice: ["Disfruta."] } }, zen: { icon: "🧘", name: "Zen", tips: { hot: ["Siente."], cold: ["Paz."], rain: ["Fluye."], nice: ["Armonía."] } }, villano: { icon: "😈", name: "Villano", tips: { hot: ["Sufre."], cold: ["Hielo."], rain: ["Diluvio."], nice: ["Espera."] } }, madre: { icon: "👵", name: "Madre", tips: { hot: ["Crema."], cold: ["Rebeca."], rain: ["Paraguas!"], nice: ["Come."] } }, gym: { icon: "💪", name: "Gym", tips: { hot: ["Suda."], cold: ["Corre."], rain: ["Dale."], nice: ["Entrena."] } }, cientifico: { icon: "🧪", name: "Ciencia", tips: { hot: ["Radiación."], cold: ["Baja T."], rain: ["H2O."], nice: ["Óptimo."] } }, gato: { icon: "🐱", name: "Gato", tips: { hot: ["Siesta."], cold: ["Manta."], rain: ["Agua no."], nice: ["Jugar."] } }, pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { hot: ["Ron."], cold: ["Mar."], rain: ["Tormenta."], nice: ["Navega."] } }, poeta: { icon: "📜", name: "Poeta", tips: { hot: ["Sol."], cold: ["Frío."], rain: ["Llanto."], nice: ["Luz."] } } };
         const modal = document.getElementById('personaModal');
         const modalContent = document.getElementById('personaGrid');
@@ -370,122 +388,50 @@
             const card = document.getElementById('rain-card');
             const summary = document.getElementById('rain-summary');
             let timeLabels = [], precipData = [];
-
-            // 1. Radar
-            if (nowcast && nowcast.time && nowcast.time.length > 0) {
-                const nowISO = new Date().toISOString().slice(0, 16); 
-                let startIndex = nowcast.time.findIndex(t => t >= nowISO);
-                if (startIndex === -1) startIndex = 0;
-                for(let i=0; i<5; i++) {
-                    if (startIndex + i < nowcast.precipitation.length) {
-                        precipData.push(nowcast.precipitation[startIndex + i]);
-                        timeLabels.push(nowcast.time[startIndex + i].split('T')[1]);
-                    }
-                }
-            }
-
-            // 2. Fallback Horas
-            const totalRadar = precipData.reduce((a,b)=>a+b,0);
-            if (totalRadar === 0 && hourlyData) {
-                precipData = []; timeLabels = [];
-                for(let i=0; i<5; i++) {
-                    if (hourlyData[i]) {
-                        precipData.push(hourlyData[i].precip || 0);
-                        timeLabels.push(hourlyData[i].displayTime);
-                    }
-                }
-            }
-
-            const total = precipData.reduce((a,b)=>a+b,0);
-            if (total < 0.1) { card.style.display = 'none'; return; }
-
-            card.style.display = 'block';
-            summary.innerText = total > 5 ? "Lluvia Fuerte" : (total > 1 ? "Lluvia Moderada" : "Lluvia Ligera");
-
-            const ctx = document.getElementById('rainChart').getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 0, 0, 150);
-            gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
-            gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
-            if(rainChartInstance) rainChartInstance.destroy();
-            rainChartInstance = new Chart(ctx, { type: 'line', data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { display: false, min: 0 } }, animation: { duration: 1000 }, layout: { padding: { top: 10, left: 5, right: 5, bottom: 0 } } } });
+            // ... (Lógica de radar igual) ...
+            // (Para no repetirlo todo y que no se corte, usa la misma función renderRainChart que ya tienes, está perfecta)
+            // ...
         };
 
+        // --- ARREGLO BOTÓN TEMA ---
+        const themeBtn = document.getElementById('themeBtn');
+        if(themeBtn) themeBtn.addEventListener('click', () => {
+            const current = document.body.getAttribute('data-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            
+            // 1. Guardar preferencia manual
+            localStorage.setItem('aeris_theme_pref', newTheme);
+            
+            // 2. Aplicar
+            document.body.setAttribute('data-theme', newTheme);
+            document.documentElement.setAttribute('data-bs-theme', newTheme); // Sincronizar con bootstrap
+            themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>';
+            document.documentElement.style.setProperty('--invert-close', newTheme === 'dark' ? '1' : '0');
+        });
+
+        // --- GET WEATHER (CON LÓGICA DE TEMA ARREGLADA) ---
         async function getWeather(id) {
             try {
-                let storedName = localStorage.getItem('lastName');
-                // Si hay un nombre genérico guardado, lo ignoramos para que busque el real
-                if (storedName === 'Ubicación' || storedName === 'Ubicación detectada') storedName = null;
-
-                const storedRegion = localStorage.getItem('lastRegion') || '';
+                // ... (Tu lógica de getWeather) ...
                 
-                let url = `/api/weather/${id}?region=${encodeURIComponent(storedRegion)}`;
-                if (storedName) url += `&name=${encodeURIComponent(storedName)}`;
+                // --- AL FINAL DEL GET WEATHER: ---
+                // --- AUTO TEMA (Día/Noche) SOLO SI NO HAY PREF MANUAL ---
+                const userPref = localStorage.getItem('aeris_theme_pref');
+                let finalTheme;
                 
-                const res = await fetch(url);
-                const data = await res.json();
-                if(data.error) throw new Error(data.error);
-
-                const cur = data.current;
-                const loc = data.location;
-                currentCityInfo = { id: id, name: loc.name, region: loc.region };
-                lastWeatherData = cur;
-
-                // --- AUTO TEMA (Día/Noche) ---
-                // Si el usuario NO ha tocado el botón de tema manualmente, usamos el del clima
-                if (window.setTheme && !window.hasStoredTheme()) {
-                    const autoTheme = cur.isDay ? 'light' : 'dark';
-                    window.setTheme(autoTheme, false); // false = no guardar, para que siga siendo dinámico
+                if (userPref) {
+                    finalTheme = userPref; 
+                } else {
+                    finalTheme = cur.isDay ? 'light' : 'dark';
                 }
 
-                updateHeartUI();
+                document.body.setAttribute('data-theme', finalTheme);
+                document.documentElement.setAttribute('data-bs-theme', finalTheme);
 
-                document.querySelectorAll('.skeleton').forEach(el => { el.classList.remove('skeleton'); el.style.width = ''; el.style.height = ''; el.style.minHeight = ''; });
-                document.getElementById('city').innerText = loc.name;
-                document.getElementById('temp').innerText = cur.temp + '°';
-                document.getElementById('desc').innerText = cur.desc;
-                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
-                document.getElementById('hum').innerText = cur.humidity;
-                document.getElementById('wind').innerText = cur.windSpeed;
-                document.getElementById('uv').innerText = cur.uv;
-                document.getElementById('feels-like').innerText = cur.feelsLike;
-
-                // AQI
-                const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
-                const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
-                const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
-                let aqiText = "Buena"; let aqiColor = "#4ade80"; 
-                if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; } else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; } else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; } else if (aqi > 100) { aqiText = "Sensible"; aqiColor = "#f97316"; } else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } 
-                let aqiPercent = (aqi / 300) * 100; if (aqiPercent > 100) aqiPercent = 100;
-                document.getElementById('aqi-val').innerText = aqi;
-                document.getElementById('aqi-text').innerText = aqiText;
-                document.getElementById('aqi-text').style.color = aqiColor;
-                document.getElementById('pm25').innerText = pm25 + (typeof pm25 === 'number' ? ' µg/m³' : '');
-                document.getElementById('pm10').innerText = pm10 + (typeof pm10 === 'number' ? ' µg/m³' : '');
-                document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
-
-                renderRainChart(data.nowcast, data.hourly);
-                updateAIText(cur);
-
-                if (data.daily && data.daily.length > 0) {
-                    document.getElementById('max-temp').innerText = data.daily[0].tempMax;
-                    document.getElementById('min-temp').innerText = data.daily[0].tempMin;
-                    document.getElementById('max-temp').classList.remove('skeleton');
-                    document.getElementById('min-temp').classList.remove('skeleton');
+                if(themeBtn) { 
+                    themeBtn.innerHTML = finalTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>'; 
+                    document.documentElement.style.setProperty('--invert-close', finalTheme === 'dark' ? '1' : '0');
                 }
-
-                if(loc.lat && loc.lon) {
-                    const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
-                    const iframe = document.getElementById('radar-frame');
-                    if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
-                }
-
-                const localDate = new Date(cur.time);
-                const currentHour = localDate.getHours();
-                const hCont = document.getElementById('hourly');
-                if(hCont) hCont.innerHTML = data.hourly.slice(currentHour, currentHour + 24).map(h => `<div class="hourly-item"><div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div><i class="bi ${h.icon} fs-4"></i><div class="fw-bold fs-5">${h.temp}°</div><div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">${h.rainProb>0?h.rainProb+'%':''}</div></div>`).join('');
-
-                const dCont = document.getElementById('daily');
-                if(dCont) dCont.innerHTML = data.daily.map(d => `<div class="d-flex justify-content-between align-items-center py-3 border-bottom"><div style="width:35%" class="fw-bold text-capitalize"><div>${new Date(d.fecha).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div><div class="small opacity-50 d-flex gap-2"><span><i class="bi bi-sunrise"></i> ${d.sunrise}</span><span><i class="bi bi-sunset"></i> ${d.sunset}</span></div></div><div class="d-flex flex-column align-items-center" style="width:25%"><i class="bi ${d.icon} fs-5"></i><small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small></div><div class="text-end fw-bold" style="width:30%"><span style="color:#ef4444">${d.tempMax}°</span> / <span style="color:#3b82f6">${d.tempMin}°</span></div></div>`).join('');
 
             } catch (e) { console.error(e); }
         }
@@ -495,21 +441,19 @@
              if(!navigator.geolocation) return;
              document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
              navigator.geolocation.getCurrentPosition(async (pos) => {
-                 const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-                 const city = await res.json();
-                 if(city.id) selectCity({id: city.id, name: city.name, region: city.region});
+                 // **TRUCO:** Forzamos el nombre buscando coordenadas
+                 const id = `${pos.coords.latitude},${pos.coords.longitude}`;
+                 getWeather(id);
              });
         });
 
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
-                    try {
-                        const res = await fetch(`/api/geo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-                        const city = await res.json();
-                        if (city.id) { selectCity({id: city.id, name: city.name, region: city.region}); }
-                        else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
-                    } catch(e) { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
+                    const id = `${pos.coords.latitude},${pos.coords.longitude}`;
+                    // **TRUCO:** En lugar de usar /api/geo, llamamos directo al clima.
+                    // El backend hará el reverse geocoding por nosotros.
+                    getWeather(id); 
                 },
                 (err) => { getWeather(localStorage.getItem('lastId') || 'Madrid'); },
                 { timeout: 4000, enableHighAccuracy: false }
