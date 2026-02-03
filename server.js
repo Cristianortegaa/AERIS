@@ -189,7 +189,7 @@ app.get('/api/weather/:id', async (req, res) => {
         if (locationId.includes(',')) { 
             [lat, lon] = locationId.split(','); 
             // Si no hay nombre forzado, o es genérico, buscamos el real
-            if (!forcedName || forcedName === 'Ubicación' || forcedName === 'Ubicación detectada') {
+            if (!forcedName || /ubicaci[oó]n/i.test(forcedName)) {
                 try {
                     const omUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
                     const omRes = await axios.get(omUrl);
