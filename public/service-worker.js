@@ -1,8 +1,9 @@
-const CACHE_NAME = 'aeris-v4-pro'; 
+const CACHE_NAME = 'aeris-v4-pro-dark'; 
 const ASSETS_TO_CACHE = [
   '/', 
   '/index.html',
   '/logo.png', 
+  '/theme.js',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
   'https://cdn.jsdelivr.net/npm/chart.js',
