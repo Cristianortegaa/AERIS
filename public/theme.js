@@ -12,8 +12,19 @@
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     };
 
+    const updateIcon = theme => {
+        const btn = document.getElementById('themeBtn');
+        if (btn) {
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'bi bi-sun-fill fs-5' : 'bi bi-moon-stars-fill fs-5';
+            }
+        }
+    };
+
     const setTheme = theme => {
         document.documentElement.setAttribute('data-bs-theme', theme);
+        updateIcon(theme);
     };
 
     // Aplicar tema inmediatamente al cargar
@@ -44,9 +55,10 @@
         setTheme(next);
     };
 
-    // Opcional: Si tu botón tiene id="theme-toggle", esto lo conecta automáticamente
+    // Conectar botón automáticamente
     window.addEventListener('DOMContentLoaded', () => {
-        const btn = document.getElementById('theme-toggle');
+        const btn = document.getElementById('themeBtn');
         if (btn) btn.addEventListener('click', window.toggleTheme);
+        updateIcon(document.documentElement.getAttribute('data-bs-theme'));
     });
 })();

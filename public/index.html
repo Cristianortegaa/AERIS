@@ -11,6 +11,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="/theme.js"></script>
     
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="manifest" href="/manifest.json">
@@ -22,7 +23,7 @@
 
     <style>
         :root { --bg-1: #bae6fd; --bg-2: #e0f2fe; --glass: rgba(255, 255, 255, 0.65); --glass-border: rgba(255, 255, 255, 0.4); --text: #0c4a6e; --text-sec: #475569; --accent: #0284c7; --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); --skeleton-base: rgba(255, 255, 255, 0.3); --skeleton-shine: rgba(255, 255, 255, 0.6); --invert-close: 0; }
-        [data-theme="dark"] { --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #38bdf8; --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); --skeleton-base: rgba(255, 255, 255, 0.05); --skeleton-shine: rgba(255, 255, 255, 0.15); --invert-close: 1; }
+        [data-bs-theme="dark"] { --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #38bdf8; --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); --skeleton-base: rgba(255, 255, 255, 0.05); --skeleton-shine: rgba(255, 255, 255, 0.15); --invert-close: 1; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text); background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); min-height: 100vh; padding-bottom: 80px; transition: background 0.8s ease, color 0.5s ease; overflow-x: hidden; }
 
         #splash-screen { position: fixed; inset: 0; background: linear-gradient(180deg, #bae6fd, #e0f2fe); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s ease-out, visibility 0.6s; }
@@ -113,7 +114,7 @@
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
     </style>
 </head>
-<body data-theme="light">
+<body>
 
     <div id="splash-screen">
         <div class="splash-logo-container">
