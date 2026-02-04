@@ -14,7 +14,6 @@
     
     <script>
         (function() {
-            // Solo usamos el tema guardado al cargar la página por primera vez
             const savedTheme = localStorage.getItem('aeris_theme_pref');
             if (savedTheme) {
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
@@ -130,7 +129,6 @@
         [data-bs-theme="dark"] .clothing-tag.boy { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.3); }
         [data-bs-theme="dark"] .clothing-tag.girl { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; border-color: rgba(236, 72, 153, 0.3); }
 
-        /* NUEVO: Estilos para el detalle del día */
         .day-detail {
             overflow: hidden;
             transition: all 0.3s ease-in-out;
@@ -157,6 +155,14 @@
             justify-content: space-between;
             height: 90px;
         }
+
+        /* ESTILOS POLEN */
+        .pollen-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .pollen-name { font-size: 0.85rem; font-weight: 600; width: 80px; }
+        .pollen-bar-bg { flex-grow: 1; height: 6px; background: rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
+        [data-theme="dark"] .pollen-bar-bg { background: rgba(255,255,255,0.1); }
+        .pollen-bar-fill { height: 100%; border-radius: 10px; transition: width 1s; }
+        .pollen-val { font-size: 0.75rem; font-weight: 700; width: 40px; text-align: right; }
     </style>
 </head>
 <body data-theme="light">
@@ -296,6 +302,12 @@
             </div>
         </div>
 
+        <div class="glass-card" id="pollen-card" style="display:none">
+            <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-flower1"></i> ALERGIAS Y POLEN</h6>
+            <div id="pollen-list">
+                </div>
+        </div>
+
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
             <div class="skeleton" style="width:100%; height:100%; position:absolute; top:0; left:0; border-radius:0" id="radar-skeleton"></div>
             <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none; position:relative; z-index:2" onload="document.getElementById('radar-skeleton').style.display='none'"></iframe>
@@ -408,7 +420,8 @@
                 rain: ["Lleva paraguas.", "Suelo resbaladizo.", "Conduce con cuidado.", "Día de lluvia.", "Posibles chubascos."], 
                 snow: ["Precaución con el hielo.", "Abrígate al máximo.", "Disfruta la nieve.", "Calzado antideslizante.", "Nieve en camino."],
                 wind: ["Cuidado con objetos voladores.", "Asegura ventanas.", "Viento fuerte.", "Evita zonas arboladas.", "Sujeta el sombrero."],
-                nice: ["Día perfecto.", "Disfruta del aire libre.", "Condiciones agradables.", "Aprovecha el día.", "Tiempo estable."] 
+                nice: ["Día perfecto.", "Disfruta del aire libre.", "Condiciones agradables.", "Aprovecha el día.", "Tiempo estable."],
+                allergy: ["¡Alerta de alergia! Toma antihistamínicos.", "Niveles altos de polen hoy.", "Usa gafas de sol si tienes alergia.", "Cierra ventanas si el polen te afecta."]
             }},
             zen: { icon: "🧘", name: "Zen", tips: { 
                 hot: ["Siente el calor como energía.", "Fluye con la temperatura.", "El sol nutre tu espíritu.", "Respira el verano.", "Calma interior ante el calor."], 
@@ -416,7 +429,8 @@
                 rain: ["El agua limpia el alma.", "Escucha el ritmo de la lluvia.", "La naturaleza bebe.", "Deja que fluya.", "Gotas de consciencia."], 
                 snow: ["Silencio blanco.", "Pureza cristalina.", "El mundo descansa.", "Contempla la blancura.", "Paz invernal."],
                 wind: ["Deja que el viento se lleve lo malo.", "Cambios en el aire.", "Sé flexible como el bambú.", "El aire renueva.", "Susurros del viento."],
-                nice: ["Armonía perfecta.", "El universo sonríe.", "Equilibrio natural.", "Gratitud por este día.", "Presente perfecto."] 
+                nice: ["Armonía perfecta.", "El universo sonríe.", "Equilibrio natural.", "Gratitud por este día.", "Presente perfecto."],
+                allergy: ["El polen es vida, pero respira con cuidado.", "Acepta la primavera sin resistencia.", "Purifica tu aire interior.", "Paz a tus ojos irritados."]
             }},
             villano: { icon: "😈", name: "Villano", tips: { 
                 hot: ["¡Que arda el mundo!", "Sufre mortal.", "El asfalto se derrite, excelente.", "Sudor y lágrimas.", "Un horno perfecto."], 
@@ -424,7 +438,8 @@
                 rain: ["¡Diluvio universal!", "Mójate, miserable.", "Truenos de destrucción.", "El cielo llora por ti.", "Caos acuático."], 
                 snow: ["Sepultados en blanco.", "Frío mortal.", "La era de hielo comienza.", "Resbala y cae.", "Blanco como el miedo."],
                 wind: ["¡Volad, necios!", "El viento aullará mi nombre.", "Destrucción aérea.", "Arrancaré los árboles.", "Tormenta perfecta."],
-                nice: ["Demasiada calma... sospechoso.", "Odio los días bonitos.", "La calma antes de mi tormenta.", "Qué asco de sol.", "Aburrido..."] 
+                nice: ["Demasiada calma... sospechoso.", "Odio los días bonitos.", "La calma antes de mi tormenta.", "Qué asco de sol.", "Aburrido..."],
+                allergy: ["¡Sufre con tus estornudos!", "El polen es mi arma biológica.", "Llora, tus ojos rojos me divierten.", "Ni los antihistamínicos te salvarán."]
             }},
             madre: { icon: "👵", name: "Madre", tips: { 
                 hot: ["Ponte crema, factor 50 mínimo.", "Bebe agua, no refrescos.", "No salgas a las horas malas.", "¿Llevas gorra?", "Come fruta fresca."], 
@@ -432,7 +447,8 @@
                 rain: ["¡Ni se te ocurra salir sin paraguas!", "Ponte las botas de agua.", "No te mojes los pies.", "Cuidado que resbala.", "Llámame cuando llegues."], 
                 snow: ["¡Ni se te ocurra coger el coche!", "Abrígate que te congelas.", "Comete el potaje caliente.", "Guantes, gorro y bufanda.", "Quédate en casa mejor."],
                 wind: ["Cuidado con las macetas.", "Cierra bien las ventanas.", "No te pongas falda.", "Se te va a volar el pelo.", "Ten cuidado con los ojos."],
-                nice: ["Sal a que te dé el aire.", "Qué día más bueno para lavar.", "Abre las ventanas que ventile.", "Disfruta hijo.", "Come bien."] 
+                nice: ["Sal a que te dé el aire.", "Qué día más bueno para lavar.", "Abre las ventanas que ventile.", "Disfruta hijo.", "Come bien."],
+                allergy: ["¿Te has tomado la pastilla de la alergia?", "No abras las ventanas hijo.", "Lávate la cara al llegar a casa.", "Ay mi niño, qué ojos traes."]
             }},
             gym: { icon: "💪", name: "Gym", tips: { 
                 hot: ["Suda esa grasa.", "Hidratación y electrolitos.", "Entrena sin camiseta.", "El calor quema calorías.", "No pain no gain."], 
@@ -440,7 +456,8 @@
                 rain: ["¿Lluvia? Más épico.", "Correr bajo la lluvia es de pros.", "El agua no encoge.", "Entrena en casa si tienes miedo.", "Modo bestia activado."], 
                 snow: ["Rocky entrenaba en la nieve.", "Cardio extremo.", "Sentadillas en la nieve.", "Fuerza mental.", "Hielo para los músculos."],
                 wind: ["Resistencia aerodinámica.", "Corre contra el viento.", "Entrenamiento de fuerza.", "Mantén el equilibrio.", "El viento te hace fuerte."],
-                nice: ["Día de PR (Récord Personal).", "Vitamina D para la testosterona.", "Sal a correr.", "El clima perfecto para crecer.", "A tope hoy."] 
+                nice: ["Día de PR (Récord Personal).", "Vitamina D para la testosterona.", "Sal a correr.", "El clima perfecto para crecer.", "A tope hoy."],
+                allergy: ["La alergia es debilidad saliendo del cuerpo.", "Entrena indoor hoy.", "No dejes que el polen te pare.", "Respira fuerte y sigue."]
             }},
             cientifico: { icon: "🧪", name: "Ciencia", tips: { 
                 hot: ["Alta radiación UV detectada.", "Termodinámica elevada.", "Evaporación acelerada.", "Riesgo de insolación.", "Moléculas excitadas."], 
@@ -448,7 +465,8 @@
                 rain: ["Precipitación líquida en curso.", "Ciclo del agua activo.", "Humedad relativa 100%.", "Cumulonimbus presentes.", "Hidrodinámica aplicada."], 
                 snow: ["Precipitación sólida.", "Estructuras cristalinas hexagonales.", "Albedo elevado.", "Punto de congelación alcanzado.", "Física de fluidos."],
                 wind: ["Flujo de aire turbulento.", "Diferencial de presión.", "Velocidad eólica alta.", "Aerodinámica inestable.", "Fuerza de arrastre."],
-                nice: ["Condiciones atmosféricas óptimas.", "Homeostasis ambiental.", "Visibilidad máxima.", "Presión estable.", "Variables ideales."] 
+                nice: ["Condiciones atmosféricas óptimas.", "Homeostasis ambiental.", "Visibilidad máxima.", "Presión estable.", "Variables ideales."],
+                allergy: ["Concentración de partículas biológicas alta.", "Respuesta inmunitaria probable.", "Polinización anemófila detectada.", "Recomiendo filtración de aire."]
             }},
             gato: { icon: "🐱", name: "Gato", tips: { 
                 hot: ["Siesta al sol.", "El suelo está calentito.", "Demasiado calor para cazar.", "Me derrito.", "Búscame en la sombra."], 
@@ -456,7 +474,8 @@
                 rain: ["Agua no, gracias.", "Miro por la ventana.", "Qué asco de mojado.", "Me quedo en el sofá.", "Ruido molesto."], 
                 snow: ["¿Qué es esta cosa blanca?", "Frío en las almohadillas.", "Cazar copos.", "Me hundo.", "Quiero entrar."],
                 wind: ["El viento me despeina.", "Cosas volando para cazar.", "No me gusta el ruido.", "Orejas atrás.", "Peligro invisible."],
-                nice: ["A cazar pájaros.", "Revolcarse en la hierba.", "Día de aventuras.", "Miau de felicidad.", "El sol es mío."] 
+                nice: ["A cazar pájaros.", "Revolcarse en la hierba.", "Día de aventuras.", "Miau de felicidad.", "El sol es mío."],
+                allergy: ["Estornudo... miau.", "Me pica la nariz.", "No me saques al jardín.", "Odio las plantas hoy."]
             }},
             pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { 
                 hot: ["¡Sol abrasador, marineros!", "El ron se calienta.", "Calma chicha.", "Sudad como cerdos.", "Ni una nube a la vista."], 
@@ -464,7 +483,8 @@
                 rain: ["¡Tormenta a la vista!", "Baldear la cubierta.", "Agua dulce para beber.", "El mar se pica.", "Rayos y centellas."], 
                 snow: ["Nieve en las velas.", "El kraken se congela.", "Blanco como un hueso.", "Resbaladizo como anguila.", "Invierno en alta mar."],
                 wind: ["¡Izad las velas!", "Viento en popa.", "Sujetad el sombrero.", "El mar ruge.", "A toda vela."],
-                nice: ["Buen viento y buena mar.", "Rumbo al tesoro.", "Día para navegar.", "El horizonte brilla.", "Fortuna sonríe."] 
+                nice: ["Buen viento y buena mar.", "Rumbo al tesoro.", "Día para navegar.", "El horizonte brilla.", "Fortuna sonríe."],
+                allergy: ["¡Maldito polvo de flores!", "Me llora el ojo del parche.", "El polen es peor que el escorbuto.", "¡Ron para la garganta!"]
             }},
             poeta: { icon: "📜", name: "Poeta", tips: { 
                 hot: ["El sol besa la tierra con ardor.", "Luz dorada que ciega.", "Verano eterno en el alma.", "Calor que abraza.", "Danza de fuego."], 
@@ -472,7 +492,8 @@
                 rain: ["Lanto del cielo gris.", "Melodía de gotas.", "La tierra respira humedad.", "Cristales empañados.", "Tristeza líquida."], 
                 snow: ["Danza de estrellas blancas.", "Silencio algodonoso.", "El mundo se viste de novia.", "Pureza efímera.", "Cristal frío."],
                 wind: ["Susurros de antiguos dioses.", "El aire cuenta historias.", "Danza invisible.", "Fuerza etérea.", "Canción de tormenta."],
-                nice: ["Luz que acaricia.", "Azul infinito.", "La brisa promete.", "Día de versos.", "Paz en el horizonte."] 
+                nice: ["Luz que acaricia.", "Azul infinito.", "La brisa promete.", "Día de versos.", "Paz en el horizonte."],
+                allergy: ["La primavera hiere mis sentidos.", "Lágrimas de flores.", "El aire cargado de vida invisible.", "Suspiros y estornudos."]
             }},
             gamer: { icon: "🎮", name: "Gamer", tips: { 
                 hot: ["Overheating detectado.", "Baja el brillo.", "Los fans de la CPU a tope.", "Lag por calor.", "Gráficos demasiado brillantes."], 
@@ -480,7 +501,8 @@
                 rain: ["Efectos de partículas al máximo.", "Renderizando lluvia.", "Baja visibilidad.", "Suelo resbaladizo activado.", "Ambiente Silent Hill."], 
                 snow: ["Evento de Navidad activado.", "Texturas blancas.", "Físicas de nieve.", "Cuidado con el respawn.", "Mapa de invierno."],
                 wind: ["Físicas de viento realistas.", "Proyectiles desviados.", "Ruido ambiental alto.", "Vuela con el glider.", "Resistencia al movimiento."],
-                nice: ["FPS estables.", "Ping bajo.", "Gráficos Ultra.", "Buen día para grindear.", "Sin lag."] 
+                nice: ["FPS estables.", "Ping bajo.", "Gráficos Ultra.", "Buen día para grindear.", "Sin lag."],
+                allergy: ["Debuff de veneno activo.", "Stamina baja por estornudos.", "Usa una poción de salud.", "Visibilidad reducida por ojos llorosos."]
             }},
             abuela: { icon: "🧶", name: "Abuela", tips: { 
                 hot: ["Baja la persiana hijo.", "Tómate una horchata.", "No andes al sol.", "Qué calor hace.", "Abanícate."], 
@@ -488,7 +510,8 @@
                 rain: ["Se me va a mojar la ropa tendida.", "Día de migas.", "No salgas que te pones malo.", "Qué manera de llover.", "Reza a Santa Bárbara."], 
                 snow: ["Qué bonito pero qué frío.", "Cuidado no te caigas.", "Chocolate con churros.", "Manta y ganchillo.", "No vayas lejos."],
                 wind: ["Cierra el portón.", "Qué aire hace.", "Se vuelan las macetas.", "Ponte pañuelo.", "Mal tiempo."],
-                nice: ["Qué día más hermoso.", "Sal a pasear.", "Estás muy pálido, toma el sol.", "Bendito sea Dios.", "Disfruta de la juventud."] 
+                nice: ["Qué día más hermoso.", "Sal a pasear.", "Estás muy pálido, toma el sol.", "Bendito sea Dios.", "Disfruta de la juventud."],
+                allergy: ["¿Te has tomado la medicina?", "Ay que ver la primavera.", "No salgas al campo.", "Pobrecito mi niño con los mocos."]
             }},
             comediante: { icon: "🤡", name: "Risitas", tips: { 
                 hot: ["Hace tanto calor que las gallinas ponen huevos fritos.", "Estoy sudando como testigo falso.", "Más calor que en una comunión en agosto.", "Me derrito bombón.", "El sol paga impuestos hoy."], 
@@ -496,7 +519,8 @@
                 rain: ["Llueve más que cuando enterraron a Zafra.", "Día de sofá y peli... mentira, a trabajar.", "Se ha roto el cielo.", "Operación Arca de Noé.", "Me encojo con el agua."], 
                 snow: ["Nieve... o caspa de gigante.", "A hacer ángeles... o demonios.", "Resbalón y vídeo viral.", "Muñeco de nieve deforme.", "Blanca Navidad... en marzo."],
                 wind: ["Se me vuela el peluquín.", "Viento que te peina.", "Agárrate a una farola.", "Volando voy.", "Aire acondicionado natural."],
-                nice: ["Día sospechosamente bueno.", "El sol ha salido, milagro.", "A vivir la vida.", "Sonríe que es gratis.", "Ni frío ni calor, 0 grados."] 
+                nice: ["Día sospechosamente bueno.", "El sol ha salido, milagro.", "A vivir la vida.", "Sonríe que es gratis.", "Ni frío ni calor, 0 grados."],
+                allergy: ["Soy alérgico al trabajo, no al polen.", "Estornudo en estéreo.", "Mocos radioactivos.", "La primavera la sangre altera... y la nariz."]
             }},
             astrologo: { icon: "🔮", name: "Astro", tips: { 
                 hot: ["El Sol está en su cénit.", "Energía de fuego intensa.", "Carga tus cristales.", "Aura dorada.", "Mercurio está caliente."], 
@@ -504,7 +528,8 @@
                 rain: ["Neptuno rige las aguas.", "Limpieza emocional.", "Fluye con las mareas.", "Lluvia de estrellas... líquida.", "Conexión profunda."], 
                 snow: ["Silencio espiritual.", "Cristalización de intenciones.", "Pureza blanca.", "Energía estancada.", "Manto astral."],
                 wind: ["Urano trae cambios.", "Vientos de transformación.", "Limpia tu aura.", "Mensajes del aire.", "Movimiento etéreo."],
-                nice: ["Júpiter bendice el día.", "Vibración alta.", "Armonía cósmica.", "El universo conspira a favor.", "Luz estelar."] 
+                nice: ["Júpiter bendice el día.", "Vibración alta.", "Armonía cósmica.", "El universo conspira a favor.", "Luz estelar."],
+                allergy: ["Energía de aire desequilibrada.", "Marte irrita tus mucosas.", "Bloqueo en el chakra garganta.", "La naturaleza te pone a prueba."]
             }}
         };
 
@@ -598,18 +623,24 @@
             return { boys: boys.slice(0, 4), girls: girls.slice(0, 4) };
         };
         
-        const updateAIText = (cur) => { 
+        const updateAIText = (cur, highPollen = false) => { 
             if (!cur) return; 
             const p = aiLogic[currentPersona]; 
             document.getElementById('tip-icon').innerText = p.icon; 
             
             let key = 'nice'; 
-            const d = cur.desc.toLowerCase();
-            if (d.includes('nieve') || d.includes('nevada')) key = 'snow';
-            else if (d.includes('lluvia') || d.includes('llovizna') || d.includes('tormenta')) key = 'rain'; 
-            else if (cur.windSpeed > 30) key = 'wind';
-            else if (cur.temp > 30) key = 'hot'; 
-            else if (cur.temp < 10) key = 'cold'; 
+            
+            // Prioridad a la alergia si es alta
+            if (highPollen) {
+                key = 'allergy';
+            } else {
+                const d = cur.desc.toLowerCase();
+                if (d.includes('nieve') || d.includes('nevada')) key = 'snow';
+                else if (d.includes('lluvia') || d.includes('llovizna') || d.includes('tormenta')) key = 'rain'; 
+                else if (cur.windSpeed > 30) key = 'wind';
+                else if (cur.temp > 30) key = 'hot'; 
+                else if (cur.temp < 10) key = 'cold'; 
+            }
             
             const frases = p.tips[key] || p.tips['nice']; 
             document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)]; 
@@ -695,13 +726,11 @@
             document.documentElement.style.setProperty('--invert-close', newTheme === 'dark' ? '1' : '0');
         });
 
-        // --- NUEVA FUNCIÓN PARA DESPLEGAR EL DETALLE ---
         window.toggleDay = (index) => {
             const el = document.getElementById(`day-detail-${index}`);
             if (el) {
                 if (el.style.display === 'none') {
                     el.style.display = 'block';
-                    // Pequeña animación de entrada
                     el.style.opacity = '0';
                     setTimeout(() => el.style.opacity = '1', 10);
                 } else {
@@ -709,6 +738,61 @@
                     setTimeout(() => el.style.display = 'none', 300);
                 }
             }
+        };
+        
+        // --- RENDERIZAR TARJETA POLEN ---
+        const renderPollen = (pollen) => {
+            const card = document.getElementById('pollen-card');
+            const list = document.getElementById('pollen-list');
+            
+            if (!pollen || Object.values(pollen).every(v => v === 0)) {
+                card.style.display = 'none';
+                return false; // No hay alergia alta
+            }
+            
+            card.style.display = 'block';
+            
+            const types = [
+                { k: 'grass', n: 'Gramíneas', color: '#84cc16' }, // Lime
+                { k: 'olive', n: 'Olivo', color: '#eab308' }, // Yellow
+                { k: 'birch', n: 'Abedul', color: '#f97316' }, // Orange
+                { k: 'ragweed', n: 'Ambrosía', color: '#ef4444' }, // Red
+                { k: 'alder', n: 'Aliso', color: '#a855f7' }, // Purple
+                { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' } // Cyan
+            ];
+            
+            // Ordenamos de mayor a menor nivel
+            types.sort((a, b) => (pollen[b.k] || 0) - (pollen[a.k] || 0));
+            
+            // Cogemos los top 4 si tienen valor
+            const activeTypes = types.filter(t => pollen[t.k] > 5).slice(0, 4);
+            
+            if (activeTypes.length === 0) {
+                 card.style.display = 'none';
+                 return false;
+            }
+            
+            let isHigh = false;
+
+            list.innerHTML = activeTypes.map(t => {
+                const val = pollen[t.k] || 0;
+                // Normalizamos un poco (valores suelen ir de 0 a 100+ en picos altos)
+                let percent = (val / 100) * 100;
+                if (percent > 100) percent = 100;
+                
+                if (val > 50) isHigh = true; // Umbral para activar IA
+                
+                return `
+                <div class="pollen-item">
+                    <span class="pollen-name text-capitalize opacity-75">${t.n}</span>
+                    <div class="pollen-bar-bg">
+                        <div class="pollen-bar-fill" style="width: ${percent}%; background-color: ${t.color}"></div>
+                    </div>
+                    <span class="pollen-val opacity-50">${val}</span>
+                </div>`;
+            }).join('');
+            
+            return isHigh;
         };
 
         async function getWeather(id) {
@@ -755,7 +839,12 @@
                 document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
 
                 renderRainChart(data.nowcast, data.hourly, cur.time);
-                updateAIText(cur);
+                
+                // --- NUEVO: RENDERIZAR POLEN Y DETECTAR SI ES ALTO ---
+                const isHighPollen = renderPollen(data.pollen);
+                
+                // --- PASAR EL ESTADO DE POLEN A LA IA ---
+                updateAIText(cur, isHighPollen);
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
@@ -786,12 +875,10 @@
                     </div>`
                 ).join('');
 
-                // --- CORRECCIÓN FECHA + DESPLEGABLE HORAS ---
                 const dCont = document.getElementById('daily');
                 if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
                     const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
                     
-                    // Renderizamos las horas ocultas
                     let hourlyHtml = '';
                     if (d.dayHours && d.dayHours.length > 0) {
                         hourlyHtml = d.dayHours.map(h => 
