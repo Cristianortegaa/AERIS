@@ -12,7 +12,6 @@ app.use(bodyParser.json());
 app.use(express.static('public'));
 
 // --- NOTIFICACIONES ---
-// CORRECCIÓN: Usa variable de entorno, fallback solo para desarrollo local
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BJthRQ5myDgc7OSXzPCMftGw-nJmqzaSGq5QAcksgXr4S4VM15q1ifV48o80H1EgtW29d1u5cL0rCM1f2td8j6E';
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY || '3KjvO8t8y92j34d567g890h123i456j789k012l345m';
 
@@ -46,7 +45,6 @@ setInterval(async () => {
     for (const user of users) {
         if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
         try {
-            // Pedimos precipitación minutada Y temperatura actual para distinguir nieve/lluvia
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m&forecast_days=1&timezone=auto`;
             const response = await axios.get(url);
             const nowcast = response.data.minutely_15;
@@ -55,8 +53,8 @@ setInterval(async () => {
             let rainSum = 0; let startMin = 0; let found = false;
             if(nowcast) { for(let i=0; i<4; i++) { const val = nowcast.precipitation[i] || 0; rainSum += val; if(val > 0 && !found) { startMin = i*15; found = true; } } }
             
-            if (rainSum > 0.2) { // Umbral un poco más alto para evitar falsos positivos
-                const isSnow = current.temperature_2m <= 2; // Si hace menos de 2ºC, asumimos nieve
+            if (rainSum > 0.2) { 
+                const isSnow = current.temperature_2m <= 2; 
                 const type = isSnow ? "Nieve" : "Lluvia";
                 const icon = isSnow ? "❄️" : "☔";
                 const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
@@ -136,9 +134,9 @@ app.get('/api/weather/:id', async (req, res) => {
             return res.json(data);
         }
 
-        // AÑADIDO: &past_days=1 para poder comparar con ayer
+        // AÑADIDO: cloud_cover en current para el Stargazing
         const [wRes, aRes, pRes] = await Promise.allSettled([
-            axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
+            axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,cloud_cover&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`),
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen&timezone=auto`)
         ]);
@@ -155,14 +153,11 @@ app.get('/api/weather/:id', async (req, res) => {
         let startIndex = w.hourly.time.findIndex(t => t.startsWith(currentHourStr));
         if (startIndex === -1) startIndex = 0;
 
-        // --- LÓGICA COMPARACIÓN AYER ---
         let comparisonText = "";
         try {
-            // startIndex es el índice de la hora actual. Al haber pedido past_days=1,
-            // si restamos 24 horas, deberíamos tener la temperatura de ayer a la misma hora.
             if (startIndex >= 24) {
                 const tempYesterday = w.hourly.temperature_2m[startIndex - 24];
-                const tempToday = w.hourly.temperature_2m[startIndex]; // Usamos la de hourly para que sea la misma fuente
+                const tempToday = w.hourly.temperature_2m[startIndex];
                 const diff = tempToday - tempYesterday;
                 
                 if (Math.abs(diff) < 1) {
@@ -224,24 +219,13 @@ app.get('/api/weather/:id', async (req, res) => {
                 pm25: a.current.pm2_5 || 0, 
                 pm10: a.current.pm10 || 0, 
                 time: w.current.time,
-                comparison: comparisonText // <--- Campo nuevo
+                cloudCover: w.current.cloud_cover || 0, // <--- NUEVO
+                comparison: comparisonText
             },
             nowcast: nowcast,
             hourly: hourly,
             pollen: pollenData,
             daily: w.daily.time.map((t, i) => {
-                // Como w.daily empieza desde ayer por el past_days=1, tenemos que ajustar el índice
-                // O mejor, filtramos para no enviar el día de ayer en la lista daily si no queremos
-                // Pero el código actual de map iterará sobre todos.
-                // IMPORTANTE: Open-Meteo devuelve daily alineado. Si pedimos past_days=1, el índice 0 es AYER.
-                // El índice 1 es HOY.
-                // Vamos a asegurarnos de enviar desde HOY.
-                
-                // NOTA: Para no complicar la lógica de indices en el reduce, simplemente
-                // dejamos que map procese todo y en el frontend o aquí filtramos fechas pasadas.
-                // Para mantener consistencia con tu código anterior, voy a filtrar aquí
-                // para que el frontend reciba lo mismo que antes (desde hoy en adelante).
-                
                 return { 
                     fecha: t, 
                     tempMax: Math.round(w.daily.temperature_2m_max[i]), 
@@ -250,7 +234,6 @@ app.get('/api/weather/:id', async (req, res) => {
                     sunset: w.daily.sunset[i].split('T')[1], 
                     icon: decodeWMO(w.daily.weather_code[i], 1).icon, 
                     rainProbMax: w.daily.precipitation_probability_max[i],
-                    // Fix para que dayHours funcione con past_days
                     dayHours: w.hourly.time.reduce((acc, timeStr, idx) => {
                         if (timeStr.startsWith(t)) {
                             acc.push({
@@ -263,7 +246,7 @@ app.get('/api/weather/:id', async (req, res) => {
                         return acc;
                     }, [])
                 };
-            }).filter(d => d.fecha >= currentTime.split('T')[0]) // Filtramos para quitar ayer de la lista diaria
+            }).filter(d => d.fecha >= currentTime.split('T')[0])
         };
 
         await WeatherCache.upsert({ locationId, data: JSON.stringify(finalData), updatedAt: new Date() });

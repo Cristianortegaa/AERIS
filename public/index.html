@@ -162,6 +162,20 @@
         [data-theme="dark"] .pollen-bar-bg { background: rgba(255,255,255,0.1); }
         .pollen-bar-fill { height: 100%; border-radius: 10px; transition: width 1s; }
         .pollen-val { font-size: 0.75rem; font-weight: 700; width: 40px; text-align: right; }
+
+        /* NUEVO: ESTILOS LIFESTYLE */
+        .activity-scroll { display: flex; overflow-x: auto; gap: 15px; padding: 5px 0; scrollbar-width: none; }
+        .activity-item { 
+            min-width: 80px; text-align: center; padding: 12px 8px; background: rgba(255,255,255,0.3); 
+            border-radius: 16px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; gap: 8px;
+        }
+        [data-theme="dark"] .activity-item { background: rgba(255,255,255,0.05); }
+        .activity-icon { font-size: 1.8rem; color: var(--text); }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+        .status-good { background-color: #4ade80; box-shadow: 0 0 10px #4ade80; }
+        .status-fair { background-color: #facc15; box-shadow: 0 0 10px #facc15; }
+        .status-bad { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+        .activity-name { font-size: 0.75rem; font-weight: 700; opacity: 0.8; }
     </style>
 </head>
 <body data-theme="light">
@@ -305,6 +319,15 @@
         <div class="glass-card" id="pollen-card" style="display:none">
             <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-flower1"></i> ALERGIAS Y POLEN</h6>
             <div id="pollen-list"></div>
+        </div>
+
+        <div class="glass-card">
+            <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-activity"></i> ESTILO DE VIDA</h6>
+            <div class="activity-scroll" id="lifestyle-list">
+                <div class="skeleton" style="width:80px; height:80px; border-radius:16px"></div>
+                <div class="skeleton" style="width:80px; height:80px; border-radius:16px"></div>
+                <div class="skeleton" style="width:80px; height:80px; border-radius:16px"></div>
+            </div>
         </div>
 
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
@@ -783,6 +806,93 @@
             return isHigh;
         };
 
+        // --- NUEVA LÓGICA DE ESTILO DE VIDA ---
+        const renderLifestyle = (cur, daily) => {
+            const list = document.getElementById('lifestyle-list');
+            if(!list || !daily) return;
+
+            const isRain = cur.desc.toLowerCase().includes('lluvia') || cur.desc.toLowerCase().includes('llovizna');
+            const rainToday = daily[0] ? daily[0].rainProbMax > 40 : false;
+            const rainTomorrow = daily[1] ? daily[1].rainProbMax > 40 : false;
+            
+            const activities = [
+                {
+                    id: 'run', name: 'Running', icon: 'bi-person-running',
+                    check: () => {
+                        if (isRain || cur.windSpeed > 30 || cur.temp > 32 || cur.temp < 0) return 'bad';
+                        if (cur.windSpeed > 20 || cur.temp > 28 || cur.temp < 5) return 'fair';
+                        return 'good';
+                    }
+                },
+                {
+                    id: 'cycle', name: 'Ciclismo', icon: 'bi-bicycle',
+                    check: () => {
+                        if (isRain || cur.windSpeed > 25 || cur.temp > 35) return 'bad';
+                        if (cur.windSpeed > 15 || cur.temp < 5) return 'fair';
+                        return 'good';
+                    }
+                },
+                {
+                    id: 'bbq', name: 'Barbacoa', icon: 'bi-fire',
+                    check: () => {
+                        if (isRain || cur.windSpeed > 25) return 'bad';
+                        if (cur.temp < 15 || cur.windSpeed > 15) return 'fair';
+                        return 'good';
+                    }
+                },
+                {
+                    id: 'car', name: 'Lavar Coche', icon: 'bi-car-front',
+                    check: () => {
+                        if (isRain || rainTomorrow) return 'bad'; // Si llueve mañana, malo
+                        if (cur.temp < 5) return 'fair';
+                        return 'good';
+                    }
+                },
+                {
+                    id: 'star', name: 'Estrellas', icon: 'bi-stars',
+                    check: () => {
+                        if (cur.isDay || cur.cloudCover > 50) return 'bad';
+                        if (cur.cloudCover > 20) return 'fair';
+                        return 'good';
+                    }
+                },
+                {
+                    id: 'dog', name: 'Paseo Perro', icon: 'bi-emoji-smile',
+                    check: () => {
+                        if (cur.desc.includes('fuerte') || cur.temp > 32) return 'bad'; // Asfalto caliente
+                        if (isRain || cur.temp < 2) return 'fair';
+                        return 'good';
+                    }
+                },
+                {
+                    id: 'beach', name: 'Playa', icon: 'bi-umbrella-fill',
+                    check: () => {
+                        if (isRain || cur.temp < 22) return 'bad';
+                        if (cur.windSpeed > 20) return 'fair';
+                        return 'good';
+                    }
+                },
+                {
+                    id: 'drive', name: 'Conducir', icon: 'bi-sign-stop',
+                    check: () => {
+                        if (cur.desc.includes('niebla') || cur.desc.includes('tormenta') || cur.desc.includes('nieve')) return 'bad';
+                        if (isRain) return 'fair';
+                        return 'good';
+                    }
+                }
+            ];
+
+            list.innerHTML = activities.map(act => {
+                const status = act.check();
+                return `
+                <div class="activity-item">
+                    <i class="bi ${act.icon} activity-icon"></i>
+                    <div class="status-dot status-${status}"></div>
+                    <span class="activity-name">${act.name}</span>
+                </div>`;
+            }).join('');
+        };
+
         async function getWeather(id) {
             try {
                 let storedName = localStorage.getItem('lastName');
@@ -831,6 +941,9 @@
                 renderRainChart(data.nowcast, data.hourly, cur.time);
                 
                 const isHighPollen = renderPollen(data.pollen);
+                
+                // RENDERIZAR LIFESTYLE
+                renderLifestyle(cur, data.daily);
                 
                 updateAIText(cur, isHighPollen);
 
