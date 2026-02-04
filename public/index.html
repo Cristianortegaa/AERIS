@@ -183,6 +183,19 @@
         .status-fair { background-color: #facc15; box-shadow: 0 0 10px #facc15; }
         .status-bad { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
         .activity-name { font-size: 0.75rem; font-weight: 700; opacity: 0.8; }
+
+        /* NUEVO: ESTILOS ALERTAS */
+        .alert-card {
+            background: #ef4444; color: white; padding: 15px 20px; border-radius: 20px;
+            margin-bottom: 20px; display: flex; align-items: start; gap: 15px;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4); animation: slideDown 0.5s ease;
+        }
+        .alert-card.orange { background: #f97316; box-shadow: 0 10px 30px rgba(249, 115, 22, 0.4); }
+        .alert-card.yellow { background: #eab308; color: #422006; box-shadow: 0 10px 30px rgba(234, 179, 8, 0.4); }
+        
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes pulseAlert { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .alert-icon { font-size: 1.8rem; animation: pulseAlert 2s infinite; }
     </style>
 </head>
 <body data-theme="light">
@@ -230,6 +243,8 @@
                 <button class="btn-icon" id="themeBtn"><i class="bi bi-moon-stars-fill fs-5"></i></button>
             </div>
         </div>
+
+        <div id="alerts-container"></div>
 
         <div class="glass-card" id="capture-card">
             <button class="share-btn" id="shareBtn" title="Compartir"><i class="bi bi-camera-fill"></i></button>
@@ -813,6 +828,24 @@
             return isHigh;
         };
 
+        // --- RENDERIZAR ALERTAS (NUEVO) ---
+        const renderAlerts = (alerts) => {
+            const container = document.getElementById('alerts-container');
+            if(!alerts || alerts.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            container.innerHTML = alerts.map(a => `
+                <div class="alert-card ${a.level}">
+                    <i class="bi bi-exclamation-triangle-fill alert-icon"></i>
+                    <div>
+                        <div class="fw-bold">${a.title}</div>
+                        <div class="small opacity-75">${a.msg}</div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
         const renderLifestyle = (cur, daily) => {
             const list = document.getElementById('lifestyle-list');
             if(!list || !daily) return;
@@ -856,7 +889,7 @@
                     }
                 },
                 {
-                    id: 'star', name: 'Ver Estrellas', icon: 'fa-solid fa-star', 
+                    id: 'star', name: 'Estrellas', icon: 'fa-solid fa-star', 
                     check: () => {
                         if (cur.isDay || cur.cloudCover > 50) return 'bad';
                         if (cur.cloudCover > 20) return 'fair';
@@ -950,6 +983,9 @@
                 const isHighPollen = renderPollen(data.pollen);
                 
                 renderLifestyle(cur, data.daily);
+                
+                // RENDERIZAR ALERTAS
+                renderAlerts(data.alerts);
                 
                 updateAIText(cur, isHighPollen);
 

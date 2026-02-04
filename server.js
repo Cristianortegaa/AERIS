@@ -33,13 +33,39 @@ const decodeWMO = (code, isDay = 1) => {
     return { text: textMap[c] || "Variable", icon: icon };
 };
 
-// --- RUTAS API ---
+// --- MOTOR DE ALERTAS (NUEVO) ---
+const generateAlerts = (w) => {
+    const alerts = [];
+    const wind = w.current.wind_speed_10m;
+    const temp = w.current.temperature_2m;
+    const code = w.current.weather_code;
+    const rain = w.current.precipitation;
+
+    // 1. Alertas de Viento
+    if (wind >= 90) alerts.push({ level: 'red', title: 'Viento Huracanado', msg: 'Rachas extremas > 90 km/h. ¡Peligro!' });
+    else if (wind >= 70) alerts.push({ level: 'orange', title: 'Viento Fuerte', msg: 'Rachas muy fuertes. Precaución.' });
+    else if (wind >= 50) alerts.push({ level: 'yellow', title: 'Aviso Viento', msg: 'Rachas moderadas de viento.' });
+
+    // 2. Alertas de Temperatura (Calor/Frío)
+    if (temp >= 40) alerts.push({ level: 'red', title: 'Calor Extremo', msg: 'Riesgo extremo para la salud.' });
+    else if (temp >= 36) alerts.push({ level: 'orange', title: 'Ola de Calor', msg: 'Temperaturas muy altas.' });
+    else if (temp <= -5) alerts.push({ level: 'orange', title: 'Ola de Frío', msg: 'Temperaturas bajo cero peligrosas.' });
+
+    // 3. Alertas de Tormenta / Lluvia
+    if (code >= 95) alerts.push({ level: 'orange', title: 'Tormenta Eléctrica', msg: 'Actividad eléctrica detectada.' });
+    if (rain >= 10) alerts.push({ level: 'orange', title: 'Lluvia Torrencial', msg: 'Precipitación intensa.' });
+    
+    // 4. Nieve
+    if (code === 75 || code === 86) alerts.push({ level: 'orange', title: 'Nevada Fuerte', msg: 'Acumulación de nieve rápida.' });
+
+    return alerts;
+};
+
 app.get('/api/vapid-key', (req, res) => res.json({ key: publicVapidKey }));
 app.post('/api/subscribe', async (req, res) => {
     try { await Subscription.upsert({ endpoint: req.body.subscription.endpoint, keys: req.body.subscription.keys, lat: req.body.lat, lon: req.body.lon, city: req.body.city, lastNotification: new Date(0) }); res.status(201).json({}); } catch (e) { res.status(500).json({}); }
 });
 
-// --- CRON JOB ---
 setInterval(async () => {
     const users = await Subscription.findAll();
     for (const user of users) {
@@ -82,7 +108,7 @@ app.get('/api/search/:query', async (req, res) => {
 
 app.get('/api/geo', async (req, res) => { res.json({ id: `${req.query.lat},${req.query.lon}`, name: "Ubicación", region: "", lat: req.query.lat, lon: req.query.lon }); });
 
-// --- WEATHER API (LA LÓGICA DE NOMBRE ESTÁ AQUÍ) ---
+// --- WEATHER API ---
 app.get('/api/weather/:id', async (req, res) => {
     let locationId = req.params.id;
     let forcedName = req.query.name;
@@ -91,12 +117,9 @@ app.get('/api/weather/:id', async (req, res) => {
     try {
         let lat, lon;
         
-        // 1. SI SON COORDENADAS
         if (locationId.includes(',')) {
             [lat, lon] = locationId.split(',');
-            
             const badNames = ['undefined', 'null', 'Ubicación', 'Ubicación detectada', 'Ubicación Detectada', '', 'My Location'];
-            
             if (!forcedName || badNames.includes(forcedName)) {
                 try {
                     const geoUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
@@ -105,9 +128,7 @@ app.get('/api/weather/:id', async (req, res) => {
                         forcedName = geoRes.data.results[0].name;
                         const r = geoRes.data.results[0];
                         forcedRegion = [r.admin1, r.country].filter(Boolean).join(', ');
-                    } else {
-                        throw new Error("OpenMeteo Empty");
-                    }
+                    } else { throw new Error("OpenMeteo Empty"); }
                 } catch(err) {
                     try {
                         const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10`;
@@ -134,7 +155,6 @@ app.get('/api/weather/:id', async (req, res) => {
             return res.json(data);
         }
 
-        // AÑADIDO: cloud_cover en current para el Stargazing
         const [wRes, aRes, pRes] = await Promise.allSettled([
             axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,cloud_cover&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`),
@@ -159,14 +179,9 @@ app.get('/api/weather/:id', async (req, res) => {
                 const tempYesterday = w.hourly.temperature_2m[startIndex - 24];
                 const tempToday = w.hourly.temperature_2m[startIndex];
                 const diff = tempToday - tempYesterday;
-                
-                if (Math.abs(diff) < 1) {
-                    comparisonText = "Misma temperatura que ayer";
-                } else if (diff > 0) {
-                    comparisonText = `${Math.round(diff)}° más calor que ayer`;
-                } else {
-                    comparisonText = `${Math.abs(Math.round(diff))}° más frío que ayer`;
-                }
+                if (Math.abs(diff) < 1) comparisonText = "Misma temperatura que ayer";
+                else if (diff > 0) comparisonText = `${Math.round(diff)}° más calor que ayer`;
+                else comparisonText = `${Math.abs(Math.round(diff))}° más frío que ayer`;
             }
         } catch (err) { comparisonText = ""; }
 
@@ -175,71 +190,45 @@ app.get('/api/weather/:id', async (req, res) => {
             .map((t, i) => {
                 const realIndex = startIndex + i;
                 return { 
-                    fullDate: t, 
-                    hour: parseInt(t.split('T')[1].split(':')[0]), 
-                    displayTime: t.split('T')[1], 
-                    temp: Math.round(w.hourly.temperature_2m[realIndex]), 
-                    rainProb: w.hourly.precipitation_probability[realIndex], 
-                    precip: w.hourly.precipitation[realIndex], 
-                    icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon 
+                    fullDate: t, hour: parseInt(t.split('T')[1].split(':')[0]), displayTime: t.split('T')[1], 
+                    temp: Math.round(w.hourly.temperature_2m[realIndex]), rainProb: w.hourly.precipitation_probability[realIndex], 
+                    precip: w.hourly.precipitation[realIndex], icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon 
                 };
             });
 
         let nowcast = { time: [], precipitation: [] };
         if (w.minutely_15) {
-            const indices = w.minutely_15.time
-                .map((t, i) => ({ t, i }))
-                .filter(item => item.t >= currentTime)
-                .map(item => item.i);
+            const indices = w.minutely_15.time.map((t, i) => ({ t, i })).filter(item => item.t >= currentTime).map(item => item.i);
             nowcast.time = indices.map(i => w.minutely_15.time[i]);
             nowcast.precipitation = indices.map(i => w.minutely_15.precipitation[i]);
         }
 
         const pollenData = {
-            alder: p.current.alder_pollen || 0,
-            birch: p.current.birch_pollen || 0,
-            grass: p.current.grass_pollen || 0,
-            mugwort: p.current.mugwort_pollen || 0,
-            olive: p.current.olive_pollen || 0,
-            ragweed: p.current.ragweed_pollen || 0
+            alder: p.current.alder_pollen || 0, birch: p.current.birch_pollen || 0, grass: p.current.grass_pollen || 0,
+            mugwort: p.current.mugwort_pollen || 0, olive: p.current.olive_pollen || 0, ragweed: p.current.ragweed_pollen || 0
         };
+
+        // --- GENERAMOS ALERTAS AQUÍ ---
+        const alerts = generateAlerts(w);
 
         const finalData = {
             location: { name: forcedName || "Ubicación", region: forcedRegion, lat, lon, timezone: w.timezone },
             current: { 
-                temp: Math.round(w.current.temperature_2m), 
-                feelsLike: Math.round(w.current.apparent_temperature), 
-                humidity: w.current.relative_humidity_2m, 
-                windSpeed: Math.round(w.current.wind_speed_10m), 
-                desc: currentWMO.text, 
-                icon: currentWMO.icon, 
-                isDay: w.current.is_day === 1, 
-                uv: w.daily.uv_index_max[0] || 0, 
-                aqi: a.current.us_aqi || 0, 
-                pm25: a.current.pm2_5 || 0, 
-                pm10: a.current.pm10 || 0, 
-                time: w.current.time,
-                cloudCover: w.current.cloud_cover || 0, // <--- NUEVO
-                comparison: comparisonText
+                temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, 
+                windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, 
+                uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time,
+                cloudCover: w.current.cloud_cover || 0, comparison: comparisonText
             },
-            nowcast: nowcast,
-            hourly: hourly,
-            pollen: pollenData,
+            nowcast: nowcast, hourly: hourly, pollen: pollenData, alerts: alerts, // <--- AÑADIDO ALERTAS
             daily: w.daily.time.map((t, i) => {
                 return { 
-                    fecha: t, 
-                    tempMax: Math.round(w.daily.temperature_2m_max[i]), 
-                    tempMin: Math.round(w.daily.temperature_2m_min[i]), 
-                    sunrise: w.daily.sunrise[i].split('T')[1], 
-                    sunset: w.daily.sunset[i].split('T')[1], 
-                    icon: decodeWMO(w.daily.weather_code[i], 1).icon, 
+                    fecha: t, tempMax: Math.round(w.daily.temperature_2m_max[i]), tempMin: Math.round(w.daily.temperature_2m_min[i]), 
+                    sunrise: w.daily.sunrise[i].split('T')[1], sunset: w.daily.sunset[i].split('T')[1], icon: decodeWMO(w.daily.weather_code[i], 1).icon, 
                     rainProbMax: w.daily.precipitation_probability_max[i],
                     dayHours: w.hourly.time.reduce((acc, timeStr, idx) => {
                         if (timeStr.startsWith(t)) {
                             acc.push({
-                                time: timeStr.split('T')[1],
-                                temp: Math.round(w.hourly.temperature_2m[idx]),
-                                rainProb: w.hourly.precipitation_probability[idx],
+                                time: timeStr.split('T')[1], temp: Math.round(w.hourly.temperature_2m[idx]), rainProb: w.hourly.precipitation_probability[idx], 
                                 icon: decodeWMO(w.hourly.weather_code[idx], 1).icon
                             });
                         }
