@@ -150,11 +150,29 @@ app.get('/api/weather/:id', async (req, res) => {
         const a = (aRes.status === 'fulfilled') ? aRes.value.data : { current: {} };
         const currentWMO = decodeWMO(w.current.weather_code, w.current.is_day);
 
+        // Filtrar datos pasados para que la tendencia y horas sean correctas
+        const currentTime = w.current.time;
+        const currentHourISO = currentTime.substring(0, 13) + ":00";
+
+        const hourly = w.hourly.time
+            .map((t, i) => ({ fullDate: t, hour: parseInt(t.split('T')[1].split(':')[0]), displayTime: t.split('T')[1], temp: Math.round(w.hourly.temperature_2m[i]), rainProb: w.hourly.precipitation_probability[i], precip: w.hourly.precipitation[i], icon: decodeWMO(w.hourly.weather_code[i], w.hourly.is_day[i]).icon }))
+            .filter(h => h.fullDate >= currentHourISO);
+
+        let nowcast = { time: [], precipitation: [] };
+        if (w.minutely_15) {
+            const indices = w.minutely_15.time
+                .map((t, i) => ({ t, i }))
+                .filter(item => item.t >= currentTime)
+                .map(item => item.i);
+            nowcast.time = indices.map(i => w.minutely_15.time[i]);
+            nowcast.precipitation = indices.map(i => w.minutely_15.precipitation[i]);
+        }
+
         const finalData = {
             location: { name: forcedName || "Ubicación", region: forcedRegion, lat, lon, timezone: w.timezone },
             current: { temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time },
-            nowcast: { time: w.minutely_15?.time || [], precipitation: w.minutely_15?.precipitation || [] },
-            hourly: w.hourly.time.map((t, i) => ({ fullDate: t, hour: parseInt(t.split('T')[1].split(':')[0]), displayTime: t.split('T')[1], temp: Math.round(w.hourly.temperature_2m[i]), rainProb: w.hourly.precipitation_probability[i], precip: w.hourly.precipitation[i], icon: decodeWMO(w.hourly.weather_code[i], w.hourly.is_day[i]).icon })),
+            nowcast: nowcast,
+            hourly: hourly,
             daily: w.daily.time.map((t, i) => ({ fecha: t, tempMax: Math.round(w.daily.temperature_2m_max[i]), tempMin: Math.round(w.daily.temperature_2m_min[i]), sunrise: w.daily.sunrise[i].split('T')[1], sunset: w.daily.sunset[i].split('T')[1], icon: decodeWMO(w.daily.weather_code[i], 1).icon, rainProbMax: w.daily.precipitation_probability_max[i] }))
         };
 
