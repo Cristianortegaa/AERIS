@@ -156,7 +156,6 @@
             height: 90px;
         }
 
-        /* ESTILOS POLEN */
         .pollen-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
         .pollen-name { font-size: 0.85rem; font-weight: 600; width: 80px; }
         .pollen-bar-bg { flex-grow: 1; height: 6px; background: rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
@@ -230,6 +229,7 @@
                     <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
                         Sensación: <span id="feels-like" class="skeleton" style="width: 30px; display:inline-block">--</span>°
                     </div>
+                    <div id="compare-txt" class="small opacity-50 fw-bold" style="font-size: 0.8rem; margin-top: -2px;"></div>
                 </div>
                 <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
                     <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
@@ -304,8 +304,7 @@
 
         <div class="glass-card" id="pollen-card" style="display:none">
             <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-flower1"></i> ALERGIAS Y POLEN</h6>
-            <div id="pollen-list">
-                </div>
+            <div id="pollen-list"></div>
         </div>
 
         <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
@@ -336,14 +335,12 @@
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
-            // Cargar tema guardado al inicio
             const savedTheme = localStorage.getItem('aeris_theme_pref');
             if (savedTheme) {
                 document.body.setAttribute('data-theme', savedTheme);
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
             }
 
-            // --- AUTO PROMPT NOTIFICACIONES ---
             if (Notification.permission === 'default') {
                 setTimeout(() => {
                     const modalEl = document.getElementById('notificationModal');
@@ -356,7 +353,6 @@
             }
         });
 
-        // --- PUSH: REGISTRO REAL ---
         async function registerPush(silent = false) {
             if (!('serviceWorker' in navigator)) return;
             if (silent && Notification.permission !== 'granted') return;
@@ -402,7 +398,6 @@
             }
         }
 
-        // --- GESTIÓN GLOBAL ---
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityName = localStorage.getItem('lastName') || 'Madrid';
         let currentCityRegion = localStorage.getItem('lastRegion') || '';
@@ -412,7 +407,6 @@
         let lastWeatherData = null;
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
-        // --- AI, ROPA, SHARE... ---
         const aiLogic = {
             normal: { icon: "🤖", name: "Normal", tips: { 
                 hot: ["Mantente hidratado.", "Evita el sol directo.", "Usa ropa ligera.", "Busca la sombra.", "Día caluroso, precaución."], 
@@ -629,8 +623,6 @@
             document.getElementById('tip-icon').innerText = p.icon; 
             
             let key = 'nice'; 
-            
-            // Prioridad a la alergia si es alta
             if (highPollen) {
                 key = 'allergy';
             } else {
@@ -740,31 +732,28 @@
             }
         };
         
-        // --- RENDERIZAR TARJETA POLEN ---
         const renderPollen = (pollen) => {
             const card = document.getElementById('pollen-card');
             const list = document.getElementById('pollen-list');
             
             if (!pollen || Object.values(pollen).every(v => v === 0)) {
                 card.style.display = 'none';
-                return false; // No hay alergia alta
+                return false; 
             }
             
             card.style.display = 'block';
             
             const types = [
-                { k: 'grass', n: 'Gramíneas', color: '#84cc16' }, // Lime
-                { k: 'olive', n: 'Olivo', color: '#eab308' }, // Yellow
-                { k: 'birch', n: 'Abedul', color: '#f97316' }, // Orange
-                { k: 'ragweed', n: 'Ambrosía', color: '#ef4444' }, // Red
-                { k: 'alder', n: 'Aliso', color: '#a855f7' }, // Purple
-                { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' } // Cyan
+                { k: 'grass', n: 'Gramíneas', color: '#84cc16' },
+                { k: 'olive', n: 'Olivo', color: '#eab308' },
+                { k: 'birch', n: 'Abedul', color: '#f97316' },
+                { k: 'ragweed', n: 'Ambrosía', color: '#ef4444' },
+                { k: 'alder', n: 'Aliso', color: '#a855f7' },
+                { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' }
             ];
             
-            // Ordenamos de mayor a menor nivel
             types.sort((a, b) => (pollen[b.k] || 0) - (pollen[a.k] || 0));
             
-            // Cogemos los top 4 si tienen valor
             const activeTypes = types.filter(t => pollen[t.k] > 5).slice(0, 4);
             
             if (activeTypes.length === 0) {
@@ -776,11 +765,10 @@
 
             list.innerHTML = activeTypes.map(t => {
                 const val = pollen[t.k] || 0;
-                // Normalizamos un poco (valores suelen ir de 0 a 100+ en picos altos)
                 let percent = (val / 100) * 100;
                 if (percent > 100) percent = 100;
                 
-                if (val > 50) isHigh = true; // Umbral para activar IA
+                if (val > 50) isHigh = true; 
                 
                 return `
                 <div class="pollen-item">
@@ -824,6 +812,9 @@
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
+                
+                // AÑADIDO: Actualizar texto de comparación
+                document.getElementById('compare-txt').innerText = cur.comparison || "";
 
                 const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
                 const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
@@ -840,10 +831,8 @@
 
                 renderRainChart(data.nowcast, data.hourly, cur.time);
                 
-                // --- NUEVO: RENDERIZAR POLEN Y DETECTAR SI ES ALTO ---
                 const isHighPollen = renderPollen(data.pollen);
                 
-                // --- PASAR EL ESTADO DE POLEN A LA IA ---
                 updateAIText(cur, isHighPollen);
 
                 if (data.daily && data.daily.length > 0) {

@@ -136,9 +136,9 @@ app.get('/api/weather/:id', async (req, res) => {
             return res.json(data);
         }
 
-        // AÑADIDO: Solicitud a la API de polen (alder, birch, grass, olive, ragweed)
+        // AÑADIDO: &past_days=1 para poder comparar con ayer
         const [wRes, aRes, pRes] = await Promise.allSettled([
-            axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto`),
+            axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`),
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen&timezone=auto`)
         ]);
@@ -146,7 +146,7 @@ app.get('/api/weather/:id', async (req, res) => {
         if (wRes.status === 'rejected') throw new Error("Fallo API Clima");
         const w = wRes.value.data;
         const a = (aRes.status === 'fulfilled') ? aRes.value.data : { current: {} };
-        const p = (pRes.status === 'fulfilled') ? pRes.value.data : { current: {} }; // Datos de polen
+        const p = (pRes.status === 'fulfilled') ? pRes.value.data : { current: {} };
         
         const currentWMO = decodeWMO(w.current.weather_code, w.current.is_day);
         const currentTime = w.current.time;
@@ -154,6 +154,26 @@ app.get('/api/weather/:id', async (req, res) => {
         
         let startIndex = w.hourly.time.findIndex(t => t.startsWith(currentHourStr));
         if (startIndex === -1) startIndex = 0;
+
+        // --- LÓGICA COMPARACIÓN AYER ---
+        let comparisonText = "";
+        try {
+            // startIndex es el índice de la hora actual. Al haber pedido past_days=1,
+            // si restamos 24 horas, deberíamos tener la temperatura de ayer a la misma hora.
+            if (startIndex >= 24) {
+                const tempYesterday = w.hourly.temperature_2m[startIndex - 24];
+                const tempToday = w.hourly.temperature_2m[startIndex]; // Usamos la de hourly para que sea la misma fuente
+                const diff = tempToday - tempYesterday;
+                
+                if (Math.abs(diff) < 1) {
+                    comparisonText = "Misma temperatura que ayer";
+                } else if (diff > 0) {
+                    comparisonText = `${Math.round(diff)}° más calor que ayer`;
+                } else {
+                    comparisonText = `${Math.abs(Math.round(diff))}° más frío que ayer`;
+                }
+            }
+        } catch (err) { comparisonText = ""; }
 
         const hourly = w.hourly.time
             .slice(startIndex, startIndex + 24)
@@ -180,35 +200,47 @@ app.get('/api/weather/:id', async (req, res) => {
             nowcast.precipitation = indices.map(i => w.minutely_15.precipitation[i]);
         }
 
-        // Procesar Polen
         const pollenData = {
-            alder: p.current.alder_pollen || 0, // Aliso
-            birch: p.current.birch_pollen || 0, // Abedul
-            grass: p.current.grass_pollen || 0, // Gramíneas
-            mugwort: p.current.mugwort_pollen || 0, // Artemisa
-            olive: p.current.olive_pollen || 0, // Olivo
-            ragweed: p.current.ragweed_pollen || 0 // Ambrosía
+            alder: p.current.alder_pollen || 0,
+            birch: p.current.birch_pollen || 0,
+            grass: p.current.grass_pollen || 0,
+            mugwort: p.current.mugwort_pollen || 0,
+            olive: p.current.olive_pollen || 0,
+            ragweed: p.current.ragweed_pollen || 0
         };
 
         const finalData = {
             location: { name: forcedName || "Ubicación", region: forcedRegion, lat, lon, timezone: w.timezone },
-            current: { temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time },
+            current: { 
+                temp: Math.round(w.current.temperature_2m), 
+                feelsLike: Math.round(w.current.apparent_temperature), 
+                humidity: w.current.relative_humidity_2m, 
+                windSpeed: Math.round(w.current.wind_speed_10m), 
+                desc: currentWMO.text, 
+                icon: currentWMO.icon, 
+                isDay: w.current.is_day === 1, 
+                uv: w.daily.uv_index_max[0] || 0, 
+                aqi: a.current.us_aqi || 0, 
+                pm25: a.current.pm2_5 || 0, 
+                pm10: a.current.pm10 || 0, 
+                time: w.current.time,
+                comparison: comparisonText // <--- Campo nuevo
+            },
             nowcast: nowcast,
             hourly: hourly,
-            pollen: pollenData, // <--- AÑADIDO AQUÍ
+            pollen: pollenData,
             daily: w.daily.time.map((t, i) => {
-                const datePrefix = t;
-                const dayHours = w.hourly.time.reduce((acc, timeStr, idx) => {
-                    if (timeStr.startsWith(datePrefix)) {
-                        acc.push({
-                            time: timeStr.split('T')[1],
-                            temp: Math.round(w.hourly.temperature_2m[idx]),
-                            rainProb: w.hourly.precipitation_probability[idx],
-                            icon: decodeWMO(w.hourly.weather_code[idx], 1).icon
-                        });
-                    }
-                    return acc;
-                }, []);
+                // Como w.daily empieza desde ayer por el past_days=1, tenemos que ajustar el índice
+                // O mejor, filtramos para no enviar el día de ayer en la lista daily si no queremos
+                // Pero el código actual de map iterará sobre todos.
+                // IMPORTANTE: Open-Meteo devuelve daily alineado. Si pedimos past_days=1, el índice 0 es AYER.
+                // El índice 1 es HOY.
+                // Vamos a asegurarnos de enviar desde HOY.
+                
+                // NOTA: Para no complicar la lógica de indices en el reduce, simplemente
+                // dejamos que map procese todo y en el frontend o aquí filtramos fechas pasadas.
+                // Para mantener consistencia con tu código anterior, voy a filtrar aquí
+                // para que el frontend reciba lo mismo que antes (desde hoy en adelante).
                 
                 return { 
                     fecha: t, 
@@ -218,9 +250,20 @@ app.get('/api/weather/:id', async (req, res) => {
                     sunset: w.daily.sunset[i].split('T')[1], 
                     icon: decodeWMO(w.daily.weather_code[i], 1).icon, 
                     rainProbMax: w.daily.precipitation_probability_max[i],
-                    dayHours: dayHours
+                    // Fix para que dayHours funcione con past_days
+                    dayHours: w.hourly.time.reduce((acc, timeStr, idx) => {
+                        if (timeStr.startsWith(t)) {
+                            acc.push({
+                                time: timeStr.split('T')[1],
+                                temp: Math.round(w.hourly.temperature_2m[idx]),
+                                rainProb: w.hourly.precipitation_probability[idx],
+                                icon: decodeWMO(w.hourly.weather_code[idx], 1).icon
+                            });
+                        }
+                        return acc;
+                    }, [])
                 };
-            })
+            }).filter(d => d.fecha >= currentTime.split('T')[0]) // Filtramos para quitar ayer de la lista diaria
         };
 
         await WeatherCache.upsert({ locationId, data: JSON.stringify(finalData), updatedAt: new Date() });
