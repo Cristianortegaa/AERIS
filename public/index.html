@@ -6,6 +6,7 @@
     <title>AERIS - Tu App del Tiempo</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -15,6 +16,7 @@
     
     <script>
         (function() {
+            // Solo para evitar flash blanco inicial, la lógica real está en el JS
             const savedTheme = localStorage.getItem('aeris_theme_pref');
             if (savedTheme) {
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
@@ -31,12 +33,102 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
-        :root { --bg-1: #bae6fd; --bg-2: #e0f2fe; --glass: rgba(255, 255, 255, 0.65); --glass-border: rgba(255, 255, 255, 0.4); --text: #0c4a6e; --text-sec: #475569; --accent: #0284c7; --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); --skeleton-base: rgba(255, 255, 255, 0.3); --skeleton-shine: rgba(255, 255, 255, 0.6); --invert-close: 0; }
-        [data-bs-theme="dark"], [data-theme="dark"] { 
-            --bg-1: #0f172a; --bg-2: #020617; --glass: rgba(30, 41, 59, 0.70); --glass-border: rgba(255, 255, 255, 0.1); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #38bdf8; --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); --skeleton-base: rgba(255, 255, 255, 0.05); --skeleton-shine: rgba(255, 255, 255, 0.15); --invert-close: 1; 
+        /* --- CONFIGURACIÓN BASE Y VARIABLES --- */
+        :root { 
+            --bg-1: #bae6fd; --bg-2: #e0f2fe; 
+            --glass: rgba(255, 255, 255, 0.65); 
+            --glass-border: rgba(255, 255, 255, 0.4); 
+            --text: #0c4a6e; --text-sec: #475569; 
+            --accent: #0284c7; 
+            --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); 
+            --skeleton-base: rgba(255, 255, 255, 0.3); 
+            --skeleton-shine: rgba(255, 255, 255, 0.6); 
+            --invert-close: 0; 
         }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text); background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); min-height: 100vh; padding-bottom: 80px; transition: background 0.8s ease, color 0.5s ease; overflow-x: hidden; }
+        
+        /* MODO OSCURO GENÉRICO (Se sobrescribe con fondos vivos) */
+        [data-bs-theme="dark"], [data-theme="dark"] { 
+            --bg-1: #0f172a; --bg-2: #020617; 
+            --glass: rgba(30, 41, 59, 0.70); 
+            --glass-border: rgba(255, 255, 255, 0.1); 
+            --text: #f8fafc; --text-sec: #cbd5e1; 
+            --accent: #38bdf8; 
+            --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); 
+            --skeleton-base: rgba(255, 255, 255, 0.05); 
+            --skeleton-shine: rgba(255, 255, 255, 0.15); 
+            --invert-close: 1; 
+        }
 
+        /* --- FONDOS VIVOS / DINÁMICOS --- */
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            color: var(--text); 
+            min-height: 100vh; 
+            padding-bottom: 80px; 
+            transition: background 1.5s ease, color 0.5s ease; 
+            overflow-x: hidden;
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            background-image: linear-gradient(180deg, var(--bg-1), var(--bg-2)); /* Fallback */
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* 1. CLIMA: SOL / DESPEJADO (DÍA) */
+        body.bg-clear-day {
+            background-image: linear-gradient(-45deg, #29b6f6, #38bdf8, #bae6fd, #e0f2fe);
+            --glass: rgba(255, 255, 255, 0.7);
+            --text: #0c4a6e; --text-sec: #334155; --accent: #0284c7;
+        }
+
+        /* 2. CLIMA: SOL / DESPEJADO (NOCHE) */
+        body.bg-clear-night {
+            background-image: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #4338ca);
+            --glass: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc; --text-sec: #cbd5e1; --accent: #818cf8;
+        }
+
+        /* 3. CLIMA: NUBLADO (DÍA) */
+        body.bg-cloudy-day {
+            background-image: linear-gradient(-45deg, #94a3b8, #cbd5e1, #e2e8f0, #f1f5f9);
+            --glass: rgba(255, 255, 255, 0.65);
+            --text: #334155; --text-sec: #475569; --accent: #475569;
+        }
+
+        /* 4. CLIMA: NUBLADO (NOCHE) */
+        body.bg-cloudy-night {
+            background-image: linear-gradient(-45deg, #020617, #1e293b, #334155, #475569);
+            --glass: rgba(15, 23, 42, 0.85);
+            --text: #f1f5f9; --text-sec: #94a3b8; --accent: #94a3b8;
+        }
+
+        /* 5. CLIMA: LLUVIA / TORMENTA */
+        body.bg-rain {
+            background-image: linear-gradient(-45deg, #374151, #4b5563, #64748b, #334155);
+            --glass: rgba(255, 255, 255, 0.15); /* Efecto más cristalino/húmedo */
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text: #ffffff; --text-sec: #e2e8f0; --accent: #38bdf8;
+        }
+
+        /* 6. CLIMA: NIEVE */
+        body.bg-snow {
+            background-image: linear-gradient(-45deg, #e2e8f0, #f8fafc, #ffffff, #cbd5e1);
+            --glass: rgba(255, 255, 255, 0.85);
+            --text: #1e293b; --text-sec: #475569; --accent: #0ea5e9;
+        }
+        
+        /* 7. CLIMA: CALOR EXTREMO */
+        body.bg-hot {
+            background-image: linear-gradient(-45deg, #f59e0b, #fbbf24, #fcd34d, #fef3c7);
+            --glass: rgba(255, 255, 255, 0.6);
+            --text: #78350f; --text-sec: #92400e; --accent: #d97706;
+        }
+
+        /* --- ESTILOS GENERALES --- */
         #splash-screen { position: fixed; inset: 0; background: linear-gradient(180deg, #bae6fd, #e0f2fe); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s ease-out, visibility 0.6s; }
         #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
         .splash-logo-container { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 50px rgba(0,0,0,0.15); animation: breathe 3s infinite; }
@@ -457,6 +549,7 @@
         let lastWeatherData = null;
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
+        // --- AI LOGIC AMPLIADO ---
         const aiLogic = {
             normal: { icon: "🤖", name: "Normal", tips: { 
                 hot: ["Mantente hidratado.", "Evita el sol directo.", "Usa ropa ligera.", "Busca la sombra.", "Día caluroso, precaución.", "No olvides las gafas de sol.", "Aplica protector solar si sales."], 
@@ -575,7 +668,6 @@
                 nice: ["Júpiter bendice el día.", "Vibración alta.", "Armonía cósmica.", "El universo conspira a favor.", "Luz estelar.", "Venus sonríe.", "Alineación planetaria favorable."],
                 allergy: ["Energía de aire desequilibrada.", "Marte irrita tus mucosas.", "Bloqueo en el chakra garganta.", "La naturaleza te pone a prueba.", "Mercurio retrógrado en tu nariz."]
             }},
-            // --- NUEVA PERSONALIDAD: PADRE ---
             padre: { icon: "👨🏻", name: "Padre", tips: { 
                 hot: ["Ni se te ocurra tocar el termostato.", "Buen día para una barbacoa.", "¿Ves? Te dije que haría calor.", "Ahorra agua.", "Esto no es calor, calor hacía en la mili.", "Cierra la puerta que se escapa el fresco."], 
                 cold: ["Ponte un jersey y no toques la calefacción.", "Cierra la puerta, ¿naciste en un establo?", "Esto templa el carácter.", "Revisa el anticongelante del coche.", "Ahorra luz, apaga eso.", "¿Tienes frío? Corta leña."], 
@@ -585,7 +677,6 @@
                 nice: ["Día perfecto para lavar el coche.", "Vamos a dar una vuelta al campo.", "Apaga las luces, hay luz natural.", "Ni una nube.", "Así da gusto.", "Buen día para cortar el césped."],
                 allergy: ["Eso no es nada, es psicológico.", "Anda, toma un pañuelo.", "Estornudas muy fuerte.", "A mí el polen no me hace nada.", "Sal al aire libre, te despejará."]
             }},
-            // --- NUEVA PERSONALIDAD: NOVIA ---
             novia: { icon: "👩‍❤️‍💋‍👨", name: "Novia", tips: { 
                 hot: ["Vamos a la playa, porfi.", "Hace demasiado calor para abrazarnos.", "¿Me compras un helado?", "Ponte guapo pero fresco.", "Quiero ir a una terraza.", "Mis pelos con esta humedad...", "Llévame a ver el atardecer."], 
                 cold: ["Tengo las manos heladas, caliéntamelas.", "Dame tu sudadera, tengo frío.", "Día de peli y manta.", "No siento los pies.", "Abrázame fuerte.", "Quiero un chocolate caliente.", "No salgamos, hace frío."], 
@@ -687,6 +778,24 @@
             return { boys: boys.slice(0, 4), girls: girls.slice(0, 4) };
         };
         
+        // --- FUNCIÓN PARA CAMBIAR EL FONDO SEGÚN EL CLIMA ---
+        const setDynamicBackground = (cur) => {
+            const body = document.body;
+            body.className = ''; // Limpiar clases anteriores
+            
+            const isDay = cur.isDay;
+            const code = cur.desc.toLowerCase();
+            const temp = cur.temp;
+
+            if (temp > 35) { body.classList.add('bg-hot'); return; }
+            if (code.includes('lluvia') || code.includes('llovizna') || code.includes('tormenta') || code.includes('chubascos')) { body.classList.add('bg-rain'); return; }
+            if (code.includes('nieve')) { body.classList.add('bg-snow'); return; }
+            if (code.includes('nublado') || code.includes('nubes') || code.includes('cubierto') || code.includes('niebla')) { body.classList.add(isDay ? 'bg-cloudy-day' : 'bg-cloudy-night'); return; }
+
+            // Default: Despejado / Sol
+            body.classList.add(isDay ? 'bg-clear-day' : 'bg-clear-night');
+        };
+
         const updateAIText = (cur, highPollen = false) => { 
             if (!cur) return; 
             const p = aiLogic[currentPersona]; 
@@ -779,6 +888,8 @@
 
         const themeBtn = document.getElementById('themeBtn');
         if(themeBtn) themeBtn.addEventListener('click', () => {
+            // Este botón ahora solo sirve para ver cómo queda el modo oscuro/claro forzado,
+            // pero al cambiar de ciudad se reseteará al clima real.
             const current = document.body.getAttribute('data-theme');
             const newTheme = current === 'dark' ? 'light' : 'dark';
             localStorage.setItem('aeris_theme_pref', newTheme);
@@ -813,21 +924,20 @@
             
             card.style.display = 'block';
             
-            // --- LISTA COMPLETA DE ALERGIAS (POLEN) ---
             const types = [
-                { k: 'grass', n: 'Gramíneas', color: '#84cc16' },   // Verde Lima (Común en primavera)
-                { k: 'olive', n: 'Olivo', color: '#eab308' },       // Amarillo Aceite (Muy fuerte en el sur)
-                { k: 'birch', n: 'Abedul', color: '#f97316' },      // Naranja (Norte de Europa/España)
-                { k: 'ragweed', n: 'Ambrosía', color: '#ef4444' },  // Rojo (Muy alergénica)
-                { k: 'alder', n: 'Aliso', color: '#a855f7' },       // Morado
-                { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' },  // Cian
-                { k: 'oak', n: 'Roble', color: '#854d0e' },         // Marrón Madera
-                { k: 'pine', n: 'Pino', color: '#166534' },         // Verde Bosque
-                { k: 'cypress', n: 'Ciprés', color: '#14b8a6' },    // Verde Azulado (Arizónicas)
-                { k: 'hazel', n: 'Avellano', color: '#d97706' },    // Marrón Claro
-                { k: 'plane', n: 'P. Sombra', color: '#86efac' },   // Verde Claro (Plátano de paseo, muy común en ciudades)
-                { k: 'poplar', n: 'Chopo', color: '#cbd5e1' },      // Gris/Blanco (Por la pelusa)
-                { k: 'ash', n: 'Fresno', color: '#64748b' }         // Gris Azulado
+                { k: 'grass', n: 'Gramíneas', color: '#84cc16' },
+                { k: 'olive', n: 'Olivo', color: '#eab308' },
+                { k: 'birch', n: 'Abedul', color: '#f97316' },
+                { k: 'ragweed', n: 'Ambrosía', color: '#ef4444' },
+                { k: 'alder', n: 'Aliso', color: '#a855f7' },
+                { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' },
+                { k: 'oak', n: 'Roble', color: '#854d0e' },
+                { k: 'pine', n: 'Pino', color: '#166534' },
+                { k: 'cypress', n: 'Ciprés', color: '#14b8a6' },
+                { k: 'hazel', n: 'Avellano', color: '#d97706' },
+                { k: 'plane', n: 'P. Sombra', color: '#86efac' },
+                { k: 'poplar', n: 'Chopo', color: '#cbd5e1' },
+                { k: 'ash', n: 'Fresno', color: '#64748b' }
             ];
             
             types.sort((a, b) => (pollen[b.k] || 0) - (pollen[a.k] || 0));
@@ -861,7 +971,6 @@
             return isHigh;
         };
 
-        // --- RENDERIZAR ALERTAS (NUEVO) ---
         const renderAlerts = (alerts) => {
             const container = document.getElementById('alerts-container');
             if(!alerts || alerts.length === 0) {
@@ -887,7 +996,6 @@
             const rainToday = daily[0] ? daily[0].rainProbMax > 40 : false;
             const rainTomorrow = daily[1] ? daily[1].rainProbMax > 40 : false;
             
-            // --- LISTA CON ICONOS FONT AWESOME (FA) ---
             const activities = [
                 {
                     id: 'run', name: 'Running', icon: 'fa-solid fa-person-running', 
@@ -987,7 +1095,17 @@
                 updateHeartUI();
 
                 document.querySelectorAll('.skeleton').forEach(el => { el.classList.remove('skeleton'); el.style.width = ''; el.style.height = ''; el.style.minHeight = ''; });
-                document.getElementById('city').innerText = loc.name;
+                
+                // --- TU UBICACIÓN (FORMATO MEJORADO) ---
+                if(loc.name.startsWith("Tu ubicación (")) {
+                    document.getElementById('city').innerHTML = loc.name
+                        .replace('Tu ubicación', 'TU UBICACIÓN')
+                        .replace('(', '<small style="opacity:0.6; font-size:0.7em; margin-left:5px; text-transform:none">(')
+                        .replace(')', ')</small>');
+                } else {
+                    document.getElementById('city').innerText = loc.name;
+                }
+
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
@@ -1017,10 +1135,12 @@
                 
                 renderLifestyle(cur, data.daily);
                 
-                // RENDERIZAR ALERTAS
                 renderAlerts(data.alerts);
                 
                 updateAIText(cur, isHighPollen);
+                
+                // --- FONDO DINÁMICO (LLAMADA) ---
+                setDynamicBackground(cur);
 
                 if (data.daily && data.daily.length > 0) {
                     document.getElementById('max-temp').innerText = data.daily[0].tempMax;
@@ -1096,17 +1216,6 @@
                     </div>
                     `;
                 }).join('');
-
-                const weatherTheme = cur.isDay ? 'light' : 'dark';
-                document.body.setAttribute('data-theme', weatherTheme);
-                document.documentElement.setAttribute('data-bs-theme', weatherTheme);
-                
-                if(themeBtn) { 
-                    themeBtn.innerHTML = weatherTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>'; 
-                    document.documentElement.style.setProperty('--invert-close', weatherTheme === 'dark' ? '1' : '0');
-                }
-                
-                localStorage.removeItem('aeris_theme_pref');
 
             } catch (e) { console.error(e); }
         }
