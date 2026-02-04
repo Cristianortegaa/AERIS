@@ -16,7 +16,7 @@
     
     <script>
         (function() {
-            // Solo para evitar flash blanco inicial, la lógica real está en el JS
+            // Evitar flash blanco
             const savedTheme = localStorage.getItem('aeris_theme_pref');
             if (savedTheme) {
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
@@ -33,23 +33,23 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
-        /* --- CONFIGURACIÓN BASE Y VARIABLES --- */
+        /* --- 1. CONFIGURACIÓN BASE Y VARIABLES DE COLOR --- */
         :root { 
             --bg-1: #bae6fd; --bg-2: #e0f2fe; 
-            --glass: rgba(255, 255, 255, 0.65); 
-            --glass-border: rgba(255, 255, 255, 0.4); 
+            --glass: rgba(255, 255, 255, 0.75); /* Más opacidad para leer mejor */
+            --glass-border: rgba(255, 255, 255, 0.5); 
             --text: #0c4a6e; --text-sec: #475569; 
             --accent: #0284c7; 
             --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); 
-            --skeleton-base: rgba(255, 255, 255, 0.3); 
-            --skeleton-shine: rgba(255, 255, 255, 0.6); 
+            --skeleton-base: rgba(255, 255, 255, 0.4); 
+            --skeleton-shine: rgba(255, 255, 255, 0.8); 
             --invert-close: 0; 
         }
         
-        /* MODO OSCURO GENÉRICO (Se sobrescribe con fondos vivos) */
+        /* MODO OSCURO (Fallback) */
         [data-bs-theme="dark"], [data-theme="dark"] { 
             --bg-1: #0f172a; --bg-2: #020617; 
-            --glass: rgba(30, 41, 59, 0.70); 
+            --glass: rgba(15, 23, 42, 0.8); 
             --glass-border: rgba(255, 255, 255, 0.1); 
             --text: #f8fafc; --text-sec: #cbd5e1; 
             --accent: #38bdf8; 
@@ -59,7 +59,7 @@
             --invert-close: 1; 
         }
 
-        /* --- FONDOS VIVOS / DINÁMICOS --- */
+        /* --- 2. FONDOS VIVOS (ALTO CONTRASTE) --- */
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             color: var(--text); 
@@ -67,9 +67,9 @@
             padding-bottom: 80px; 
             transition: background 1.5s ease, color 0.5s ease; 
             overflow-x: hidden;
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
-            background-image: linear-gradient(180deg, var(--bg-1), var(--bg-2)); /* Fallback */
+            background-size: 300% 300%;
+            animation: gradientBG 20s ease infinite;
+            background-image: linear-gradient(180deg, var(--bg-1), var(--bg-2));
         }
 
         @keyframes gradientBG {
@@ -78,79 +78,85 @@
             100% { background-position: 0% 50%; }
         }
 
-        /* 1. CLIMA: SOL / DESPEJADO (DÍA) */
+        /* DÍA: SOL / DESPEJADO -> Azul claro, Tarjetas Blancas, Texto Oscuro */
         body.bg-clear-day {
-            background-image: linear-gradient(-45deg, #29b6f6, #38bdf8, #bae6fd, #e0f2fe);
-            --glass: rgba(255, 255, 255, 0.7);
+            background-image: linear-gradient(-45deg, #38bdf8, #bae6fd, #e0f2fe, #7dd3fc);
+            --glass: rgba(255, 255, 255, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.6);
             --text: #0c4a6e; --text-sec: #334155; --accent: #0284c7;
+            --skeleton-base: rgba(0, 0, 0, 0.05); --skeleton-shine: rgba(0, 0, 0, 0.1);
         }
 
-        /* 2. CLIMA: SOL / DESPEJADO (NOCHE) */
+        /* NOCHE: DESPEJADO -> Azul oscuro, Tarjetas Oscuras, Texto Blanco */
         body.bg-clear-night {
-            background-image: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #4338ca);
-            --glass: rgba(30, 41, 59, 0.7);
+            background-image: linear-gradient(-45deg, #020617, #0f172a, #1e1b4b, #312e81);
+            --glass: rgba(15, 23, 42, 0.75); /* Tarjeta oscura para contraste */
+            --glass-border: rgba(255, 255, 255, 0.15);
             --text: #f8fafc; --text-sec: #cbd5e1; --accent: #818cf8;
+            --invert-close: 1;
+            --skeleton-base: rgba(255, 255, 255, 0.1); --skeleton-shine: rgba(255, 255, 255, 0.2);
         }
 
-        /* 3. CLIMA: NUBLADO (DÍA) */
+        /* DÍA: NUBLADO -> Gris, Tarjetas Blancas, Texto Gris Oscuro */
         body.bg-cloudy-day {
-            background-image: linear-gradient(-45deg, #94a3b8, #cbd5e1, #e2e8f0, #f1f5f9);
-            --glass: rgba(255, 255, 255, 0.65);
-            --text: #334155; --text-sec: #475569; --accent: #475569;
-        }
-
-        /* 4. CLIMA: NUBLADO (NOCHE) */
-        body.bg-cloudy-night {
-            background-image: linear-gradient(-45deg, #020617, #1e293b, #334155, #475569);
-            --glass: rgba(15, 23, 42, 0.85);
-            --text: #f1f5f9; --text-sec: #94a3b8; --accent: #94a3b8;
-        }
-
-        /* 5. CLIMA: LLUVIA / TORMENTA */
-        body.bg-rain {
-            background-image: linear-gradient(-45deg, #374151, #4b5563, #64748b, #334155);
-            --glass: rgba(255, 255, 255, 0.15); /* Efecto más cristalino/húmedo */
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --text: #ffffff; --text-sec: #e2e8f0; --accent: #38bdf8;
-        }
-
-        /* 6. CLIMA: NIEVE */
-        body.bg-snow {
-            background-image: linear-gradient(-45deg, #e2e8f0, #f8fafc, #ffffff, #cbd5e1);
+            background-image: linear-gradient(-45deg, #94a3b8, #cbd5e1, #e2e8f0, #f8fafc);
             --glass: rgba(255, 255, 255, 0.85);
-            --text: #1e293b; --text-sec: #475569; --accent: #0ea5e9;
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --text: #1e293b; --text-sec: #475569; --accent: #475569;
+        }
+
+        /* NOCHE: NUBLADO -> Gris Oscuro, Tarjetas Oscuras, Texto Blanco */
+        body.bg-cloudy-night {
+            background-image: linear-gradient(-45deg, #0f172a, #1e293b, #334155, #020617);
+            --glass: rgba(15, 23, 42, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text: #f1f5f9; --text-sec: #94a3b8; --accent: #94a3b8;
+            --invert-close: 1;
+        }
+
+        /* LLUVIA / TORMENTA -> Gris Azulado, Tarjetas Oscuras Ahumadas, Texto Blanco */
+        body.bg-rain {
+            background-image: linear-gradient(-45deg, #1f2937, #374151, #4b5563, #111827);
+            --glass: rgba(0, 0, 0, 0.4); /* Efecto ahumado */
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text: #ffffff; --text-sec: #e5e7eb; --accent: #38bdf8;
+            --invert-close: 1;
+        }
+
+        /* NIEVE -> Blanco Hielo, Tarjetas Blancas, Texto Azul Oscuro */
+        body.bg-snow {
+            background-image: linear-gradient(-45deg, #e2e8f0, #f1f5f9, #ffffff, #cbd5e1);
+            --glass: rgba(255, 255, 255, 0.9);
+            --glass-border: rgba(255, 255, 255, 0.8);
+            --text: #0f172a; --text-sec: #334155; --accent: #0ea5e9;
         }
         
-        /* 7. CLIMA: CALOR EXTREMO */
+        /* CALOR -> Naranja, Tarjetas Blancas Calidas, Texto Marrón */
         body.bg-hot {
             background-image: linear-gradient(-45deg, #f59e0b, #fbbf24, #fcd34d, #fef3c7);
-            --glass: rgba(255, 255, 255, 0.6);
+            --glass: rgba(255, 255, 255, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.6);
             --text: #78350f; --text-sec: #92400e; --accent: #d97706;
         }
 
-        /* --- ESTILOS GENERALES --- */
-        #splash-screen { position: fixed; inset: 0; background: linear-gradient(180deg, #bae6fd, #e0f2fe); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s ease-out, visibility 0.6s; }
-        #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-        .splash-logo-container { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 50px rgba(0,0,0,0.15); animation: breathe 3s infinite; }
-        .splash-title { margin-top: 20px; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: 2px; opacity: 0.8; color: #0c4a6e; }
-        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-
-        .glass-card { background: var(--glass); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-radius: 24px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--glass-border); box-shadow: var(--card-shadow); transition: transform 0.2s, background 0.5s; position: relative; }
+        /* --- 3. COMPONENTES DE LA INTERFAZ --- */
+        .glass-card { background: var(--glass); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-radius: 24px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--glass-border); box-shadow: var(--card-shadow); transition: transform 0.2s, background 0.5s; position: relative; color: var(--text); }
         .skeleton { background-color: var(--skeleton-base); background-image: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 40px, var(--skeleton-base) 80px); background-size: 200px 100%; background-repeat: no-repeat; display: inline-block; border-radius: 8px; color: transparent !important; animation: shimmer 1.5s infinite linear; pointer-events: none; min-height: 1em; }
         .skeleton-circle { width: 100%; height: 100%; border-radius: 50%; }
-        @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(100% + 200px) 0; } }
-
+        
         .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
         .search-group { flex-grow: 1; position: relative; }
         .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
+        .search-input::placeholder { color: var(--text-sec); opacity: 0.7; }
         .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
         .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
         .btn-icon.active { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
         
-        .temp-big { font-family:'Outfit'; font-weight:700; font-size: clamp(3.5rem, 10vw, 5.5rem); line-height: 1; letter-spacing: -2px; }
+        .temp-big { font-family:'Outfit'; font-weight:700; font-size: clamp(3.5rem, 10vw, 5.5rem); line-height: 1; letter-spacing: -2px; text-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
         .hourly-item { min-width:60px; text-align:center; }
         .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
+        
         .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; }
         .suggestions-list.show { display: block; }
         .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; color: var(--text); }
@@ -160,25 +166,25 @@
         .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
         .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
-        [data-theme="dark"] .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
+        body.bg-rain .fav-sidebar, body.bg-clear-night .fav-sidebar, body.bg-cloudy-night .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
         .fav-sidebar.open { transform: translateX(0); }
         .fav-header { padding: 30px 25px; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; display: flex; justify-content: space-between; align-items: center; color: var(--text); border-bottom: 1px solid var(--glass-border); }
         .fav-list { list-style: none; padding: 15px; margin: 0; overflow-y: auto; flex-grow: 1; }
         .fav-item { padding: 16px 20px; margin-bottom: 10px; border-radius: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; color: var(--text); background: rgba(255, 255, 255, 0.5); border: 1px solid transparent; }
-        [data-theme="dark"] .fav-item { background: rgba(255, 255, 255, 0.03); }
+        body.bg-rain .fav-item, body.bg-clear-night .fav-item { background: rgba(255, 255, 255, 0.05); }
         .fav-item-info { display: flex; flex-direction: column; justify-content: center; gap: 4px; max-width: 80%; }
         .fav-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
         .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
         .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
         .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
 
-        .ai-container { cursor: pointer; transition: transform 0.2s; user-select: none; position: relative; padding: 5px; border-radius: 12px; display: flex; align-items: center; gap: 8px; }
+        .ai-container { cursor: pointer; transition: transform 0.2s; user-select: none; position: relative; padding: 5px; border-radius: 12px; display: flex; align-items: center; gap: 8px; color: var(--text); }
         .ai-container:hover { background: rgba(255,255,255,0.1); }
         .ai-container:active { transform: scale(0.95); }
         .persona-modal { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(10px); background: rgba(0,0,0,0.6); }
         .persona-modal.show { opacity: 1; pointer-events: all; }
         .persona-content { width: 90%; max-width: 380px; background: var(--bg-1); border: 1px solid var(--glass-border); border-radius: 24px; padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); max-height: 80vh; display: flex; flex-direction: column; color: var(--text); }
-        .persona-modal.show .persona-content { transform: scale(1); }
+        body.bg-rain .persona-content, body.bg-clear-night .persona-content { background: #0f172a; color: white; }
         .persona-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; overflow-y: auto; padding: 5px; margin-top: 15px; }
         .persona-option { background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 16px; padding: 12px 5px; text-align: center; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 8px; }
         .persona-option:hover { background: rgba(255,255,255,0.25); transform: translateY(-3px); }
@@ -189,94 +195,54 @@
         .overlay.show { opacity: 1; pointer-events: all; }
 
         .share-btn {
-            position: absolute; top: 15px; right: 15px;
-            width: 36px; height: 36px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.25);
-            border: 1px solid var(--glass-border);
-            color: var(--text);
-            display: flex; align-items: center; justify-content: center;
+            position: absolute; top: 15px; right: 15px; width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(255,255,255,0.25); border: 1px solid var(--glass-border);
+            color: var(--text); display: flex; align-items: center; justify-content: center;
             cursor: pointer; transition: 0.2s; z-index: 50;
         }
         .share-btn:hover { background: var(--accent); color: white; transform: scale(1.1); }
         
         .clothing-tag {
-            border: 1px solid var(--glass-border);
-            padding: 8px 14px;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: 0.2s;
-            background: rgba(255,255,255,0.4);
+            border: 1px solid var(--glass-border); padding: 8px 14px; border-radius: 50px;
+            font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px;
+            transition: 0.2s; background: rgba(255,255,255,0.3); color: var(--text);
         }
-        [data-theme="dark"] .clothing-tag { background: rgba(255,255,255,0.1); }
         .clothing-tag:hover { transform: scale(1.05); }
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
 
-        /* Estilos específicos para Ellos (Azul) y Ellas (Rosa) */
-        .clothing-tag.boy { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #1e40af; }
-        .clothing-tag.girl { background: rgba(236, 72, 153, 0.15); border: 1px solid rgba(236, 72, 153, 0.3); color: #9d174d; }
-        [data-bs-theme="dark"] .clothing-tag.boy { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.3); }
-        [data-bs-theme="dark"] .clothing-tag.girl { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; border-color: rgba(236, 72, 153, 0.3); }
+        /* Colores específicos para ropa (más brillantes en modo noche) */
+        .clothing-tag.boy { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #1e40af; }
+        .clothing-tag.girl { background: rgba(236, 72, 153, 0.15); border-color: rgba(236, 72, 153, 0.4); color: #9d174d; }
+        body.bg-clear-night .clothing-tag.boy, body.bg-rain .clothing-tag.boy { color: #93c5fd; border-color: #60a5fa; }
+        body.bg-clear-night .clothing-tag.girl, body.bg-rain .clothing-tag.girl { color: #f9a8d4; border-color: #f472b6; }
 
         .day-detail {
-            overflow: hidden;
-            transition: all 0.3s ease-in-out;
-            border-bottom: 1px solid var(--glass-border);
-            background: rgba(0,0,0,0.03);
-            border-radius: 12px;
-            margin-bottom: 10px;
+            overflow: hidden; transition: all 0.3s ease-in-out; border-bottom: 1px solid var(--glass-border);
+            background: rgba(0,0,0,0.03); border-radius: 12px; margin-bottom: 10px;
         }
-        [data-theme="dark"] .day-detail { background: rgba(255,255,255,0.03); }
-        .day-detail-content {
-            padding: 15px;
-            display: flex;
-            overflow-x: auto;
-            gap: 15px;
-            scrollbar-width: none;
-        }
-        .day-hourly-item {
-            min-width: 50px;
-            text-align: center;
-            font-size: 0.8rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-            height: 90px;
-        }
+        .day-detail-content { padding: 15px; display: flex; overflow-x: auto; gap: 15px; scrollbar-width: none; }
+        .day-hourly-item { min-width: 50px; text-align: center; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 90px; }
 
         .pollen-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .pollen-name { font-size: 0.85rem; font-weight: 600; width: 80px; }
+        .pollen-name { font-size: 0.85rem; font-weight: 600; width: 80px; color: var(--text); }
         .pollen-bar-bg { flex-grow: 1; height: 6px; background: rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
-        [data-theme="dark"] .pollen-bar-bg { background: rgba(255,255,255,0.1); }
+        body.bg-clear-night .pollen-bar-bg { background: rgba(255,255,255,0.2); }
         .pollen-bar-fill { height: 100%; border-radius: 10px; transition: width 1s; }
-        .pollen-val { font-size: 0.75rem; font-weight: 700; width: 40px; text-align: right; }
+        .pollen-val { font-size: 0.75rem; font-weight: 700; width: 40px; text-align: right; color: var(--text); }
 
         /* ESTILOS LIFESTYLE */
         .activity-scroll { display: flex; overflow-x: auto; gap: 15px; padding: 5px 0; scrollbar-width: none; }
         .activity-item { 
-            min-width: 80px; text-align: center; padding: 12px 8px; background: rgba(255,255,255,0.3); 
+            min-width: 80px; text-align: center; padding: 12px 8px; background: rgba(255,255,255,0.2); 
             border-radius: 16px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; gap: 8px;
         }
-        [data-theme="dark"] .activity-item { background: rgba(255,255,255,0.05); }
-        
-        .activity-icon { 
-            font-size: 1.8rem; 
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-        
+        .activity-icon { font-size: 1.8rem; color: var(--text); margin-bottom: 4px; }
         .status-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
         .status-good { background-color: #4ade80; box-shadow: 0 0 10px #4ade80; }
         .status-fair { background-color: #facc15; box-shadow: 0 0 10px #facc15; }
         .status-bad { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
-        .activity-name { font-size: 0.75rem; font-weight: 700; opacity: 0.8; }
+        .activity-name { font-size: 0.75rem; font-weight: 700; opacity: 0.9; color: var(--text); }
 
-        /* NUEVO: ESTILOS ALERTAS */
         .alert-card {
             background: #ef4444; color: white; padding: 15px 20px; border-radius: 20px;
             margin-bottom: 20px; display: flex; align-items: start; gap: 15px;
@@ -888,8 +854,6 @@
 
         const themeBtn = document.getElementById('themeBtn');
         if(themeBtn) themeBtn.addEventListener('click', () => {
-            // Este botón ahora solo sirve para ver cómo queda el modo oscuro/claro forzado,
-            // pero al cambiar de ciudad se reseteará al clima real.
             const current = document.body.getAttribute('data-theme');
             const newTheme = current === 'dark' ? 'light' : 'dark';
             localStorage.setItem('aeris_theme_pref', newTheme);
