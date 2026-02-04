@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
@@ -164,14 +164,20 @@
         .pollen-bar-fill { height: 100%; border-radius: 10px; transition: width 1s; }
         .pollen-val { font-size: 0.75rem; font-weight: 700; width: 40px; text-align: right; }
 
-        /* NUEVO: ESTILOS LIFESTYLE */
+        /* ESTILOS LIFESTYLE */
         .activity-scroll { display: flex; overflow-x: auto; gap: 15px; padding: 5px 0; scrollbar-width: none; }
         .activity-item { 
             min-width: 80px; text-align: center; padding: 12px 8px; background: rgba(255,255,255,0.3); 
             border-radius: 16px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; gap: 8px;
         }
         [data-theme="dark"] .activity-item { background: rgba(255,255,255,0.05); }
-        .activity-icon { font-size: 1.8rem; color: var(--text); }
+        
+        .activity-icon { 
+            font-size: 1.8rem; 
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        
         .status-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
         .status-good { background-color: #4ade80; box-shadow: 0 0 10px #4ade80; }
         .status-fair { background-color: #facc15; box-shadow: 0 0 10px #facc15; }
@@ -807,7 +813,6 @@
             return isHigh;
         };
 
-        // --- NUEVA LÓGICA DE ESTILO DE VIDA ---
         const renderLifestyle = (cur, daily) => {
             const list = document.getElementById('lifestyle-list');
             if(!list || !daily) return;
@@ -819,7 +824,7 @@
             // --- LISTA CON ICONOS FONT AWESOME (FA) ---
             const activities = [
                 {
-                    id: 'run', name: 'Running', icon: 'fa-solid fa-person-running', // Icono de corredor
+                    id: 'run', name: 'Running', icon: 'fa-solid fa-person-running', 
                     check: () => {
                         if (isRain || cur.windSpeed > 30 || cur.temp > 32 || cur.temp < 0) return 'bad';
                         if (cur.windSpeed > 20 || cur.temp > 28 || cur.temp < 5) return 'fair';
@@ -827,7 +832,7 @@
                     }
                 },
                 {
-                    id: 'cycle', name: 'Ciclismo', icon: 'fa-solid fa-bicycle', // Bicicleta
+                    id: 'cycle', name: 'Ciclismo', icon: 'fa-solid fa-bicycle', 
                     check: () => {
                         if (isRain || cur.windSpeed > 25 || cur.temp > 35) return 'bad';
                         if (cur.windSpeed > 15 || cur.temp < 5) return 'fair';
@@ -835,7 +840,7 @@
                     }
                 },
                 {
-                    id: 'bbq', name: 'Barbacoa', icon: 'fa-solid fa-burger', // Hamburguesa (comida fuera)
+                    id: 'bbq', name: 'Barbacoa', icon: 'fa-solid fa-burger', 
                     check: () => {
                         if (isRain || cur.windSpeed > 25) return 'bad';
                         if (cur.temp < 15 || cur.windSpeed > 15) return 'fair';
@@ -843,7 +848,7 @@
                     }
                 },
                 {
-                    id: 'car', name: 'Lavar Coche', icon: 'fa-solid fa-soap', // Jabón (mejor que un coche solo)
+                    id: 'car', name: 'Lavar Coche', icon: 'fa-solid fa-car-side', 
                     check: () => {
                         if (isRain || rainTomorrow) return 'bad'; 
                         if (cur.temp < 5) return 'fair';
@@ -851,7 +856,7 @@
                     }
                 },
                 {
-                    id: 'star', name: 'Estrellas', icon: 'fa-solid fa-star', // Estrella
+                    id: 'star', name: 'Estrellas', icon: 'fa-solid fa-star', 
                     check: () => {
                         if (cur.isDay || cur.cloudCover > 50) return 'bad';
                         if (cur.cloudCover > 20) return 'fair';
@@ -859,7 +864,7 @@
                     }
                 },
                 {
-                    id: 'dog', name: 'Paseo Perro', icon: 'fa-solid fa-dog', // Perro real
+                    id: 'dog', name: 'Paseo Perro', icon: 'fa-solid fa-dog', 
                     check: () => {
                         if (cur.desc.includes('fuerte') || cur.temp > 32) return 'bad'; 
                         if (isRain || cur.temp < 2) return 'fair';
@@ -867,7 +872,7 @@
                     }
                 },
                 {
-                    id: 'beach', name: 'Playa', icon: 'fa-solid fa-umbrella-beach', // Sombrilla y arena
+                    id: 'beach', name: 'Playa', icon: 'fa-solid fa-umbrella-beach', 
                     check: () => {
                         if (isRain || cur.temp < 22) return 'bad';
                         if (cur.windSpeed > 20) return 'fair';
@@ -875,7 +880,7 @@
                     }
                 },
                 {
-                    id: 'drive', name: 'Conducir', icon: 'fa-solid fa-road', // Carretera
+                    id: 'drive', name: 'Conducir', icon: 'fa-solid fa-road', 
                     check: () => {
                         if (cur.desc.includes('niebla') || cur.desc.includes('tormenta') || cur.desc.includes('nieve')) return 'bad';
                         if (isRain) return 'fair';
@@ -888,7 +893,7 @@
                 const status = act.check();
                 return `
                 <div class="activity-item">
-                    <i class="bi ${act.icon} activity-icon"></i>
+                    <i class="${act.icon} activity-icon"></i>
                     <div class="status-dot status-${status}"></div>
                     <span class="activity-name">${act.name}</span>
                 </div>`;
@@ -944,7 +949,6 @@
                 
                 const isHighPollen = renderPollen(data.pollen);
                 
-                // RENDERIZAR LIFESTYLE
                 renderLifestyle(cur, data.daily);
                 
                 updateAIText(cur, isHighPollen);
