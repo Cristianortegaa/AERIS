@@ -14,6 +14,7 @@
     
     <script>
         (function() {
+            // Solo usamos el tema guardado al cargar la página por primera vez para evitar flash
             const savedTheme = localStorage.getItem('aeris_theme_pref');
             if (savedTheme) {
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
@@ -627,12 +628,10 @@
                 let startIndex = 0;
                 if (currentTime) {
                     // Usamos la hora local de la ciudad (currentTime) en formato Date para sincronizar perfectamente
-                    // Corrección: Comparación por timestamp
                     const targetTime = new Date(currentTime).getTime();
                     startIndex = nowcast.time.findIndex(t => new Date(t).getTime() >= targetTime);
                 }
                 
-                // Corrección: Control de errores si no se encuentra
                 if (startIndex === -1 || startIndex >= nowcast.time.length) startIndex = 0;
 
                 for(let i=0; i<6; i++) {
@@ -674,6 +673,7 @@
         if(themeBtn) themeBtn.addEventListener('click', () => {
             const current = document.body.getAttribute('data-theme');
             const newTheme = current === 'dark' ? 'light' : 'dark';
+            // Guardamos la preferencia TEMPORALMENTE (si recargas se mantiene, pero si cambias de ciudad se borra)
             localStorage.setItem('aeris_theme_pref', newTheme);
             document.body.setAttribute('data-theme', newTheme);
             document.documentElement.setAttribute('data-bs-theme', newTheme);
@@ -780,20 +780,22 @@
                     </div>`
                 ).join('');
 
-                // --- AUTO TEMA ---
-                const userPref = localStorage.getItem('aeris_theme_pref');
-                let finalTheme;
-                if (userPref) {
-                    finalTheme = userPref; 
-                } else {
-                    finalTheme = cur.isDay ? 'light' : 'dark';
-                }
-                document.body.setAttribute('data-theme', finalTheme);
-                document.documentElement.setAttribute('data-bs-theme', finalTheme);
+                // --- AUTO TEMA (CORREGIDO) ---
+                // Determinar tema basado puramente en el clima actual
+                const weatherTheme = cur.isDay ? 'light' : 'dark';
+                
+                // Aplicar tema
+                document.body.setAttribute('data-theme', weatherTheme);
+                document.documentElement.setAttribute('data-bs-theme', weatherTheme);
+                
+                // Actualizar icono
                 if(themeBtn) { 
-                    themeBtn.innerHTML = finalTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>'; 
-                    document.documentElement.style.setProperty('--invert-close', finalTheme === 'dark' ? '1' : '0');
+                    themeBtn.innerHTML = weatherTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>'; 
+                    document.documentElement.style.setProperty('--invert-close', weatherTheme === 'dark' ? '1' : '0');
                 }
+                
+                // IMPORTANTE: Borrar la preferencia manual para que el próximo cambio de ciudad vuelva a ser automático
+                localStorage.removeItem('aeris_theme_pref');
 
             } catch (e) { console.error(e); }
         }
