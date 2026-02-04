@@ -26,7 +26,7 @@ sequelize.sync();
 const decodeWMO = (code, isDay = 1) => {
     const c = parseInt(code);
     const dayIcons = { 0:'bi-sun', 1:'bi-cloud-sun', 2:'bi-cloud', 3:'bi-clouds', 45:'bi-cloud-haze2', 48:'bi-cloud-haze2', 51:'bi-cloud-drizzle', 53:'bi-cloud-drizzle', 55:'bi-cloud-drizzle', 61:'bi-cloud-rain', 63:'bi-cloud-rain', 65:'bi-cloud-rain-heavy', 71:'bi-cloud-snow', 73:'bi-cloud-snow', 75:'bi-snow', 80:'bi-cloud-drizzle', 81:'bi-cloud-rain', 82:'bi-cloud-rain-heavy', 95:'bi-cloud-lightning', 96:'bi-cloud-lightning-rain', 99:'bi-cloud-lightning-rain' };
-    const nightIcons = { 0:'bi-moon', 1:'bi-cloud-moon', 2:'bi-cloud-moon', 3:'bi-clouds' };
+    const nightIcons = { 0:'bi-moon-stars', 1:'bi-cloud-moon', 2:'bi-cloud-moon', 3:'bi-clouds', 45:'bi-cloud-haze2', 48:'bi-cloud-haze2' };
     const textMap = { 0:"Despejado", 1:"Mayormente despejado", 2:"Parcialmente nublado", 3:"Nublado", 45:"Niebla", 48:"Niebla escarcha", 51:"Llovizna", 53:"Llovizna moderada", 55:"Llovizna fuerte", 61:"Lluvia leve", 63:"Lluvia", 65:"Lluvia fuerte", 71:"Nieve leve", 73:"Nieve", 75:"Nieve fuerte", 80:"Chubascos", 81:"Chubascos fuertes", 82:"Tormenta violenta", 95:"Tormenta", 96:"Tormenta con granizo", 99:"Tormenta fuerte" };
     let icon = isDay ? (dayIcons[c] || 'bi-cloud') : (nightIcons[c] || dayIcons[c] || 'bi-cloud');
     return { text: textMap[c] || "Variable", icon: icon };
@@ -35,7 +35,18 @@ const decodeWMO = (code, isDay = 1) => {
 // --- RUTAS API ---
 app.get('/api/vapid-key', (req, res) => res.json({ key: publicVapidKey }));
 app.post('/api/subscribe', async (req, res) => {
-    try { await Subscription.upsert({ endpoint: req.body.subscription.endpoint, keys: req.body.subscription.keys, lat: req.body.lat, lon: req.body.lon, city: req.body.city, lastNotification: new Date(0) }); res.status(201).json({}); } catch (e) { res.status(500).json({}); }
+    try {
+        const { subscription, lat, lon, city } = req.body;
+        const [sub, created] = await Subscription.findOrCreate({
+            where: { endpoint: subscription.endpoint },
+            defaults: { keys: subscription.keys, lat, lon, city, lastNotification: new Date(0) }
+        });
+        if (!created) {
+            sub.keys = subscription.keys; sub.lat = lat; sub.lon = lon; sub.city = city;
+            await sub.save();
+        }
+        res.status(201).json({});
+    } catch (e) { console.error(e); res.status(500).json({}); }
 });
 
 // --- CRON JOB ---
@@ -185,7 +196,7 @@ app.get('/api/weather/:id', async (req, res) => {
 
         const finalData = {
             location: { name: forcedName || "Ubicación", region: forcedRegion, lat, lon, timezone: w.timezone },
-            current: { temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time },
+            current: { temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, theme: w.current.is_day === 1 ? 'light' : 'dark', uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time },
             nowcast: nowcast,
             hourly: hourly,
             daily: w.daily.time.map((t, i) => ({ fecha: t, tempMax: Math.round(w.daily.temperature_2m_max[i]), tempMin: Math.round(w.daily.temperature_2m_min[i]), sunrise: w.daily.sunrise[i].split('T')[1], sunset: w.daily.sunset[i].split('T')[1], icon: decodeWMO(w.daily.weather_code[i], 1).icon, rainProbMax: w.daily.precipitation_probability_max[i] }))
@@ -198,4 +209,7 @@ app.get('/api/weather/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Aeris LIVE en puerto ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Aeris LIVE en puerto ${PORT}`);
+    console.log(`⏰ Cron de notificaciones activo (cada 15 min)`);
+});
