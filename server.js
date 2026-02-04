@@ -102,7 +102,8 @@ app.get('/api/search/:query', async (req, res) => {
     } catch (e) { res.json([]); }
 });
 
-app.get('/api/geo', async (req, res) => { res.json({ id: `${req.query.lat},${req.query.lon}`, name: "Ubicación", region: "", lat: req.query.lat, lon: req.query.lon }); });
+// CAMBIO 1: Nombre por defecto actualizado
+app.get('/api/geo', async (req, res) => { res.json({ id: `${req.query.lat},${req.query.lon}`, name: "Tu ubicación", region: "", lat: req.query.lat, lon: req.query.lon }); });
 
 // --- WEATHER API ---
 app.get('/api/weather/:id', async (req, res) => {
@@ -115,7 +116,8 @@ app.get('/api/weather/:id', async (req, res) => {
         
         if (locationId.includes(',')) {
             [lat, lon] = locationId.split(',');
-            const badNames = ['undefined', 'null', 'Ubicación', 'Ubicación detectada', 'Ubicación Detectada', '', 'My Location'];
+            // CAMBIO 2: Añadido "Tu ubicación" a la lista negra para forzar búsqueda real
+            const badNames = ['undefined', 'null', 'Ubicación', 'Tu ubicación', 'Ubicación detectada', 'Ubicación Detectada', '', 'My Location'];
             if (!forcedName || badNames.includes(forcedName)) {
                 try {
                     const geoUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
@@ -130,9 +132,10 @@ app.get('/api/weather/:id', async (req, res) => {
                         const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10`;
                         const nomRes = await axios.get(nomUrl, { headers: { 'User-Agent': 'AerisApp/1.0' } });
                         const a = nomRes.data.address;
-                        forcedName = a.city || a.town || a.village || a.municipality || "Ubicación";
+                        // CAMBIO 3: Fallback actualizado
+                        forcedName = a.city || a.town || a.village || a.municipality || "Tu ubicación";
                         forcedRegion = [a.state, a.country].filter(Boolean).join(', ');
-                    } catch(e2) { forcedName = "Ubicación"; }
+                    } catch(e2) { forcedName = "Tu ubicación"; }
                 }
             }
         } else {
@@ -147,14 +150,13 @@ app.get('/api/weather/:id', async (req, res) => {
         const cache = await WeatherCache.findByPk(locationId);
         if (cache && (new Date() - new Date(cache.updatedAt) < 5 * 60 * 1000)) {
             const data = JSON.parse(cache.data);
-            if (forcedName && forcedName !== "Ubicación") data.location.name = forcedName;
+            if (forcedName && forcedName !== "Tu ubicación") data.location.name = forcedName;
             return res.json(data);
         }
 
         const [wRes, aRes, pRes] = await Promise.allSettled([
             axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,cloud_cover&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`),
-            // --- ACTUALIZADO: LISTA COMPLETA DE PÓLENES ---
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen,oak_pollen,pine_pollen,cypress_pollen,hazel_pollen,plane_tree_pollen,poplar_pollen,ash_pollen&timezone=auto`)
         ]);
 
@@ -200,27 +202,19 @@ app.get('/api/weather/:id', async (req, res) => {
             nowcast.precipitation = indices.map(i => w.minutely_15.precipitation[i]);
         }
 
-        // --- ACTUALIZADO: OBJETO DE POLEN COMPLETO ---
         const pollenData = {
-            alder: p.current.alder_pollen || 0,
-            birch: p.current.birch_pollen || 0,
-            grass: p.current.grass_pollen || 0,
-            mugwort: p.current.mugwort_pollen || 0,
-            olive: p.current.olive_pollen || 0,
-            ragweed: p.current.ragweed_pollen || 0,
-            oak: p.current.oak_pollen || 0,
-            pine: p.current.pine_pollen || 0,
-            cypress: p.current.cypress_pollen || 0,
-            hazel: p.current.hazel_pollen || 0,
-            plane: p.current.plane_tree_pollen || 0,
-            poplar: p.current.poplar_pollen || 0,
+            alder: p.current.alder_pollen || 0, birch: p.current.birch_pollen || 0, grass: p.current.grass_pollen || 0,
+            mugwort: p.current.mugwort_pollen || 0, olive: p.current.olive_pollen || 0, ragweed: p.current.ragweed_pollen || 0,
+            oak: p.current.oak_pollen || 0, pine: p.current.pine_pollen || 0, cypress: p.current.cypress_pollen || 0,
+            hazel: p.current.hazel_pollen || 0, plane: p.current.plane_tree_pollen || 0, poplar: p.current.poplar_pollen || 0,
             ash: p.current.ash_pollen || 0
         };
 
         const alerts = generateAlerts(w);
 
         const finalData = {
-            location: { name: forcedName || "Ubicación", region: forcedRegion, lat, lon, timezone: w.timezone },
+            // CAMBIO 4: Nombre final fallback
+            location: { name: forcedName || "Tu ubicación", region: forcedRegion, lat, lon, timezone: w.timezone },
             current: { 
                 temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, 
                 windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, 
