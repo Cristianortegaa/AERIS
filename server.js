@@ -33,7 +33,7 @@ const decodeWMO = (code, isDay = 1) => {
     return { text: textMap[c] || "Variable", icon: icon };
 };
 
-// --- MOTOR DE ALERTAS (NUEVO) ---
+// --- MOTOR DE ALERTAS ---
 const generateAlerts = (w) => {
     const alerts = [];
     const wind = w.current.wind_speed_10m;
@@ -41,21 +41,17 @@ const generateAlerts = (w) => {
     const code = w.current.weather_code;
     const rain = w.current.precipitation;
 
-    // 1. Alertas de Viento
     if (wind >= 90) alerts.push({ level: 'red', title: 'Viento Huracanado', msg: 'Rachas extremas > 90 km/h. ¡Peligro!' });
     else if (wind >= 70) alerts.push({ level: 'orange', title: 'Viento Fuerte', msg: 'Rachas muy fuertes. Precaución.' });
     else if (wind >= 50) alerts.push({ level: 'yellow', title: 'Aviso Viento', msg: 'Rachas moderadas de viento.' });
 
-    // 2. Alertas de Temperatura (Calor/Frío)
     if (temp >= 40) alerts.push({ level: 'red', title: 'Calor Extremo', msg: 'Riesgo extremo para la salud.' });
     else if (temp >= 36) alerts.push({ level: 'orange', title: 'Ola de Calor', msg: 'Temperaturas muy altas.' });
     else if (temp <= -5) alerts.push({ level: 'orange', title: 'Ola de Frío', msg: 'Temperaturas bajo cero peligrosas.' });
 
-    // 3. Alertas de Tormenta / Lluvia
     if (code >= 95) alerts.push({ level: 'orange', title: 'Tormenta Eléctrica', msg: 'Actividad eléctrica detectada.' });
     if (rain >= 10) alerts.push({ level: 'orange', title: 'Lluvia Torrencial', msg: 'Precipitación intensa.' });
     
-    // 4. Nieve
     if (code === 75 || code === 86) alerts.push({ level: 'orange', title: 'Nevada Fuerte', msg: 'Acumulación de nieve rápida.' });
 
     return alerts;
@@ -158,7 +154,8 @@ app.get('/api/weather/:id', async (req, res) => {
         const [wRes, aRes, pRes] = await Promise.allSettled([
             axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,cloud_cover&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`),
-            axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen&timezone=auto`)
+            // --- ACTUALIZADO: LISTA COMPLETA DE PÓLENES ---
+            axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen,oak_pollen,pine_pollen,cypress_pollen,hazel_pollen,plane_tree_pollen,poplar_pollen,ash_pollen&timezone=auto`)
         ]);
 
         if (wRes.status === 'rejected') throw new Error("Fallo API Clima");
@@ -203,12 +200,23 @@ app.get('/api/weather/:id', async (req, res) => {
             nowcast.precipitation = indices.map(i => w.minutely_15.precipitation[i]);
         }
 
+        // --- ACTUALIZADO: OBJETO DE POLEN COMPLETO ---
         const pollenData = {
-            alder: p.current.alder_pollen || 0, birch: p.current.birch_pollen || 0, grass: p.current.grass_pollen || 0,
-            mugwort: p.current.mugwort_pollen || 0, olive: p.current.olive_pollen || 0, ragweed: p.current.ragweed_pollen || 0
+            alder: p.current.alder_pollen || 0,
+            birch: p.current.birch_pollen || 0,
+            grass: p.current.grass_pollen || 0,
+            mugwort: p.current.mugwort_pollen || 0,
+            olive: p.current.olive_pollen || 0,
+            ragweed: p.current.ragweed_pollen || 0,
+            oak: p.current.oak_pollen || 0,
+            pine: p.current.pine_pollen || 0,
+            cypress: p.current.cypress_pollen || 0,
+            hazel: p.current.hazel_pollen || 0,
+            plane: p.current.plane_tree_pollen || 0,
+            poplar: p.current.poplar_pollen || 0,
+            ash: p.current.ash_pollen || 0
         };
 
-        // --- GENERAMOS ALERTAS AQUÍ ---
         const alerts = generateAlerts(w);
 
         const finalData = {
@@ -219,7 +227,7 @@ app.get('/api/weather/:id', async (req, res) => {
                 uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time,
                 cloudCover: w.current.cloud_cover || 0, comparison: comparisonText
             },
-            nowcast: nowcast, hourly: hourly, pollen: pollenData, alerts: alerts, // <--- AÑADIDO ALERTAS
+            nowcast: nowcast, hourly: hourly, pollen: pollenData, alerts: alerts, 
             daily: w.daily.time.map((t, i) => {
                 return { 
                     fecha: t, tempMax: Math.round(w.daily.temperature_2m_max[i]), tempMin: Math.round(w.daily.temperature_2m_min[i]), 
