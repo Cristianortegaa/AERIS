@@ -656,7 +656,7 @@
         
         const normalizeInput = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const searchInput = document.getElementById('citySearch'); const suggestionsList = document.getElementById('suggestions'); let searchTimeout;
-        if(searchInput) { searchInput.addEventListener('input', (e) => { clearTimeout(searchTimeout); if (e.target.value.length < 3) return suggestionsList.classList.remove('show'); searchTimeout = setTimeout(async () => { try { const cleanQuery = normalizeInput(e.target.value); const res = await fetch(`/api/search/${encodeURIComponent(cleanQuery)}`); const cities = await res.json(); suggestionsList.innerHTML = ''; cities.forEach(c => { const li = document.createElement('li'); li.className = 'suggestion-item'; li.innerHTML = `<span>${c.name}</span><small>${c.region}, ${c.country_code}</small>`; li.onclick = () => selectCity(c); suggestionsList.appendChild(li); }); if(cities.length) suggestionsList.classList.add('show'); } catch(e) {} }, 300); }); }
+        if(searchInput) { searchInput.addEventListener('input', (e) => { clearTimeout(searchTimeout); if (e.target.value.length < 3) return suggestionsList.classList.remove('show'); searchTimeout = setTimeout(async () => { try { const cleanQuery = normalizeInput(e.target.value); const res = await fetch(`/api/search/${encodeURIComponent(cleanQuery)}`); const cities = await res.json(); suggestionsList.innerHTML = ''; cities.forEach(c => { const li = document.createElement('li'); li.className = 'suggestion-item'; li.innerHTML = `<span>${c.name}</span><small>${c.region}</small>`; li.onclick = () => selectCity(c); suggestionsList.appendChild(li); }); if(cities.length) suggestionsList.classList.add('show'); } catch(e) {} }, 300); }); }
         
         const selectCity = (city) => { if(searchInput) searchInput.value = ''; if(suggestionsList) suggestionsList.classList.remove('show'); const id = city.id || city.name; localStorage.setItem('lastId', id); localStorage.setItem('lastName', city.name); localStorage.setItem('lastRegion', city.region || ''); currentId = id; currentCityInfo = { id: id, name: city.name, region: city.region || '' }; document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); }); getWeather(id); };
 
@@ -813,7 +813,6 @@
                 document.getElementById('uv').innerText = cur.uv;
                 document.getElementById('feels-like').innerText = cur.feelsLike;
                 
-                // AÑADIDO: Actualizar texto de comparación
                 document.getElementById('compare-txt').innerText = cur.comparison || "";
 
                 const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
