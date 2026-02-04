@@ -156,7 +156,8 @@ app.get('/api/weather/:id', async (req, res) => {
 
         const hourly = w.hourly.time
             .map((t, i) => ({ fullDate: t, hour: parseInt(t.split('T')[1].split(':')[0]), displayTime: t.split('T')[1], temp: Math.round(w.hourly.temperature_2m[i]), rainProb: w.hourly.precipitation_probability[i], precip: w.hourly.precipitation[i], icon: decodeWMO(w.hourly.weather_code[i], w.hourly.is_day[i]).icon }))
-            .filter(h => h.fullDate >= currentHourISO);
+            .filter(h => h.fullDate >= currentHourISO)
+            .slice(0, 24);
 
         let nowcast = { time: [], precipitation: [] };
         if (w.minutely_15) {
