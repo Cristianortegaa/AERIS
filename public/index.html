@@ -274,7 +274,6 @@
         </div>
     </div>
 
-    <!-- MODAL DE BIENVENIDA / NOTIFICACIONES -->
     <div class="modal fade" id="notificationModal" tabindex="-1" aria-hidden="true" style="z-index: 10000;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content glass-card border-0" style="background: var(--bg-2); backdrop-filter: blur(20px);">
@@ -625,14 +624,16 @@
 
             // 1. Radar
             if (nowcast && nowcast.time && nowcast.time.length > 0) {
-                let startIndex = -1;
+                let startIndex = 0;
                 if (currentTime) {
-                    // Usamos la hora local de la ciudad (currentTime) para sincronizar perfectamente
-                    startIndex = nowcast.time.findIndex(t => t >= currentTime);
+                    // Usamos la hora local de la ciudad (currentTime) en formato Date para sincronizar perfectamente
+                    // Corrección: Comparación por timestamp
+                    const targetTime = new Date(currentTime).getTime();
+                    startIndex = nowcast.time.findIndex(t => new Date(t).getTime() >= targetTime);
                 }
                 
-                // Si no encuentra la hora (ej: final del día), mostramos desde el principio o manejamos el error
-                if (startIndex === -1) startIndex = 0;
+                // Corrección: Control de errores si no se encuentra
+                if (startIndex === -1 || startIndex >= nowcast.time.length) startIndex = 0;
 
                 for(let i=0; i<6; i++) {
                     if (startIndex + i < nowcast.precipitation.length) {
@@ -684,7 +685,6 @@
         async function getWeather(id) {
             try {
                 let storedName = localStorage.getItem('lastName');
-                // IMPORTANTE: Si el nombre es genérico, lo borramos para que el servidor busque el real
                 if (storedName === 'Ubicación' || storedName === 'Ubicación detectada' || storedName === 'Ubicación Detectada') storedName = null;
                 
                 const storedRegion = localStorage.getItem('lastRegion') || '';
@@ -736,7 +736,6 @@
                 }
 
                 // --- ACTUALIZAR NOTIFICACIONES AUTOMÁTICAMENTE ---
-                // Si el usuario ya dio permiso, actualizamos su ubicación en el servidor silenciosamente
                 if (Notification.permission === 'granted') {
                     registerPush(true);
                 }
@@ -747,13 +746,39 @@
                     if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
                 }
 
-                const localDate = new Date(cur.time);
-                const currentHour = localDate.getHours();
+                // --- CORRECCIÓN HORA: Eliminado el slice doble que causaba el desfase ---
                 const hCont = document.getElementById('hourly');
-                if(hCont) hCont.innerHTML = data.hourly.slice(currentHour, currentHour + 24).map(h => `<div class="hourly-item"><div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div><i class="bi ${h.icon} fs-4"></i><div class="fw-bold fs-5">${h.temp}°</div><div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">${h.rainProb>0?h.rainProb+'%':''}</div></div>`).join('');
+                if(hCont) hCont.innerHTML = data.hourly.map(h => 
+                    `<div class="hourly-item">
+                        <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
+                        <i class="bi ${h.icon} fs-4"></i>
+                        <div class="fw-bold fs-5">${h.temp}°</div>
+                        <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
+                            ${h.rainProb>0?h.rainProb+'%':''}
+                        </div>
+                    </div>`
+                ).join('');
 
+                // --- CORRECCIÓN FECHA: Reemplazo de guiones por barras para compatibilidad con iPhone/Safari ---
                 const dCont = document.getElementById('daily');
-                if(dCont) dCont.innerHTML = data.daily.map(d => `<div class="d-flex justify-content-between align-items-center py-3 border-bottom"><div style="width:35%" class="fw-bold text-capitalize"><div>${new Date(d.fecha).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div><div class="small opacity-50 d-flex gap-2"><span><i class="bi bi-sunrise"></i> ${d.sunrise}</span><span><i class="bi bi-sunset"></i> ${d.sunset}</span></div></div><div class="d-flex flex-column align-items-center" style="width:25%"><i class="bi ${d.icon} fs-5"></i><small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small></div><div class="text-end fw-bold" style="width:30%"><span style="color:#ef4444">${d.tempMax}°</span> / <span style="color:#3b82f6">${d.tempMin}°</span></div></div>`).join('');
+                if(dCont) dCont.innerHTML = data.daily.map(d => 
+                    `<div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                        <div style="width:35%" class="fw-bold text-capitalize">
+                            <div>${new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div>
+                            <div class="small opacity-50 d-flex gap-2">
+                                <span><i class="bi bi-sunrise"></i> ${d.sunrise}</span>
+                                <span><i class="bi bi-sunset"></i> ${d.sunset}</span>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-column align-items-center" style="width:25%">
+                            <i class="bi ${d.icon} fs-5"></i>
+                            <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
+                        </div>
+                        <div class="text-end fw-bold" style="width:30%">
+                            <span style="color:#ef4444">${d.tempMax}°</span> / <span style="color:#3b82f6">${d.tempMin}°</span>
+                        </div>
+                    </div>`
+                ).join('');
 
                 // --- AUTO TEMA ---
                 const userPref = localStorage.getItem('aeris_theme_pref');
