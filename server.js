@@ -137,7 +137,6 @@ app.get('/api/weather/:id', async (req, res) => {
         const cache = await WeatherCache.findByPk(locationId);
         if (cache && (new Date() - new Date(cache.updatedAt) < 5 * 60 * 1000)) {
             const data = JSON.parse(cache.data);
-            // Actualizamos el nombre en el caché si ahora lo sabemos mejor
             if (forcedName && forcedName !== "Ubicación") data.location.name = forcedName;
             return res.json(data);
         }
@@ -156,7 +155,6 @@ app.get('/api/weather/:id', async (req, res) => {
         const currentTime = w.current.time;
         const currentHourStr = currentTime.substring(0, 13);
         
-        // Buscar el índice de la hora actual para empezar desde ahí
         let startIndex = w.hourly.time.findIndex(t => t.startsWith(currentHourStr));
         if (startIndex === -1) startIndex = 0;
 
@@ -190,7 +188,32 @@ app.get('/api/weather/:id', async (req, res) => {
             current: { temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time },
             nowcast: nowcast,
             hourly: hourly,
-            daily: w.daily.time.map((t, i) => ({ fecha: t, tempMax: Math.round(w.daily.temperature_2m_max[i]), tempMin: Math.round(w.daily.temperature_2m_min[i]), sunrise: w.daily.sunrise[i].split('T')[1], sunset: w.daily.sunset[i].split('T')[1], icon: decodeWMO(w.daily.weather_code[i], 1).icon, rainProbMax: w.daily.precipitation_probability_max[i] }))
+            daily: w.daily.time.map((t, i) => {
+                // --- NUEVO: Extraemos las horas de este día específico ---
+                const datePrefix = t; // Ej: 2023-10-25
+                const dayHours = w.hourly.time.reduce((acc, timeStr, idx) => {
+                    if (timeStr.startsWith(datePrefix)) {
+                        acc.push({
+                            time: timeStr.split('T')[1],
+                            temp: Math.round(w.hourly.temperature_2m[idx]),
+                            rainProb: w.hourly.precipitation_probability[idx],
+                            icon: decodeWMO(w.hourly.weather_code[idx], 1).icon // Icono día por defecto para lista simple
+                        });
+                    }
+                    return acc;
+                }, []);
+                
+                return { 
+                    fecha: t, 
+                    tempMax: Math.round(w.daily.temperature_2m_max[i]), 
+                    tempMin: Math.round(w.daily.temperature_2m_min[i]), 
+                    sunrise: w.daily.sunrise[i].split('T')[1], 
+                    sunset: w.daily.sunset[i].split('T')[1], 
+                    icon: decodeWMO(w.daily.weather_code[i], 1).icon, 
+                    rainProbMax: w.daily.precipitation_probability_max[i],
+                    dayHours: dayHours // <--- Aquí va el detalle
+                };
+            })
         };
 
         await WeatherCache.upsert({ locationId, data: JSON.stringify(finalData), updatedAt: new Date() });

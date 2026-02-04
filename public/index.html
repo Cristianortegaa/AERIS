@@ -14,7 +14,7 @@
     
     <script>
         (function() {
-            // Solo usamos el tema guardado al cargar la página por primera vez para evitar flash
+            // Solo usamos el tema guardado al cargar la página por primera vez
             const savedTheme = localStorage.getItem('aeris_theme_pref');
             if (savedTheme) {
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
@@ -129,6 +129,34 @@
         .clothing-tag.girl { background: rgba(236, 72, 153, 0.15); border: 1px solid rgba(236, 72, 153, 0.3); color: #9d174d; }
         [data-bs-theme="dark"] .clothing-tag.boy { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.3); }
         [data-bs-theme="dark"] .clothing-tag.girl { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; border-color: rgba(236, 72, 153, 0.3); }
+
+        /* NUEVO: Estilos para el detalle del día */
+        .day-detail {
+            overflow: hidden;
+            transition: all 0.3s ease-in-out;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(0,0,0,0.03);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+        [data-theme="dark"] .day-detail { background: rgba(255,255,255,0.03); }
+        .day-detail-content {
+            padding: 15px;
+            display: flex;
+            overflow-x: auto;
+            gap: 15px;
+            scrollbar-width: none;
+        }
+        .day-hourly-item {
+            min-width: 50px;
+            text-align: center;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 90px;
+        }
     </style>
 </head>
 <body data-theme="light">
@@ -245,7 +273,7 @@
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS</h6>
+            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS <small class="fw-normal opacity-50 ms-1">(Toca para ver horas)</small></h6>
             <div id="daily">
                 <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
                     <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
@@ -300,13 +328,10 @@
             const savedTheme = localStorage.getItem('aeris_theme_pref');
             if (savedTheme) {
                 document.body.setAttribute('data-theme', savedTheme);
-                // Si el tema guardado es 'light', forzamos el atributo 'data-bs-theme' a 'light' para Bootstrap
-                // Si es 'dark', a 'dark'
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
             }
 
             // --- AUTO PROMPT NOTIFICACIONES ---
-            // Si nunca se ha preguntado (default), mostramos el modal profesional
             if (Notification.permission === 'default') {
                 setTimeout(() => {
                     const modalEl = document.getElementById('notificationModal');
@@ -315,15 +340,13 @@
                         modal.show();
                         document.getElementById('enableNotifBtn').onclick = () => { modal.hide(); registerPush(false); };
                     }
-                }, 3500); // Esperar un poco tras el splash
+                }, 3500); 
             }
         });
 
         // --- PUSH: REGISTRO REAL ---
         async function registerPush(silent = false) {
             if (!('serviceWorker' in navigator)) return;
-            
-            // Si es silencioso (actualización automática) y no tenemos permiso, no hacemos nada
             if (silent && Notification.permission !== 'granted') return;
 
             const register = await navigator.serviceWorker.ready;
@@ -346,11 +369,10 @@
                 });
             }
 
-            // Usamos lat/lon guardados explícitamente para evitar errores con búsquedas de texto
             const lat = currentCityInfo.lat || parseFloat(currentCityInfo.id.split(',')[0]);
             const lon = currentCityInfo.lon || parseFloat(currentCityInfo.id.split(',')[1]);
 
-            if (!lat || !lon) return; // Si no hay coordenadas válidas, abortamos
+            if (!lat || !lon) return;
 
             await fetch('/api/subscribe', {
                 method: 'POST',
@@ -372,7 +394,6 @@
         let currentId = localStorage.getItem('lastId') || 'Madrid';
         let currentCityName = localStorage.getItem('lastName') || 'Madrid';
         let currentCityRegion = localStorage.getItem('lastRegion') || '';
-        // Inicializamos con valores seguros, lat/lon se llenarán al cargar
         let currentCityInfo = { id: currentId, name: currentCityName, region: currentCityRegion, lat: null, lon: null };
         let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
         let rainChartInstance = null;
@@ -502,7 +523,6 @@
             const isSnow = desc.includes('nieve') || desc.includes('nevada');
             const isClear = desc.includes('despejado') || desc.includes('sol');
             
-            // Capas base según temperatura
             if (temp >= 30) {
                 boys.push({icon: 'bi-brightness-high', text: 'Tirantes/Fino'});
                 girls.push({icon: 'bi-brightness-high', text: 'Top/Vestido'});
@@ -540,7 +560,6 @@
                 girls.push({icon: 'bi-person-fill', text: 'Plumífero'});
             }
 
-            // Accesorios y Calzado
             if (isRain) {
                 boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
                 girls.push({icon: 'bi-umbrella', text: 'Paraguas'});
@@ -623,11 +642,9 @@
             const summary = document.getElementById('rain-summary');
             let timeLabels = [], precipData = [];
 
-            // 1. Radar
             if (nowcast && nowcast.time && nowcast.time.length > 0) {
                 let startIndex = 0;
                 if (currentTime) {
-                    // Usamos la hora local de la ciudad (currentTime) en formato Date para sincronizar perfectamente
                     const targetTime = new Date(currentTime).getTime();
                     startIndex = nowcast.time.findIndex(t => new Date(t).getTime() >= targetTime);
                 }
@@ -642,7 +659,6 @@
                 }
             }
 
-            // 2. Fallback Horas
             const totalRadar = precipData.reduce((a,b)=>a+b,0);
             if (totalRadar === 0 && hourlyData) {
                 precipData = []; timeLabels = [];
@@ -668,12 +684,10 @@
             rainChartInstance = new Chart(ctx, { type: 'line', data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { display: false, min: 0 } }, animation: { duration: 1000 }, layout: { padding: { top: 10, left: 5, right: 5, bottom: 0 } } } });
         };
 
-        // --- ARREGLO BOTÓN TEMA ---
         const themeBtn = document.getElementById('themeBtn');
         if(themeBtn) themeBtn.addEventListener('click', () => {
             const current = document.body.getAttribute('data-theme');
             const newTheme = current === 'dark' ? 'light' : 'dark';
-            // Guardamos la preferencia TEMPORALMENTE (si recargas se mantiene, pero si cambias de ciudad se borra)
             localStorage.setItem('aeris_theme_pref', newTheme);
             document.body.setAttribute('data-theme', newTheme);
             document.documentElement.setAttribute('data-bs-theme', newTheme);
@@ -681,7 +695,22 @@
             document.documentElement.style.setProperty('--invert-close', newTheme === 'dark' ? '1' : '0');
         });
 
-        // --- GET WEATHER (MAESTRO) ---
+        // --- NUEVA FUNCIÓN PARA DESPLEGAR EL DETALLE ---
+        window.toggleDay = (index) => {
+            const el = document.getElementById(`day-detail-${index}`);
+            if (el) {
+                if (el.style.display === 'none') {
+                    el.style.display = 'block';
+                    // Pequeña animación de entrada
+                    el.style.opacity = '0';
+                    setTimeout(() => el.style.opacity = '1', 10);
+                } else {
+                    el.style.opacity = '0';
+                    setTimeout(() => el.style.display = 'none', 300);
+                }
+            }
+        };
+
         async function getWeather(id) {
             try {
                 let storedName = localStorage.getItem('lastName');
@@ -735,7 +764,6 @@
                     document.getElementById('min-temp').classList.remove('skeleton');
                 }
 
-                // --- ACTUALIZAR NOTIFICACIONES AUTOMÁTICAMENTE ---
                 if (Notification.permission === 'granted') {
                     registerPush(true);
                 }
@@ -746,7 +774,6 @@
                     if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
                 }
 
-                // --- CORRECCIÓN HORA: Eliminado el slice doble que causaba el desfase ---
                 const hCont = document.getElementById('hourly');
                 if(hCont) hCont.innerHTML = data.hourly.map(h => 
                     `<div class="hourly-item">
@@ -759,42 +786,63 @@
                     </div>`
                 ).join('');
 
-                // --- CORRECCIÓN FECHA: Reemplazo de guiones por barras para compatibilidad con iPhone/Safari ---
+                // --- CORRECCIÓN FECHA + DESPLEGABLE HORAS ---
                 const dCont = document.getElementById('daily');
-                if(dCont) dCont.innerHTML = data.daily.map(d => 
-                    `<div class="d-flex justify-content-between align-items-center py-3 border-bottom">
-                        <div style="width:35%" class="fw-bold text-capitalize">
-                            <div>${new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'})}</div>
-                            <div class="small opacity-50 d-flex gap-2">
-                                <span><i class="bi bi-sunrise"></i> ${d.sunrise}</span>
-                                <span><i class="bi bi-sunset"></i> ${d.sunset}</span>
+                if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
+                    const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
+                    
+                    // Renderizamos las horas ocultas
+                    let hourlyHtml = '';
+                    if (d.dayHours && d.dayHours.length > 0) {
+                        hourlyHtml = d.dayHours.map(h => 
+                            `<div class="day-hourly-item">
+                                <span class="opacity-50 fw-bold">${h.time}</span>
+                                <i class="bi ${h.icon} fs-5 text-primary"></i>
+                                <span class="fw-bold">${h.temp}°</span>
+                                <small style="color:#3b82f6; font-weight:800; font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small>
+                            </div>`
+                        ).join('');
+                    } else {
+                        hourlyHtml = '<div class="text-center w-100 opacity-50 small">No hay datos horarios disponibles</div>';
+                    }
+
+                    return `
+                    <div style="cursor:pointer" onclick="toggleDay(${index})">
+                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
+                            <div style="width:35%" class="fw-bold text-capitalize">
+                                <div>${formattedDate}</div>
+                                <div class="small opacity-50 d-flex gap-2">
+                                    <span><i class="bi bi-sunrise"></i> ${d.sunrise}</span>
+                                    <span><i class="bi bi-sunset"></i> ${d.sunset}</span>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column align-items-center" style="width:25%">
+                                <i class="bi ${d.icon} fs-5"></i>
+                                <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
+                            </div>
+                            <div class="text-end fw-bold" style="width:30%">
+                                <span style="color:#ef4444">${d.tempMax}°</span> / <span style="color:#3b82f6">${d.tempMin}°</span>
+                                <i class="bi bi-chevron-down ms-2 opacity-50 small"></i>
                             </div>
                         </div>
-                        <div class="d-flex flex-column align-items-center" style="width:25%">
-                            <i class="bi ${d.icon} fs-5"></i>
-                            <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
+                    </div>
+                    <div id="day-detail-${index}" class="day-detail" style="display:none; opacity:0">
+                        <div class="day-detail-content">
+                            ${hourlyHtml}
                         </div>
-                        <div class="text-end fw-bold" style="width:30%">
-                            <span style="color:#ef4444">${d.tempMax}°</span> / <span style="color:#3b82f6">${d.tempMin}°</span>
-                        </div>
-                    </div>`
-                ).join('');
+                    </div>
+                    `;
+                }).join('');
 
-                // --- AUTO TEMA (CORREGIDO) ---
-                // Determinar tema basado puramente en el clima actual
                 const weatherTheme = cur.isDay ? 'light' : 'dark';
-                
-                // Aplicar tema
                 document.body.setAttribute('data-theme', weatherTheme);
                 document.documentElement.setAttribute('data-bs-theme', weatherTheme);
                 
-                // Actualizar icono
                 if(themeBtn) { 
                     themeBtn.innerHTML = weatherTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>'; 
                     document.documentElement.style.setProperty('--invert-close', weatherTheme === 'dark' ? '1' : '0');
                 }
                 
-                // IMPORTANTE: Borrar la preferencia manual para que el próximo cambio de ciudad vuelva a ser automático
                 localStorage.removeItem('aeris_theme_pref');
 
             } catch (e) { console.error(e); }
@@ -806,7 +854,7 @@
              document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const id = `${pos.coords.latitude},${pos.coords.longitude}`;
-                 localStorage.setItem('lastName', ''); // Borrar nombre para forzar búsqueda
+                 localStorage.setItem('lastName', '');
                  getWeather(id);
              });
         });
@@ -815,7 +863,7 @@
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
                     const id = `${pos.coords.latitude},${pos.coords.longitude}`;
-                    localStorage.setItem('lastName', ''); // Borrar nombre para forzar búsqueda
+                    localStorage.setItem('lastName', ''); 
                     getWeather(id); 
                 },
                 (err) => { getWeather(localStorage.getItem('lastId') || 'Madrid'); },
