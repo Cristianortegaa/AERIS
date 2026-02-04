@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
@@ -817,7 +818,7 @@
             
             const activities = [
                 {
-                    id: 'run', name: 'Running', icon: 'bi-person-running',
+                    id: 'run', name: 'Running', icon: '<i class="fa-solid fa-person-running"></i>',
                     check: () => {
                         if (isRain || cur.windSpeed > 30 || cur.temp > 32 || cur.temp < 0) return 'bad';
                         if (cur.windSpeed > 20 || cur.temp > 28 || cur.temp < 5) return 'fair';
@@ -825,7 +826,7 @@
                     }
                 },
                 {
-                    id: 'cycle', name: 'Ciclismo', icon: 'bi-bicycle',
+                    id: 'cycle', name: 'Ciclismo', icon: '<i class="fa-solid fa-person-biking"></i>',
                     check: () => {
                         if (isRain || cur.windSpeed > 25 || cur.temp > 35) return 'bad';
                         if (cur.windSpeed > 15 || cur.temp < 5) return 'fair';
@@ -833,7 +834,7 @@
                     }
                 },
                 {
-                    id: 'bbq', name: 'Barbacoa', icon: 'bi-fire',
+                    id: 'bbq', name: 'Barbacoa', icon: '<i class="fa-solid fa-grill-fire"></i>',
                     check: () => {
                         if (isRain || cur.windSpeed > 25) return 'bad';
                         if (cur.temp < 15 || cur.windSpeed > 15) return 'fair';
@@ -841,15 +842,15 @@
                     }
                 },
                 {
-                    id: 'car', name: 'Lavar Coche', icon: 'bi-car-front',
+                    id: 'car', name: 'Lavar Coche', icon: '<i class="fa-duotone fa-regular fa-car-wash"></i>',
                     check: () => {
-                        if (isRain || rainTomorrow) return 'bad'; // Si llueve mañana, malo
+                        if (isRain || rainTomorrow) return 'bad'; 
                         if (cur.temp < 5) return 'fair';
                         return 'good';
                     }
                 },
                 {
-                    id: 'star', name: 'Estrellas', icon: 'bi-stars',
+                    id: 'star', name: 'Estrellas', icon: '<i class="fa-sharp fa-solid fa-stars"></i>',
                     check: () => {
                         if (cur.isDay || cur.cloudCover > 50) return 'bad';
                         if (cur.cloudCover > 20) return 'fair';
@@ -857,15 +858,15 @@
                     }
                 },
                 {
-                    id: 'dog', name: 'Paseo Perro', icon: 'bi-emoji-smile',
+                    id: 'dog', name: 'Paseo Perro', icon: '<i class="fa-solid fa-dog-leashed"></i>',
                     check: () => {
-                        if (cur.desc.includes('fuerte') || cur.temp > 32) return 'bad'; // Asfalto caliente
+                        if (cur.desc.includes('fuerte') || cur.temp > 32) return 'bad'; 
                         if (isRain || cur.temp < 2) return 'fair';
                         return 'good';
                     }
                 },
                 {
-                    id: 'beach', name: 'Playa', icon: 'bi-umbrella-fill',
+                    id: 'beach', name: 'Playa', icon: '<i class="fa-solid fa-umbrella-beach"></i>',
                     check: () => {
                         if (isRain || cur.temp < 22) return 'bad';
                         if (cur.windSpeed > 20) return 'fair';
@@ -873,7 +874,7 @@
                     }
                 },
                 {
-                    id: 'drive', name: 'Conducir', icon: 'bi-sign-stop',
+                    id: 'drive', name: 'Conducir', icon: '<i class="fa-solid fa-car"></i>',
                     check: () => {
                         if (cur.desc.includes('niebla') || cur.desc.includes('tormenta') || cur.desc.includes('nieve')) return 'bad';
                         if (isRain) return 'fair';
