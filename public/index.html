@@ -819,7 +819,7 @@
             // --- LISTA ACTUALIZADA CON FONT AWESOME ---
             const activities = [
                 {
-                    id: 'run', name: 'Running', icon: 'fa-solid fa-person-running', // Icono real de correr
+                    id: 'run', name: 'Running', icon: 'fa-solid fa-person-running',
                     check: () => {
                         if (isRain || cur.windSpeed > 30 || cur.temp > 32 || cur.temp < 0) return 'bad';
                         if (cur.windSpeed > 20 || cur.temp > 28 || cur.temp < 5) return 'fair';
