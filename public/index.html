@@ -643,25 +643,140 @@
 
         const getClothingList = (temp, desc, wind, uv) => {
             let boys = [], girls = [];
-            let shopLink = null; // NUEVO: ENLACE DE COMPRA
+            let shopLink = null; // Variable para el enlace de compra
+            
             desc = desc.toLowerCase();
             const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             const isSnow = desc.includes('nieve') || desc.includes('nevada');
             const isClear = desc.includes('despejado') || desc.includes('sol');
             
-            if (temp >= 30) { boys.push({icon: 'bi-brightness-high', text: 'Tirantes/Fino'}); girls.push({icon: 'bi-brightness-high', text: 'Top/Vestido'}); boys.push({icon: 'bi-emoji-sunglasses', text: 'Shorts'}); girls.push({icon: 'bi-emoji-sunglasses', text: 'Shorts/Falda'}); }
-            else if (temp >= 25) { boys.push({icon: 'bi-tshirt', text: 'Camiseta corta'}); girls.push({icon: 'bi-tshirt', text: 'Camiseta/Blusa'}); boys.push({icon: 'bi-emoji-smile', text: 'Pantalón fino'}); girls.push({icon: 'bi-emoji-smile', text: 'Falda/Leggins'}); }
-            else if (temp >= 20) { boys.push({icon: 'bi-tshirt', text: 'Polo/Camiseta'}); girls.push({icon: 'bi-tshirt', text: 'Camiseta 3/4'}); boys.push({icon: 'bi-person', text: 'Jeans/Chino'}); girls.push({icon: 'bi-person', text: 'Jeans/Culotte'}); }
-            else if (temp >= 15) { boys.push({icon: 'bi-person', text: 'Camiseta+Camisa'}); girls.push({icon: 'bi-person', text: 'Blusa+Cardigan'}); boys.push({icon: 'bi-person', text: 'Pantalón largo'}); girls.push({icon: 'bi-person', text: 'Pantalón largo'}); }
-            else if (temp >= 10) { boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); girls.push({icon: 'bi-person-hoodie', text: 'Jersey fino'}); boys.push({icon: 'bi-layers', text: 'Chaqueta fina'}); girls.push({icon: 'bi-layers', text: 'Trench/Cazadora'}); }
-            else if (temp >= 5) { boys.push({icon: 'bi-person-fill', text: 'Jersey gordo'}); girls.push({icon: 'bi-person-fill', text: 'Jersey lana'}); boys.push({icon: 'bi-bricks', text: 'Abrigo'}); girls.push({icon: 'bi-bricks', text: 'Abrigo paño'}); }
-            else { boys.push({icon: 'bi-snow2', text: 'Térmica'}); girls.push({icon: 'bi-snow2', text: 'Térmica'}); boys.push({icon: 'bi-person-fill', text: 'Plumífero'}); girls.push({icon: 'bi-person-fill', text: 'Plumífero'}); }
+            // --- 1. LÓGICA DE ROPA (BASE) ---
+            if (temp >= 30) {
+                boys.push({icon: 'bi-brightness-high', text: 'Tirantes/Fino'});
+                girls.push({icon: 'bi-brightness-high', text: 'Top/Vestido'});
+                boys.push({icon: 'bi-emoji-sunglasses', text: 'Shorts'});
+                girls.push({icon: 'bi-emoji-sunglasses', text: 'Shorts/Falda'});
+            } else if (temp >= 25) {
+                boys.push({icon: 'bi-tshirt', text: 'Camiseta corta'});
+                girls.push({icon: 'bi-tshirt', text: 'Camiseta/Blusa'});
+                boys.push({icon: 'bi-emoji-smile', text: 'Pantalón fino'});
+                girls.push({icon: 'bi-emoji-smile', text: 'Falda/Leggins'});
+            } else if (temp >= 20) {
+                boys.push({icon: 'bi-tshirt', text: 'Polo/Camiseta'});
+                girls.push({icon: 'bi-tshirt', text: 'Camiseta 3/4'});
+                boys.push({icon: 'bi-person', text: 'Jeans/Chino'});
+                girls.push({icon: 'bi-person', text: 'Jeans/Culotte'});
+            } else if (temp >= 15) {
+                boys.push({icon: 'bi-person', text: 'Camiseta+Camisa'});
+                girls.push({icon: 'bi-person', text: 'Blusa+Cardigan'});
+                boys.push({icon: 'bi-person', text: 'Pantalón largo'});
+                girls.push({icon: 'bi-person', text: 'Pantalón largo'});
+            } else if (temp >= 10) {
+                boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'});
+                girls.push({icon: 'bi-person-hoodie', text: 'Jersey fino'});
+                boys.push({icon: 'bi-layers', text: 'Chaqueta fina'});
+                girls.push({icon: 'bi-layers', text: 'Trench/Cazadora'});
+            } else if (temp >= 5) {
+                boys.push({icon: 'bi-person-fill', text: 'Jersey gordo'});
+                girls.push({icon: 'bi-person-fill', text: 'Jersey lana'});
+                boys.push({icon: 'bi-bricks', text: 'Abrigo'});
+                girls.push({icon: 'bi-bricks', text: 'Abrigo paño'});
+            } else {
+                boys.push({icon: 'bi-snow2', text: 'Térmica'});
+                girls.push({icon: 'bi-snow2', text: 'Térmica'});
+                boys.push({icon: 'bi-person-fill', text: 'Plumífero'});
+                girls.push({icon: 'bi-person-fill', text: 'Plumífero'});
+            }
 
+            // AÑADIDOS DE ROPA EXTRA
+            if (temp < 10 || (wind > 20 && temp < 15)) {
+                boys.push({icon: 'bi-emoji-dizzy', text: 'Bufanda'});
+                girls.push({icon: 'bi-emoji-dizzy', text: 'Bufanda'});
+            }
+            if (temp < 5) {
+                boys.push({icon: 'bi-circle', text: 'Gorro'});
+                girls.push({icon: 'bi-circle', text: 'Gorro'});
+            }
             if (isRain) {
-                boys.push({icon: 'bi-umbrella', text: 'Paraguas'}); girls.push({icon: 'bi-umbrella', text: 'Paraguas'}); boys.push({icon: 'bi-cloud-rain', text: 'Impermeable'}); girls.push({icon: 'bi-cloud-rain', text: 'Chubasquero'});
-                if (temp < 15) { boys.push({icon: 'bi-boot', text: 'Botas agua'}); girls.push({icon: 'bi-boot', text: 'Botas agua'}); }
-                
-                // OPORTUNIDAD DE VENTA: LLUVIA
+                boys.push({icon: 'bi-umbrella', text: 'Paraguas'});
+                girls.push({icon: 'bi-umbrella', text: 'Paraguas'});
+                if (temp < 15) {
+                    boys.push({icon: 'bi-boot', text: 'Botas agua'});
+                    girls.push({icon: 'bi-boot', text: 'Botas agua'});
+                }
+            }
+            if (isSnow) {
+                boys.push({icon: 'bi-snow', text: 'Botas nieve'});
+                girls.push({icon: 'bi-snow', text: 'Botas nieve'});
+                boys.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
+                girls.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
+            }
+            if (uv > 5 && isClear) {
+                boys.push({icon: 'bi-sunglasses', text: 'Gafas sol'});
+                girls.push({icon: 'bi-sunglasses', text: 'Gafas sol'});
+                boys.push({icon: 'bi-capslock', text: 'Gorra'});
+                girls.push({icon: 'bi-capslock', text: 'Sombrero'});
+            }
+
+            // --- 2. SUPER LÓGICA DE VENTAS (AFILIADOS) ---
+            
+            // A. POR TEMPERATURA (Prioridad Baja)
+            if (temp > 25) {
+                // Venta: Botella de agua térmica (Hidratación)
+                shopLink = {
+                    text: "Mantente hidratado: Botellas",
+                    url: "https://www.amazon.es/s?k=botella+agua+acero+inoxidable&tag=cristianort01-21",
+                    icon: "bi-droplet-half"
+                };
+            }
+            if (temp > 30) {
+                // Venta: Ventiladores portátiles (Muy de moda)
+                shopLink = {
+                    text: "¡Calor! Ventilador de cuello",
+                    url: "https://www.amazon.es/s?k=ventilador+cuello+portatil&tag=cristianort01-21",
+                    icon: "bi-fan"
+                };
+            }
+            if (temp < 10) {
+                // Venta: Guantes táctiles para móvil
+                shopLink = {
+                    text: "Manos frías: Guantes táctiles",
+                    url: "https://www.amazon.es/s?k=guantes+tactiles+invierno&tag=cristianort01-21",
+                    icon: "bi-hand-index-thumb"
+                };
+            }
+            if (temp < 5) {
+                // Venta: Calentadores de manos (Hand warmers)
+                shopLink = {
+                    text: "Calentadores de manos USB",
+                    url: "https://www.amazon.es/s?k=calentador+manos+usb&tag=cristianort01-21",
+                    icon: "bi-thermometer-snow"
+                };
+            }
+
+            // B. POR VIENTO (Prioridad Media)
+            if (wind > 30) {
+                // Venta: Cortavientos
+                shopLink = {
+                    text: "Protégete: Cortavientos",
+                    url: "https://www.amazon.es/s?k=chaqueta+cortavientos+hombre+mujer&tag=cristianort01-21",
+                    icon: "bi-wind"
+                };
+            }
+
+            // C. POR CONDICIONES "IDEALES" (Prioridad Media-Alta)
+            if (isClear && temp > 20 && temp < 28 && wind < 15) {
+                // Venta: Mantas de picnic o Altavoces
+                shopLink = {
+                    text: "Día perfecto: Manta Picnic",
+                    url: "https://www.amazon.es/s?k=manta+picnic+impermeable&tag=cristianort01-21",
+                    icon: "bi-basket"
+                };
+            }
+
+            // D. POR PRECIPITACIÓN Y SOL (Prioridad Máxima - Sobrescriben lo anterior)
+            if (isRain) {
+                // Venta: Paraguas
                 shopLink = {
                     text: "¿Te falta paraguas? Ver ofertas",
                     url: "https://www.amazon.es/s?k=paraguas+resistente+viento&tag=cristianort01-21",
@@ -670,9 +785,7 @@
             }
             
             if (isSnow) {
-                boys.push({icon: 'bi-snow', text: 'Botas nieve'}); girls.push({icon: 'bi-snow', text: 'Botas nieve'}); boys.push({icon: 'bi-hand-index-thumb', text: 'Guantes'}); girls.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
-                
-                // OPORTUNIDAD DE VENTA: NIEVE
+                // Venta: Ropa térmica / Nieve
                 shopLink = {
                     text: "Equípate para la nieve",
                     url: "https://www.amazon.es/s?k=ropa+termica+nieve&tag=cristianort01-21",
@@ -680,13 +793,8 @@
                 };
             }
 
-            if (temp < 10 || (wind > 20 && temp < 15)) { boys.push({icon: 'bi-emoji-dizzy', text: 'Bufanda'}); girls.push({icon: 'bi-emoji-dizzy', text: 'Bufanda'}); }
-            if (temp < 5) { boys.push({icon: 'bi-circle', text: 'Gorro'}); girls.push({icon: 'bi-circle', text: 'Gorro'}); }
-
             if (uv > 6 && isClear) {
-                boys.push({icon: 'bi-sunglasses', text: 'Gafas sol'}); girls.push({icon: 'bi-sunglasses', text: 'Gafas sol'}); boys.push({icon: 'bi-capslock', text: 'Gorra'}); girls.push({icon: 'bi-capslock', text: 'Sombrero'});
-                
-                // OPORTUNIDAD DE VENTA: SOL
+                // Venta: Crema solar (Muy importante en verano)
                 shopLink = {
                     text: "Protégete: Cremas Solares",
                     url: "https://www.amazon.es/s?k=crema+solar+facial+50&tag=cristianort01-21",
