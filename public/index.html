@@ -153,11 +153,30 @@
         .share-btn:hover { background: var(--accent); color: white; transform: scale(1.1); }
         
         .clothing-tag {
-            border: 1px solid var(--glass-border); padding: 8px 14px; border-radius: 50px;
-            font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px;
-            transition: 0.2s; background: rgba(255,255,255,0.3); color: var(--text);
+            border: 1px solid var(--glass-border); 
+            padding: 8px 12px; 
+            border-radius: 50px;
+            font-size: 0.8rem; 
+            font-weight: 700; /* Letra más gordita */
+            display: flex; 
+            align-items: center; 
+            gap: 6px;
+            transition: all 0.2s; 
+            background: rgba(255,255,255,0.4); 
+            color: var(--text);
+            text-decoration: none; /* Quita el subrayado feo */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Sombrita suave */
+            position: relative;
+            overflow: hidden;
         }
-        .clothing-tag:hover { transform: scale(1.05); }
+        .clothing-tag:hover { 
+            transform: translateY(-2px); /* Se levanta al pasar el ratón */
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1); 
+            background: rgba(255,255,255,0.6);
+        }
+        .clothing-tag:active {
+            transform: scale(0.95); /* Se hunde al hacer clic */
+        }
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
 
         .clothing-tag.boy { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #1e40af; }
@@ -328,7 +347,9 @@
         </div>
 
         <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)"><i class="bi bi-bag-heart-fill"></i> TU ARMARIO HOY</h6>
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
+                <i class="bi bi-bag-heart-fill"></i> OUTFIT RECOMENDADO <span style="font-weight:400; opacity:0.7">(Toca para comprar)</span>
+            </h6>
             <div id="clothing-advice">
                 <div class="d-flex flex-wrap gap-2">
                     <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
@@ -805,14 +826,13 @@
             const clothingContainer = document.getElementById('clothing-advice'); 
             
             if(clothingContainer) { 
-                // AHORA GENERAMOS ENLACES <a> PARA CADA PRENDA
                 let html = `
                 <div class="w-100 mb-2">
                     <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small>
                     <div class="d-flex flex-wrap gap-2">
                         ${clothes.boys.map(i => `
                             <a href="${i.url}" target="_blank" class="clothing-tag boy" style="text-decoration:none; cursor:pointer;">
-                                <i class="bi ${i.icon}"></i> ${i.text}
+                                <i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em; opacity:0.6; margin-left:2px"></i>
                             </a>
                         `).join('')}
                     </div>
@@ -822,7 +842,7 @@
                     <div class="d-flex flex-wrap gap-2">
                         ${clothes.girls.map(i => `
                             <a href="${i.url}" target="_blank" class="clothing-tag girl" style="text-decoration:none; cursor:pointer;">
-                                <i class="bi ${i.icon}"></i> ${i.text}
+                                <i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em; opacity:0.6; margin-left:2px"></i>
                             </a>
                         `).join('')}
                     </div>
@@ -834,7 +854,7 @@
                 }
                 
                 clothingContainer.innerHTML = html; 
-            } 
+            }
         };
 
         document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
