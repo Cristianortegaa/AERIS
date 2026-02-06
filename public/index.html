@@ -646,7 +646,7 @@
 
         const getClothingList = (temp, desc, wind, uv) => {
             let boys = [], girls = [];
-            let shopLink = null; // NUEVO: ENLACE DE COMPRA
+            let shopLink = null; 
             desc = desc.toLowerCase();
             const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             const isSnow = desc.includes('nieve') || desc.includes('nevada');
@@ -664,7 +664,6 @@
                 boys.push({icon: 'bi-umbrella', text: 'Paraguas'}); girls.push({icon: 'bi-umbrella', text: 'Paraguas'}); boys.push({icon: 'bi-cloud-rain', text: 'Impermeable'}); girls.push({icon: 'bi-cloud-rain', text: 'Chubasquero'});
                 if (temp < 15) { boys.push({icon: 'bi-boot', text: 'Botas agua'}); girls.push({icon: 'bi-boot', text: 'Botas agua'}); }
                 
-                // OPORTUNIDAD DE VENTA: LLUVIA
                 shopLink = {
                     text: "¿Te falta paraguas? Ver ofertas",
                     url: "https://www.amazon.es/s?k=paraguas+resistente+viento&tag=cristianort01-21",
@@ -675,7 +674,6 @@
             if (isSnow) {
                 boys.push({icon: 'bi-snow', text: 'Botas nieve'}); girls.push({icon: 'bi-snow', text: 'Botas nieve'}); boys.push({icon: 'bi-hand-index-thumb', text: 'Guantes'}); girls.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
                 
-                // OPORTUNIDAD DE VENTA: NIEVE
                 shopLink = {
                     text: "Equípate para la nieve",
                     url: "https://www.amazon.es/s?k=ropa+termica+nieve&tag=cristianort01-21",
@@ -689,7 +687,6 @@
             if (uv > 5 && isClear) {
                 boys.push({icon: 'bi-sunglasses', text: 'Gafas sol'}); girls.push({icon: 'bi-sunglasses', text: 'Gafas sol'}); boys.push({icon: 'bi-capslock', text: 'Gorra'}); girls.push({icon: 'bi-capslock', text: 'Sombrero'});
                 
-                // OPORTUNIDAD DE VENTA: SOL
                 shopLink = {
                     text: "Protégete: Cremas Solares",
                     url: "https://www.amazon.es/s?k=crema+solar+facial+50&tag=cristianort01-21",
@@ -697,9 +694,6 @@
                 };
             }
 
-            // --- 2. SUPER LÓGICA DE VENTAS (AFILIADOS) ---
-            
-            // A. POR TEMPERATURA (Prioridad Baja)
             if (temp > 25) {
                 shopLink = { text: "Mantente hidratado: Botellas", url: "https://www.amazon.es/s?k=botella+agua+acero+inoxidable&tag=cristianort01-21", icon: "bi-droplet-half" };
             }
@@ -713,17 +707,14 @@
                 shopLink = { text: "Calentadores de manos USB", url: "https://www.amazon.es/s?k=calentador+manos+usb&tag=cristianort01-21", icon: "bi-thermometer-snow" };
             }
 
-            // B. POR VIENTO (Prioridad Media)
             if (wind > 30) {
                 shopLink = { text: "Protégete: Cortavientos", url: "https://www.amazon.es/s?k=chaqueta+cortavientos+hombre+mujer&tag=cristianort01-21", icon: "bi-wind" };
             }
 
-            // C. POR CONDICIONES "IDEALES" (Prioridad Media-Alta)
             if (isClear && temp > 20 && temp < 28 && wind < 15) {
                 shopLink = { text: "Día perfecto: Manta Picnic", url: "https://www.amazon.es/s?k=manta+picnic+impermeable&tag=cristianort01-21", icon: "bi-basket" };
             }
 
-            // D. POR PRECIPITACIÓN Y SOL (Prioridad Máxima - Sobrescriben lo anterior)
             if (isRain) {
                 shopLink = { text: "¿Te falta paraguas? Ver ofertas", url: "https://www.amazon.es/s?k=paraguas+resistente+viento&tag=cristianort01-21", icon: "bi-umbrella-fill" };
             }
@@ -739,7 +730,6 @@
             return { boys: boys.slice(0, 4), girls: girls.slice(0, 4), shopLink: shopLink };
         };
         
-        // --- FUNCIÓN PARA CAMBIAR EL FONDO SEGÚN EL CLIMA ---
         const setDynamicBackground = (cur) => {
             const body = document.body;
             body.className = ''; 
@@ -753,7 +743,6 @@
             if (code.includes('nieve')) { body.classList.add('bg-snow'); return; }
             if (code.includes('nublado') || code.includes('nubes') || code.includes('cubierto') || code.includes('niebla')) { body.classList.add(isDay ? 'bg-cloudy-day' : 'bg-cloudy-night'); return; }
 
-            // Default: Despejado / Sol
             body.classList.add(isDay ? 'bg-clear-day' : 'bg-clear-night');
         };
 
@@ -781,40 +770,28 @@
             const clothingContainer = document.getElementById('clothing-advice'); 
             if(clothingContainer) { 
                 let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag boy"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag girl"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; 
-                
-                // RENDERIZAR BOTÓN DE COMPRA SI EXISTE
                 if (clothes.shopLink) {
                     html += `<a href="${clothes.shopLink.url}" target="_blank" class="shop-btn"><i class="bi ${clothes.shopLink.icon}"></i> ${clothes.shopLink.text}</a>`;
                 }
-                
                 clothingContainer.innerHTML = html; 
             } 
         };
 
         document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
         
-        // --- GESTIÓN DE FAVORITOS (ARREGLADO) ---
         const updateHeartUI = () => { 
             const heart = document.getElementById('favHeart'); 
             if(!heart) return; 
-            // Compara siempre como String para evitar errores "123" vs 123
             const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id)); 
             heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3'; 
         };
 
         const toggleFavorite = () => { 
-            // Busca el índice asegurando que ambos IDs son texto
             const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id)); 
-            
-            if (index > -1) { 
-                favorites.splice(index, 1); // Si existe, bórralo
-            } else { 
-                favorites.push({ ...currentCityInfo }); // Si no, añádelo
-            } 
-            
-            localStorage.setItem('aeris_favs', JSON.stringify(favorites)); // Guarda en memoria
-            updateHeartUI(); // Actualiza el corazón rojo/vacío
-            renderFavorites(); // Pinta la lista del menú lateral
+            if (index > -1) { favorites.splice(index, 1); } else { favorites.push({ ...currentCityInfo }); } 
+            localStorage.setItem('aeris_favs', JSON.stringify(favorites)); 
+            updateHeartUI(); 
+            renderFavorites(); 
         };
 
         const renderFavorites = () => { 
@@ -825,11 +802,7 @@
                 const li = document.createElement('li'); 
                 li.className = 'fav-item'; 
                 li.innerHTML = `<div class="fav-item-info"><span class="fav-name">${city.name}</span><span class="fav-region">${city.region}</span></div><div class="fav-delete"><i class="bi bi-trash3-fill"></i></div>`; 
-                
-                // Clic en el nombre: Cierra menú y carga ciudad
                 li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); }; 
-                
-                // Clic en borrar: Borra y guarda
                 li.querySelector('.fav-delete').onclick = (e) => { 
                     e.stopPropagation(); 
                     favorites = favorites.filter(f => String(f.id) !== String(city.id)); 
@@ -844,12 +817,9 @@
         const openSidebar = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); };
         const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
         
-        // ASIGNACIÓN DE EVENTOS (Corazón, Menú, etc)
         document.getElementById('favMenuBtn').addEventListener('click', openSidebar); 
         document.getElementById('closeSidebar').addEventListener('click', closeSidebar); 
         document.getElementById('overlay').addEventListener('click', closeSidebar);
-        
-        // ¡IMPORTANTE! Asignamos el evento al corazón aquí para que funcione siempre
         document.getElementById('favHeart').addEventListener('click', toggleFavorite);
         
         const normalizeInput = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -1113,23 +1083,27 @@
 
                 document.querySelectorAll('.skeleton').forEach(el => { el.classList.remove('skeleton'); el.style.width = ''; el.style.height = ''; el.style.minHeight = ''; });
                 
-                // --- TU UBICACIÓN (FORMATO MEJORADO) ---
                 let displayCity = loc.name;
-                let isGeo = !localStorage.getItem('lastName'); 
-
+                
+                // Si viene de la API como "Tu ubicación (XXXX)"
                 if (displayCity.startsWith("Tu ubicación (")) {
-                    displayCity = displayCity.match(/\(([^)]+)\)/)[1];
-                    isGeo = true; 
-                } else if (displayCity === "Tu ubicación") {
+                    displayCity = displayCity; // Se deja tal cual porque ya tiene el formato
+                } 
+                // Si es solo "Tu ubicación", intentamos mejorarlo
+                else if (displayCity === "Tu ubicación") {
                     if (loc.region) {
-                        displayCity = loc.region.split(',')[0].trim();
+                       displayCity = `Tu ubicación (${loc.region.split(',')[0].trim()})`;
                     }
-                    isGeo = true;
                 }
 
+                // Renderizado final
                 const cityEl = document.getElementById('city');
-                if (isGeo) {
-                    cityEl.innerHTML = `TU UBICACIÓN <small style="opacity:0.6; font-size:0.7em; margin-left:5px; text-transform:none">(${displayCity})</small>`;
+                if (displayCity.startsWith("Tu ubicación")) {
+                    // Extraemos lo que hay entre paréntesis si existe
+                    const match = displayCity.match(/\(([^)]+)\)/);
+                    const subText = match ? match[1] : "";
+                    
+                    cityEl.innerHTML = `TU UBICACIÓN ${subText ? `<small style="opacity:0.6; font-size:0.7em; margin-left:5px; text-transform:none">(${subText})</small>` : ''}`;
                 } else {
                     cityEl.innerText = displayCity;
                 }
@@ -1167,7 +1141,6 @@
                 
                 updateAIText(cur, isHighPollen);
                 
-                // --- FONDO DINÁMICO (LLAMADA) ---
                 setDynamicBackground(cur);
 
                 if (data.daily && data.daily.length > 0) {
@@ -1254,7 +1227,23 @@
              document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
              navigator.geolocation.getCurrentPosition(async (pos) => {
                  const id = `${pos.coords.latitude},${pos.coords.longitude}`;
-                 localStorage.setItem('lastName', '');
+                 
+                 // --- NUEVO: OBTENER NOMBRE EXACTO DEL NAVEGADOR ---
+                 let exactName = "";
+                 try {
+                     const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=14`);
+                     const data = await resp.json();
+                     // Prioridad: Barrio > Pueblo > Ciudad
+                     exactName = data.address.suburb || data.address.neighbourhood || data.address.village || data.address.town || data.address.city || data.address.municipality;
+                 } catch(e) {}
+
+                 // Guardamos el nombre exacto para que el Backend lo use
+                 if(exactName) {
+                     localStorage.setItem('lastName', `Tu ubicación (${exactName})`);
+                 } else {
+                     localStorage.setItem('lastName', '');
+                 }
+                 
                  getWeather(id);
              });
         });
@@ -1263,7 +1252,22 @@
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
                     const id = `${pos.coords.latitude},${pos.coords.longitude}`;
-                    localStorage.setItem('lastName', ''); 
+                    
+                    // --- NUEVO: OBTENER NOMBRE EXACTO AL INICIO ---
+                    let exactName = "";
+                    try {
+                        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=14`);
+                        const data = await resp.json();
+                        exactName = data.address.suburb || data.address.neighbourhood || data.address.village || data.address.town || data.address.city || data.address.municipality;
+                    } catch(e) {}
+
+                    if(exactName) {
+                        localStorage.setItem('lastName', `Tu ubicación (${exactName})`);
+                    } else {
+                        // Si falla, borramos para que no salga uno viejo
+                        localStorage.setItem('lastName', '');
+                    }
+
                     getWeather(id); 
                 },
                 (err) => { getWeather(localStorage.getItem('lastId') || 'Madrid'); },
