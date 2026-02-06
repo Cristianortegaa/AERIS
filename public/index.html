@@ -260,9 +260,9 @@
         
         <div class="p-3">
             <a href="https://ko-fi.com/aerisweather" target="_blank" class="support-btn">
-                <i class="fa-solid fa-arrow-up-right-dots"></i> Ayudame a seguir creciendo.
+                <i class="bi bi-cup-hot-fill support-icon"></i> Invítame a un café
             </a>
-            <div class="text-center mt-3 opacity-50"><small style="font-size:0.65rem; letter-spacing:1px; color:var(--text)">AERIS WEATHER</small></div>
+            <div class="text-center mt-3 opacity-50"><small style="font-size:0.65rem; letter-spacing:1px; color:var(--text)">AERIS WEATHER v1.0</small></div>
         </div>
     </div>
 
@@ -644,11 +644,12 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
+        // --- NUEVA FUNCIÓN DE ROPA CON ENLACES DE AMAZON INTEGRADOS ---
         const getClothingList = (temp, desc, wind, uv) => {
             const tag = "&tag=cristianort01-21";
             const base = "https://www.amazon.es/s?k=";
             
-            // Función auxiliar para crear prendas con enlace
+            // Helper para crear prendas con enlace
             const item = (icon, text, search) => ({
                 icon: icon,
                 text: text,
@@ -656,22 +657,22 @@
             });
 
             let boys = [], girls = [];
-            let shopLink = null; // La recomendación destacada de abajo
+            let shopLink = null; // Recomendación destacada
             
             desc = desc.toLowerCase();
             const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             const isSnow = desc.includes('nieve') || desc.includes('nevada');
             const isClear = desc.includes('despejado') || desc.includes('sol');
             
-            // --- 1. LÓGICA DE PRENDAS (CLICABLES) ---
+            // --- 1. LÓGICA DE PRENDAS (LINKED) ---
             if (temp >= 30) {
                 boys.push(item('bi-brightness-high', 'Tirantes', 'camiseta tirantes hombre'));
                 girls.push(item('bi-brightness-high', 'Top/Vestido', 'vestido verano mujer fresco'));
                 boys.push(item('bi-emoji-sunglasses', 'Shorts', 'pantalones cortos hombre deporte'));
                 girls.push(item('bi-emoji-sunglasses', 'Shorts', 'shorts mujer verano'));
-                // Extra calor
-                boys.push(item('bi-fan', 'Abanico', 'abanico moderno'));
-                girls.push(item('bi-fan', 'Abanico', 'abanico diseño'));
+                // Extras Calor
+                boys.push(item('bi-fan', 'Abanico', 'abanico mano'));
+                girls.push(item('bi-fan', 'Abanico', 'abanico moderno'));
             } else if (temp >= 25) {
                 boys.push(item('bi-tshirt', 'Camiseta', 'camiseta algodon hombre'));
                 girls.push(item('bi-tshirt', 'Blusa', 'blusa fresca mujer'));
@@ -706,7 +707,7 @@
                 girls.push(item('bi-person-fill', 'Plumífero', 'abrigo acolchado mujer'));
             }
 
-            // ACCESORIOS Y EXTRAS (SE SUMAN A LA LISTA)
+            // ACCESORIOS (Se suman a la lista)
             if (temp < 10 || (wind > 20 && temp < 15)) {
                 boys.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda hombre invierno'));
                 girls.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda mujer suave'));
@@ -742,8 +743,6 @@
             }
 
             // --- 2. RECOMENDACIÓN DESTACADA (SHOPLINK) ---
-            // Esta sale debajo, separada, para "upselling"
-            
             if (isRain) {
                 shopLink = { text: "¡Ojo! Paraguas anti-viento", url: `${base}paraguas+antiviento+fuerte${tag}`, icon: "bi-umbrella-fill" };
             } else if (isSnow) {
@@ -759,15 +758,29 @@
             } else if (isClear && temp > 20 && temp < 28) {
                 shopLink = { text: "Mochila para Picnic", url: `${base}mochila+picnic+nevera${tag}`, icon: "bi-basket" };
             } else {
-                // Default si no pasa nada raro
                 shopLink = { text: "Ofertas Flash del Día", url: `${base}ofertas+flash+dia${tag}`, icon: "bi-bag-check-fill" };
             }
 
-            // Devolvemos solo los primeros 5 elementos para no saturar, pero todos tienen URL
-            return { boys: boys.slice(0, 5), girls: girls.slice(0, 5), shopLink: shopLink };
+            // Devolvemos los 6 primeros elementos para llenar bien el hueco
+            return { boys: boys.slice(0, 6), girls: girls.slice(0, 6), shopLink: shopLink };
+        };
+        
+        const setDynamicBackground = (cur) => {
+            const body = document.body;
+            body.className = ''; 
+            
+            const isDay = cur.isDay;
+            const code = cur.desc.toLowerCase();
+            const temp = cur.temp;
+
+            if (temp > 35) { body.classList.add('bg-hot'); return; }
+            if (code.includes('lluvia') || code.includes('llovizna') || code.includes('tormenta') || code.includes('chubascos')) { body.classList.add('bg-rain'); return; }
+            if (code.includes('nieve')) { body.classList.add('bg-snow'); return; }
+            if (code.includes('nublado') || code.includes('nubes') || code.includes('cubierto') || code.includes('niebla')) { body.classList.add(isDay ? 'bg-cloudy-day' : 'bg-cloudy-night'); return; }
+
+            body.classList.add(isDay ? 'bg-clear-day' : 'bg-clear-night');
         };
 
-        // --- ACTUALIZACIÓN VISUAL (AHORA GENERA ENLACES) ---
         const updateAIText = (cur, highPollen = false) => { 
             if (!cur) return; 
             const p = aiLogic[currentPersona]; 
@@ -792,8 +805,7 @@
             const clothingContainer = document.getElementById('clothing-advice'); 
             
             if(clothingContainer) { 
-                // Generamos HTML con enlaces <a> en vez de <div>
-                // Fijate en target="_blank" para que abra Amazon en otra pestaña
+                // AHORA GENERAMOS ENLACES <a> PARA CADA PRENDA
                 let html = `
                 <div class="w-100 mb-2">
                     <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small>
