@@ -153,30 +153,13 @@
         .share-btn:hover { background: var(--accent); color: white; transform: scale(1.1); }
         
         .clothing-tag {
-            border: 1px solid var(--glass-border); 
-            padding: 8px 12px; 
-            border-radius: 50px;
-            font-size: 0.8rem; 
-            font-weight: 700; /* Letra más gordita */
-            display: flex; 
-            align-items: center; 
-            gap: 6px;
-            transition: all 0.2s; 
-            background: rgba(255,255,255,0.4); 
-            color: var(--text);
-            text-decoration: none; /* Quita el subrayado feo */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Sombrita suave */
-            position: relative;
-            overflow: hidden;
+            border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 50px;
+            font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px;
+            transition: all 0.2s; background: rgba(255,255,255,0.4); color: var(--text);
+            text-decoration: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position: relative; overflow: hidden;
         }
-        .clothing-tag:hover { 
-            transform: translateY(-2px); /* Se levanta al pasar el ratón */
-            box-shadow: 0 6px 12px rgba(0,0,0,0.1); 
-            background: rgba(255,255,255,0.6);
-        }
-        .clothing-tag:active {
-            transform: scale(0.95); /* Se hunde al hacer clic */
-        }
+        .clothing-tag:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); background: rgba(255,255,255,0.6); }
+        .clothing-tag:active { transform: scale(0.95); }
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
 
         .clothing-tag.boy { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #1e40af; }
@@ -223,16 +206,26 @@
         @keyframes pulseAlert { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         .alert-icon { font-size: 1.8rem; animation: pulseAlert 2s infinite; }
 
-        /* ESTILO NUEVO BOTÓN AFILIADO/COMPRA */
+        /* ESTILO NUEVO BOTÓN AFILIADO/COMPRA (ARREGLADO PARA QUE SE VEA SIEMPRE) */
         .shop-btn {
             display: inline-flex; align-items: center; gap: 6px;
-            margin-top: 10px; padding: 8px 14px;
-            border-radius: 50px; font-size: 0.8rem; font-weight: 700;
-            background: rgba(255, 255, 255, 0.4); border: 1px solid var(--glass-border);
-            color: var(--text); text-decoration: none;
-            transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            margin-top: 10px; padding: 10px 20px;
+            border-radius: 50px; font-size: 0.9rem; font-weight: 700;
+            
+            /* CORRECCIÓN: Fondo gris suave y texto oscuro siempre */
+            background: #f3f4f6; 
+            color: #1f2937 !important; /* Texto oscuro forzado */
+            border: 1px solid #e5e7eb;
+            
+            text-decoration: none;
+            transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.08);
         }
-        .shop-btn:hover { background: var(--accent); color: white; transform: translateY(-2px); }
+        .shop-btn:hover { 
+            background: var(--accent); 
+            color: white !important; /* Al pasar el ratón se pone azul y texto blanco */
+            transform: translateY(-2px);
+            border-color: var(--accent);
+        }
 
         /* ESTILO BOTÓN KO-FI / DONAR */
         .support-btn {
@@ -665,33 +658,30 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
-        // --- NUEVA FUNCIÓN DE ROPA CON ENLACES DE AMAZON INTEGRADOS ---
         const getClothingList = (temp, desc, wind, uv) => {
+            let boys = [], girls = [];
+            let shopLink = null; 
+            desc = desc.toLowerCase();
+            const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
+            const isSnow = desc.includes('nieve') || desc.includes('nevada');
+            const isClear = desc.includes('despejado') || desc.includes('sol');
+            
+            // --- NUEVA LÓGICA CON ENLACES INDIVIDUALES ---
             const tag = "&tag=cristianort01-21";
             const base = "https://www.amazon.es/s?k=";
             
-            // Helper para crear prendas con enlace
             const item = (icon, text, search) => ({
                 icon: icon,
                 text: text,
                 url: `${base}${search.replace(/ /g, '+')}${tag}`
             });
 
-            let boys = [], girls = [];
-            let shopLink = null; // Recomendación destacada
-            
-            desc = desc.toLowerCase();
-            const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
-            const isSnow = desc.includes('nieve') || desc.includes('nevada');
-            const isClear = desc.includes('despejado') || desc.includes('sol');
-            
-            // --- 1. LÓGICA DE PRENDAS (LINKED) ---
+            // 1. Lógica de Ropa
             if (temp >= 30) {
                 boys.push(item('bi-brightness-high', 'Tirantes', 'camiseta tirantes hombre'));
                 girls.push(item('bi-brightness-high', 'Top/Vestido', 'vestido verano mujer fresco'));
                 boys.push(item('bi-emoji-sunglasses', 'Shorts', 'pantalones cortos hombre deporte'));
                 girls.push(item('bi-emoji-sunglasses', 'Shorts', 'shorts mujer verano'));
-                // Extras Calor
                 boys.push(item('bi-fan', 'Abanico', 'abanico mano'));
                 girls.push(item('bi-fan', 'Abanico', 'abanico moderno'));
             } else if (temp >= 25) {
@@ -728,7 +718,7 @@
                 girls.push(item('bi-person-fill', 'Plumífero', 'abrigo acolchado mujer'));
             }
 
-            // ACCESORIOS (Se suman a la lista)
+            // Accesorios
             if (temp < 10 || (wind > 20 && temp < 15)) {
                 boys.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda hombre invierno'));
                 girls.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda mujer suave'));
@@ -763,7 +753,7 @@
                 girls.push(item('bi-capslock', 'Sombrero', 'sombrero paja mujer'));
             }
 
-            // --- 2. RECOMENDACIÓN DESTACADA (SHOPLINK) ---
+            // 2. Recomendación Destacada (Botón grande)
             if (isRain) {
                 shopLink = { text: "¡Ojo! Paraguas anti-viento", url: `${base}paraguas+antiviento+fuerte${tag}`, icon: "bi-umbrella-fill" };
             } else if (isSnow) {
@@ -782,8 +772,7 @@
                 shopLink = { text: "Ofertas Flash del Día", url: `${base}ofertas+flash+dia${tag}`, icon: "bi-bag-check-fill" };
             }
 
-            // Devolvemos los 6 primeros elementos para llenar bien el hueco
-            return { boys: boys.slice(0, 6), girls: girls.slice(0, 6), shopLink: shopLink };
+            return { boys: boys.slice(0, 5), girls: girls.slice(0, 5), shopLink: shopLink };
         };
         
         const setDynamicBackground = (cur) => {
@@ -824,37 +813,13 @@
             
             const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, cur.uv); 
             const clothingContainer = document.getElementById('clothing-advice'); 
-            
             if(clothingContainer) { 
-                let html = `
-                <div class="w-100 mb-2">
-                    <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small>
-                    <div class="d-flex flex-wrap gap-2">
-                        ${clothes.boys.map(i => `
-                            <a href="${i.url}" target="_blank" class="clothing-tag boy" style="text-decoration:none; cursor:pointer;">
-                                <i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em; opacity:0.6; margin-left:2px"></i>
-                            </a>
-                        `).join('')}
-                    </div>
-                </div>
-                <div class="w-100">
-                    <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small>
-                    <div class="d-flex flex-wrap gap-2">
-                        ${clothes.girls.map(i => `
-                            <a href="${i.url}" target="_blank" class="clothing-tag girl" style="text-decoration:none; cursor:pointer;">
-                                <i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em; opacity:0.6; margin-left:2px"></i>
-                            </a>
-                        `).join('')}
-                    </div>
-                </div>`;
-                
-                // Botón grande de recomendación extra debajo
+                let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<a href="${i.url}" target="_blank" class="clothing-tag boy" style="text-decoration:none; cursor:pointer;"><i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em; opacity:0.6; margin-left:2px"></i></a>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<a href="${i.url}" target="_blank" class="clothing-tag girl" style="text-decoration:none; cursor:pointer;"><i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em; opacity:0.6; margin-left:2px"></i></a>`).join('') + `</div></div>`; 
                 if (clothes.shopLink) {
                     html += `<div class="mt-2 w-100"><a href="${clothes.shopLink.url}" target="_blank" class="shop-btn w-100 justify-content-center"><i class="bi ${clothes.shopLink.icon}"></i> ${clothes.shopLink.text}</a></div>`;
                 }
-                
                 clothingContainer.innerHTML = html; 
-            }
+            } 
         };
 
         document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
