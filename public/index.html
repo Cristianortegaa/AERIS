@@ -260,7 +260,7 @@
         
         <div class="p-3">
             <a href="https://ko-fi.com/aerisweather" target="_blank" class="support-btn">
-                <i class="fa-solid fa-arrow-up-right-dots"></i> Ayudame a seguir creciendo
+                <i class="bi bi-cup-hot-fill support-icon"></i> Invítame a un café
             </a>
             <div class="text-center mt-3 opacity-50"><small style="font-size:0.65rem; letter-spacing:1px; color:var(--text)">AERIS WEATHER v1.0</small></div>
         </div>
@@ -1114,13 +1114,24 @@
                 document.querySelectorAll('.skeleton').forEach(el => { el.classList.remove('skeleton'); el.style.width = ''; el.style.height = ''; el.style.minHeight = ''; });
                 
                 // --- TU UBICACIÓN (FORMATO MEJORADO) ---
-                if(loc.name.startsWith("Tu ubicación (")) {
-                    document.getElementById('city').innerHTML = loc.name
-                        .replace('Tu ubicación', 'TU UBICACIÓN')
-                        .replace('(', '<small style="opacity:0.6; font-size:0.7em; margin-left:5px; text-transform:none">(')
-                        .replace(')', ')</small>');
+                let displayCity = loc.name;
+                let isGeo = !localStorage.getItem('lastName'); 
+
+                if (displayCity.startsWith("Tu ubicación (")) {
+                    displayCity = displayCity.match(/\(([^)]+)\)/)[1];
+                    isGeo = true; 
+                } else if (displayCity === "Tu ubicación") {
+                    if (loc.region) {
+                        displayCity = loc.region.split(',')[0].trim();
+                    }
+                    isGeo = true;
+                }
+
+                const cityEl = document.getElementById('city');
+                if (isGeo) {
+                    cityEl.innerHTML = `TU UBICACIÓN <small style="opacity:0.6; font-size:0.7em; margin-left:5px; text-transform:none">(${displayCity})</small>`;
                 } else {
-                    document.getElementById('city').innerText = loc.name;
+                    cityEl.innerText = displayCity;
                 }
 
                 document.getElementById('temp').innerText = cur.temp + '°';
