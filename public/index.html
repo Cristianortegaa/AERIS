@@ -206,26 +206,15 @@
         @keyframes pulseAlert { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         .alert-icon { font-size: 1.8rem; animation: pulseAlert 2s infinite; }
 
-        /* ESTILO NUEVO BOTÓN AFILIADO/COMPRA (ARREGLADO PARA QUE SE VEA SIEMPRE) */
+        /* ESTILO BOTÓN AFILIADO GRIS */
         .shop-btn {
             display: inline-flex; align-items: center; gap: 6px;
             margin-top: 10px; padding: 10px 20px;
             border-radius: 50px; font-size: 0.9rem; font-weight: 700;
-            
-            /* CORRECCIÓN: Fondo gris suave y texto oscuro siempre */
-            background: #f3f4f6; 
-            color: #1f2937 !important; /* Texto oscuro forzado */
-            border: 1px solid #e5e7eb;
-            
-            text-decoration: none;
-            transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            background: #f3f4f6; color: #1f2937 !important; border: 1px solid #e5e7eb;
+            text-decoration: none; transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.08);
         }
-        .shop-btn:hover { 
-            background: var(--accent); 
-            color: white !important; /* Al pasar el ratón se pone azul y texto blanco */
-            transform: translateY(-2px);
-            border-color: var(--accent);
-        }
+        .shop-btn:hover { background: var(--accent); color: white !important; transform: translateY(-2px); border-color: var(--accent); }
 
         /* ESTILO BOTÓN KO-FI / DONAR */
         .support-btn {
@@ -240,6 +229,10 @@
         .support-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 94, 91, 0.6); color: white; }
         .support-icon { font-size: 1.1rem; animation: heartbeat 1.5s infinite; }
         @keyframes heartbeat { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        /* --- BOTÓN INSTALAR PWA --- */
+        #installBtn { display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background: #0f172a; color: white; padding: 12px 24px; border-radius: 50px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: slideUp 0.5s ease-out; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        @keyframes slideUp { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
     </style>
 </head>
 <body data-theme="light">
@@ -251,6 +244,10 @@
         </div>
         <div class="splash-title">AERIS</div>
     </div>
+
+    <button id="installBtn" style="display:none;">
+        <i class="bi bi-download"></i> Instalar App
+    </button>
 
     <div class="persona-modal" id="personaModal">
         <div class="persona-content">
@@ -339,6 +336,18 @@
             </div>
         </div>
 
+        <div class="glass-card">
+            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
+                <i class="bi bi-bag-heart-fill"></i> OUTFIT RECOMENDADO <span style="font-weight:400; opacity:0.7">(Toca para comprar)</span>
+            </h6>
+            <div id="clothing-advice">
+                <div class="d-flex flex-wrap gap-2">
+                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
+                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
+                </div>
+            </div>
+        </div>
+
         <div class="glass-card" id="rain-card" style="display:none; transition: opacity 0.5s ease;">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)"><i class="bi bi-cloud-drizzle-fill"></i> TENDENCIA LLUVIA</h6>
@@ -351,18 +360,6 @@
             <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
             <div class="hourly-scroll" id="hourly">
                 <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
-                <i class="bi bi-bag-heart-fill"></i> OUTFIT RECOMENDADO <span style="font-weight:400; opacity:0.7">(Toca para comprar)</span>
-            </h6>
-            <div id="clothing-advice">
-                <div class="d-flex flex-wrap gap-2">
-                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
-                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
-                </div>
             </div>
         </div>
 
@@ -435,6 +432,31 @@
     </div>
 
     <script>
+        // --- LOGICA DE INSTALACIÓN PWA ---
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'flex';
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installBtn.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        window.addEventListener('appinstalled', () => {
+            installBtn.style.display = 'none';
+        });
+
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
             const savedTheme = localStorage.getItem('aeris_theme_pref');
@@ -454,7 +476,6 @@
                 }, 3500); 
             }
             
-            // CARGAR FAVORITOS AL INICIO
             renderFavorites();
         });
 
@@ -1062,7 +1083,7 @@
                     }
                 },
                 {
-                    id: 'star', name: 'Ver Estrellas', icon: 'fa-solid fa-star', 
+                    id: 'star', name: 'Estrellas', icon: 'fa-solid fa-star', 
                     check: () => {
                         if (cur.isDay || cur.cloudCover > 50) return 'bad';
                         if (cur.cloudCover > 20) return 'fair';
