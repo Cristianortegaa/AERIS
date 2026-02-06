@@ -645,107 +645,129 @@
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
         const getClothingList = (temp, desc, wind, uv) => {
+            const tag = "&tag=cristianort01-21";
+            const base = "https://www.amazon.es/s?k=";
+            
+            // Función auxiliar para crear prendas con enlace
+            const item = (icon, text, search) => ({
+                icon: icon,
+                text: text,
+                url: `${base}${search.replace(/ /g, '+')}${tag}`
+            });
+
             let boys = [], girls = [];
-            let shopLink = null; 
+            let shopLink = null; // La recomendación destacada de abajo
+            
             desc = desc.toLowerCase();
             const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
             const isSnow = desc.includes('nieve') || desc.includes('nevada');
             const isClear = desc.includes('despejado') || desc.includes('sol');
             
-            if (temp >= 30) { boys.push({icon: 'bi-brightness-high', text: 'Tirantes/Fino'}); girls.push({icon: 'bi-brightness-high', text: 'Top/Vestido'}); boys.push({icon: 'bi-emoji-sunglasses', text: 'Shorts'}); girls.push({icon: 'bi-emoji-sunglasses', text: 'Shorts/Falda'}); }
-            else if (temp >= 25) { boys.push({icon: 'bi-tshirt', text: 'Camiseta corta'}); girls.push({icon: 'bi-tshirt', text: 'Camiseta/Blusa'}); boys.push({icon: 'bi-emoji-smile', text: 'Pantalón fino'}); girls.push({icon: 'bi-emoji-smile', text: 'Falda/Leggins'}); }
-            else if (temp >= 20) { boys.push({icon: 'bi-tshirt', text: 'Polo/Camiseta'}); girls.push({icon: 'bi-tshirt', text: 'Camiseta 3/4'}); boys.push({icon: 'bi-person', text: 'Jeans/Chino'}); girls.push({icon: 'bi-person', text: 'Jeans/Culotte'}); }
-            else if (temp >= 15) { boys.push({icon: 'bi-person', text: 'Camiseta+Camisa'}); girls.push({icon: 'bi-person', text: 'Blusa+Cardigan'}); boys.push({icon: 'bi-person', text: 'Pantalón largo'}); girls.push({icon: 'bi-person', text: 'Pantalón largo'}); }
-            else if (temp >= 10) { boys.push({icon: 'bi-person-hoodie', text: 'Sudadera'}); girls.push({icon: 'bi-person-hoodie', text: 'Jersey fino'}); boys.push({icon: 'bi-layers', text: 'Chaqueta fina'}); girls.push({icon: 'bi-layers', text: 'Trench/Cazadora'}); }
-            else if (temp >= 5) { boys.push({icon: 'bi-person-fill', text: 'Jersey gordo'}); girls.push({icon: 'bi-person-fill', text: 'Jersey lana'}); boys.push({icon: 'bi-bricks', text: 'Abrigo'}); girls.push({icon: 'bi-bricks', text: 'Abrigo paño'}); }
-            else { boys.push({icon: 'bi-snow2', text: 'Térmica'}); girls.push({icon: 'bi-snow2', text: 'Térmica'}); boys.push({icon: 'bi-person-fill', text: 'Plumífero'}); girls.push({icon: 'bi-person-fill', text: 'Plumífero'}); }
+            // --- 1. LÓGICA DE PRENDAS (CLICABLES) ---
+            if (temp >= 30) {
+                boys.push(item('bi-brightness-high', 'Tirantes', 'camiseta tirantes hombre'));
+                girls.push(item('bi-brightness-high', 'Top/Vestido', 'vestido verano mujer fresco'));
+                boys.push(item('bi-emoji-sunglasses', 'Shorts', 'pantalones cortos hombre deporte'));
+                girls.push(item('bi-emoji-sunglasses', 'Shorts', 'shorts mujer verano'));
+                // Extra calor
+                boys.push(item('bi-fan', 'Abanico', 'abanico moderno'));
+                girls.push(item('bi-fan', 'Abanico', 'abanico diseño'));
+            } else if (temp >= 25) {
+                boys.push(item('bi-tshirt', 'Camiseta', 'camiseta algodon hombre'));
+                girls.push(item('bi-tshirt', 'Blusa', 'blusa fresca mujer'));
+                boys.push(item('bi-emoji-smile', 'Chino corto', 'pantalon chino corto hombre'));
+                girls.push(item('bi-emoji-smile', 'Falda', 'falda verano mujer'));
+            } else if (temp >= 20) {
+                boys.push(item('bi-tshirt', 'Polo', 'polo manga corta hombre'));
+                girls.push(item('bi-tshirt', 'Camiseta', 'camiseta moda mujer'));
+                boys.push(item('bi-person', 'Jeans', 'vaqueros hombre levis'));
+                girls.push(item('bi-person', 'Culotte', 'pantalon culotte mujer'));
+            } else if (temp >= 15) {
+                boys.push(item('bi-person', 'Camisa', 'camisa casual hombre'));
+                girls.push(item('bi-person', 'Cardigan', 'cardigan mujer fino'));
+                boys.push(item('bi-person', 'Chinos', 'pantalones chinos hombre'));
+                girls.push(item('bi-person', 'Jeans', 'jeans mujer'));
+                boys.push(item('bi-layers', 'Chaleco', 'chaleco ligero hombre'));
+                girls.push(item('bi-layers', 'Blazer', 'blazer mujer casual'));
+            } else if (temp >= 10) {
+                boys.push(item('bi-person-hoodie', 'Sudadera', 'sudadera con capucha hombre'));
+                girls.push(item('bi-person-hoodie', 'Jersey', 'jersey punto mujer'));
+                boys.push(item('bi-layers', 'Cazadora', 'cazadora bomber hombre'));
+                girls.push(item('bi-layers', 'Trench', 'gabardina mujer'));
+            } else if (temp >= 5) {
+                boys.push(item('bi-person-fill', 'Jersey Lana', 'jersey lana hombre'));
+                girls.push(item('bi-person-fill', 'Jersey Grueso', 'jersey grueso mujer invierno'));
+                boys.push(item('bi-bricks', 'Abrigo', 'abrigo paño hombre'));
+                girls.push(item('bi-bricks', 'Abrigo', 'abrigo lana mujer'));
+            } else {
+                boys.push(item('bi-snow2', 'Térmica', 'camiseta termica hombre'));
+                girls.push(item('bi-snow2', 'Térmica', 'camiseta termica mujer'));
+                boys.push(item('bi-person-fill', 'Plumífero', 'chaqueta plumas hombre'));
+                girls.push(item('bi-person-fill', 'Plumífero', 'abrigo acolchado mujer'));
+            }
 
-            if (isRain) {
-                boys.push({icon: 'bi-umbrella', text: 'Paraguas'}); girls.push({icon: 'bi-umbrella', text: 'Paraguas'}); boys.push({icon: 'bi-cloud-rain', text: 'Impermeable'}); girls.push({icon: 'bi-cloud-rain', text: 'Chubasquero'});
-                if (temp < 15) { boys.push({icon: 'bi-boot', text: 'Botas agua'}); girls.push({icon: 'bi-boot', text: 'Botas agua'}); }
-                
-                shopLink = {
-                    text: "¿Te falta paraguas? Ver ofertas",
-                    url: "https://www.amazon.es/s?k=paraguas+resistente+viento&tag=cristianort01-21",
-                    icon: "bi-umbrella-fill"
-                };
-            }
-            
-            if (isSnow) {
-                boys.push({icon: 'bi-snow', text: 'Botas nieve'}); girls.push({icon: 'bi-snow', text: 'Botas nieve'}); boys.push({icon: 'bi-hand-index-thumb', text: 'Guantes'}); girls.push({icon: 'bi-hand-index-thumb', text: 'Guantes'});
-                
-                shopLink = {
-                    text: "Equípate para la nieve",
-                    url: "https://www.amazon.es/s?k=ropa+termica+nieve&tag=cristianort01-21",
-                    icon: "bi-snow2"
-                };
-            }
-
-            if (temp < 10 || (wind > 20 && temp < 15)) { boys.push({icon: 'bi-emoji-dizzy', text: 'Bufanda'}); girls.push({icon: 'bi-emoji-dizzy', text: 'Bufanda'}); }
-            if (temp < 5) { boys.push({icon: 'bi-circle', text: 'Gorro'}); girls.push({icon: 'bi-circle', text: 'Gorro'}); }
-
-            if (uv > 5 && isClear) {
-                boys.push({icon: 'bi-sunglasses', text: 'Gafas sol'}); girls.push({icon: 'bi-sunglasses', text: 'Gafas sol'}); boys.push({icon: 'bi-capslock', text: 'Gorra'}); girls.push({icon: 'bi-capslock', text: 'Sombrero'});
-                
-                shopLink = {
-                    text: "Protégete: Cremas Solares",
-                    url: "https://www.amazon.es/s?k=crema+solar+facial+50&tag=cristianort01-21",
-                    icon: "bi-sun-fill"
-                };
-            }
-
-            if (temp > 25) {
-                shopLink = { text: "Mantente hidratado: Botellas", url: "https://www.amazon.es/s?k=botella+agua+acero+inoxidable&tag=cristianort01-21", icon: "bi-droplet-half" };
-            }
-            if (temp > 30) {
-                shopLink = { text: "¡Calor! Ventilador de cuello", url: "https://www.amazon.es/s?k=ventilador+cuello+portatil&tag=cristianort01-21", icon: "bi-fan" };
-            }
-            if (temp < 10) {
-                shopLink = { text: "Manos frías: Guantes táctiles", url: "https://www.amazon.es/s?k=guantes+tactiles+invierno&tag=cristianort01-21", icon: "bi-hand-index-thumb" };
+            // ACCESORIOS Y EXTRAS (SE SUMAN A LA LISTA)
+            if (temp < 10 || (wind > 20 && temp < 15)) {
+                boys.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda hombre invierno'));
+                girls.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda mujer suave'));
             }
             if (temp < 5) {
-                shopLink = { text: "Calentadores de manos USB", url: "https://www.amazon.es/s?k=calentador+manos+usb&tag=cristianort01-21", icon: "bi-thermometer-snow" };
+                boys.push(item('bi-circle', 'Gorro', 'gorro lana hombre'));
+                girls.push(item('bi-circle', 'Gorro', 'gorro invierno mujer pompon'));
             }
-
-            if (wind > 30) {
-                shopLink = { text: "Protégete: Cortavientos", url: "https://www.amazon.es/s?k=chaqueta+cortavientos+hombre+mujer&tag=cristianort01-21", icon: "bi-wind" };
-            }
-
-            if (isClear && temp > 20 && temp < 28 && wind < 15) {
-                shopLink = { text: "Día perfecto: Manta Picnic", url: "https://www.amazon.es/s?k=manta+picnic+impermeable&tag=cristianort01-21", icon: "bi-basket" };
-            }
-
+            
             if (isRain) {
-                shopLink = { text: "¿Te falta paraguas? Ver ofertas", url: "https://www.amazon.es/s?k=paraguas+resistente+viento&tag=cristianort01-21", icon: "bi-umbrella-fill" };
+                boys.push(item('bi-umbrella', 'Paraguas', 'paraguas resistente viento'));
+                girls.push(item('bi-umbrella', 'Paraguas', 'paraguas plegable mujer'));
+                boys.push(item('bi-cloud-rain', 'Impermeable', 'chubasquero hombre'));
+                girls.push(item('bi-cloud-rain', 'Gabardina', 'chubasquero mujer impermeable'));
+                if (temp < 15) {
+                    boys.push(item('bi-boot', 'Botas Agua', 'botas de agua hombre'));
+                    girls.push(item('bi-boot', 'Botas Agua', 'botas de agua mujer hunter'));
+                }
             }
             
             if (isSnow) {
-                shopLink = { text: "Equípate para la nieve", url: "https://www.amazon.es/s?k=ropa+termica+nieve&tag=cristianort01-21", icon: "bi-snow2" };
+                boys.push(item('bi-snow', 'Botas Nieve', 'botas nieve hombre impermeables'));
+                girls.push(item('bi-snow', 'Botas Nieve', 'botas nieve mujer pelo'));
+                boys.push(item('bi-hand-index-thumb', 'Guantes', 'guantes nieve hombre tactiles'));
+                girls.push(item('bi-hand-index-thumb', 'Guantes', 'guantes invierno mujer'));
             }
 
-            if (uv > 6 && isClear) {
-                shopLink = { text: "Protégete: Cremas Solares", url: "https://www.amazon.es/s?k=crema+solar+facial+50&tag=cristianort01-21", icon: "bi-sun-fill" };
+            if (uv > 5 && isClear) {
+                boys.push(item('bi-sunglasses', 'Gafas Sol', 'gafas de sol polarizadas hombre'));
+                girls.push(item('bi-sunglasses', 'Gafas Sol', 'gafas de sol mujer tendencia'));
+                boys.push(item('bi-capslock', 'Gorra', 'gorra beisbol hombre'));
+                girls.push(item('bi-capslock', 'Sombrero', 'sombrero paja mujer'));
             }
 
-            return { boys: boys.slice(0, 4), girls: girls.slice(0, 4), shopLink: shopLink };
-        };
-        
-        const setDynamicBackground = (cur) => {
-            const body = document.body;
-            body.className = ''; 
+            // --- 2. RECOMENDACIÓN DESTACADA (SHOPLINK) ---
+            // Esta sale debajo, separada, para "upselling"
             
-            const isDay = cur.isDay;
-            const code = cur.desc.toLowerCase();
-            const temp = cur.temp;
+            if (isRain) {
+                shopLink = { text: "¡Ojo! Paraguas anti-viento", url: `${base}paraguas+antiviento+fuerte${tag}`, icon: "bi-umbrella-fill" };
+            } else if (isSnow) {
+                shopLink = { text: "Cadenas para el coche", url: `${base}cadenas+nieve+coche+textil${tag}`, icon: "bi-snow2" };
+            } else if (uv > 6) {
+                shopLink = { text: "Crema Solar Facial 50+", url: `${base}crema+solar+facial+50+isdin${tag}`, icon: "bi-sun-fill" };
+            } else if (temp > 30) {
+                shopLink = { text: "Ventilador de Cuello", url: `${base}ventilador+cuello+portatil${tag}`, icon: "bi-fan" };
+            } else if (temp < 5) {
+                shopLink = { text: "Calentadores de Manos USB", url: `${base}calentador+manos+usb${tag}`, icon: "bi-fire" };
+            } else if (wind > 30) {
+                shopLink = { text: "Cortavientos Deportivo", url: `${base}cortavientos+running+impermeable${tag}`, icon: "bi-wind" };
+            } else if (isClear && temp > 20 && temp < 28) {
+                shopLink = { text: "Mochila para Picnic", url: `${base}mochila+picnic+nevera${tag}`, icon: "bi-basket" };
+            } else {
+                // Default si no pasa nada raro
+                shopLink = { text: "Ofertas Flash del Día", url: `${base}ofertas+flash+dia${tag}`, icon: "bi-bag-check-fill" };
+            }
 
-            if (temp > 35) { body.classList.add('bg-hot'); return; }
-            if (code.includes('lluvia') || code.includes('llovizna') || code.includes('tormenta') || code.includes('chubascos')) { body.classList.add('bg-rain'); return; }
-            if (code.includes('nieve')) { body.classList.add('bg-snow'); return; }
-            if (code.includes('nublado') || code.includes('nubes') || code.includes('cubierto') || code.includes('niebla')) { body.classList.add(isDay ? 'bg-cloudy-day' : 'bg-cloudy-night'); return; }
-
-            body.classList.add(isDay ? 'bg-clear-day' : 'bg-clear-night');
+            // Devolvemos solo los primeros 5 elementos para no saturar, pero todos tienen URL
+            return { boys: boys.slice(0, 5), girls: girls.slice(0, 5), shopLink: shopLink };
         };
 
+        // --- ACTUALIZACIÓN VISUAL (AHORA GENERA ENLACES) ---
         const updateAIText = (cur, highPollen = false) => { 
             if (!cur) return; 
             const p = aiLogic[currentPersona]; 
@@ -768,11 +790,37 @@
             
             const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, cur.uv); 
             const clothingContainer = document.getElementById('clothing-advice'); 
+            
             if(clothingContainer) { 
-                let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<div class="clothing-tag boy"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<div class="clothing-tag girl"><i class="bi ${i.icon}"></i> ${i.text}</div>`).join('') + `</div></div>`; 
+                // Generamos HTML con enlaces <a> en vez de <div>
+                // Fijate en target="_blank" para que abra Amazon en otra pestaña
+                let html = `
+                <div class="w-100 mb-2">
+                    <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small>
+                    <div class="d-flex flex-wrap gap-2">
+                        ${clothes.boys.map(i => `
+                            <a href="${i.url}" target="_blank" class="clothing-tag boy" style="text-decoration:none; cursor:pointer;">
+                                <i class="bi ${i.icon}"></i> ${i.text}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="w-100">
+                    <small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small>
+                    <div class="d-flex flex-wrap gap-2">
+                        ${clothes.girls.map(i => `
+                            <a href="${i.url}" target="_blank" class="clothing-tag girl" style="text-decoration:none; cursor:pointer;">
+                                <i class="bi ${i.icon}"></i> ${i.text}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>`;
+                
+                // Botón grande de recomendación extra debajo
                 if (clothes.shopLink) {
-                    html += `<a href="${clothes.shopLink.url}" target="_blank" class="shop-btn"><i class="bi ${clothes.shopLink.icon}"></i> ${clothes.shopLink.text}</a>`;
+                    html += `<div class="mt-2 w-100"><a href="${clothes.shopLink.url}" target="_blank" class="shop-btn w-100 justify-content-center"><i class="bi ${clothes.shopLink.icon}"></i> ${clothes.shopLink.text}</a></div>`;
                 }
+                
                 clothingContainer.innerHTML = html; 
             } 
         };
