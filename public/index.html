@@ -23,6 +23,7 @@
     </script>
     
     <link rel="icon" type="image/png" href="logo.png">
+    <link rel="manifest" href="/manifest.json">
     
     <meta name="theme-color" content="#bae6fd">
     <meta name="mobile-web-app-capable" content="yes">
@@ -599,15 +600,17 @@
             else if (code.includes('nublado') || code.includes('nubes') || code.includes('cubierto') || code.includes('niebla')) { body.classList.add(isDay ? 'bg-cloudy-day' : 'bg-cloudy-night'); }
             else { body.classList.add(isDay ? 'bg-clear-day' : 'bg-clear-night'); }
 
-            // AJUSTE DINÁMICO DE LA MODAL DE ALERTAS SEGÚN EL TIEMPO
+            // AJUSTE DINÁMICO DE LA MODAL DE ALERTAS SEGÚN EL TIEMPO (NUEVO)
             const notifModal = document.querySelector('#notificationModal .modal-content');
             if (notifModal) {
                 if (body.classList.contains('bg-clear-night') || body.classList.contains('bg-rain')) {
+                    // Modo oscuro para la modal
                     notifModal.style.background = "#1e293b"; 
                     notifModal.style.color = "#f8fafc";
                     notifModal.querySelectorAll('p').forEach(p => p.style.setProperty('color', '#cbd5e1', 'important'));
                     notifModal.querySelectorAll('h5').forEach(h => h.style.setProperty('color', '#ffffff', 'important'));
                 } else {
+                    // Modo claro para la modal
                     notifModal.style.background = "#ffffff"; 
                     notifModal.style.color = "#0c4a6e";
                     notifModal.querySelectorAll('p').forEach(p => p.style.setProperty('color', '#475569', 'important'));
@@ -677,7 +680,7 @@
             }); 
         };
 
-        // ESCUCHADOR PARA EL CORAZÓN
+        // ESCUCHADOR PARA EL CORAZÓN (ESTO FALTABA ANTES)
         document.getElementById('favHeart').addEventListener('click', (e) => {
             e.stopPropagation();
             toggleFavorite();
