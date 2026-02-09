@@ -271,23 +271,79 @@
         <i class="bi bi-download"></i> Instalar App
     </button>
 
-    <div id="iosInstallModal" onclick="this.style.display='none'">
+    <div id="iosInstallModal" onclick="closeIosModal()">
         <div class="ios-content" onclick="event.stopPropagation()">
-            <div class="mb-3"><img src="logo.png" style="width:60px; border-radius:12px;"></div>
-            <h5 class="fw-bold">Instalar AERIS en iPhone</h5>
-            <p class="opacity-75 small">Esta app no está en la App Store. Instálala así:</p>
-            <hr class="border-secondary opacity-25">
-            <div class="d-flex align-items-center gap-3 text-start mb-3">
-                <i class="bi bi-box-arrow-up fs-2 text-primary"></i>
-                <div>1. Toca el botón <b>Compartir</b> abajo.</div>
+            <div class="mb-3">
+                <img src="logo.png" style="width:64px; border-radius:14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
             </div>
-            <div class="d-flex align-items-center gap-3 text-start">
-                <i class="bi bi-plus-square fs-2 text-primary"></i>
-                <div>2. Selecciona <b>Añadir a inicio</b>.</div>
+
+            <div id="tiktok-instructions" style="display: none;">
+                <h4 class="fw-bold text-danger mb-2">⚠️ Estás en TikTok</h4>
+                <p class="small opacity-75 mb-3">Desde aquí no puedes instalar la App. Tienes que abrirla en el navegador de verdad.</p>
+                
+                <div class="bg-light text-dark p-3 rounded-3 text-start mb-3 border">
+                    <div class="d-flex gap-3 mb-2 align-items-center">
+                        <i class="bi bi-three-dots fs-4"></i>
+                        <span class="small">1. Toca los <b>3 puntos</b> o la <b>brújula</b> (esquina inferior).</span>
+                    </div>
+                    <div class="d-flex gap-3 align-items-center">
+                        <i class="bi bi-compass fs-4"></i>
+                        <span class="small">2. Elige <b>"Abrir en el navegador"</b>.</span>
+                    </div>
+                </div>
+                <p class="small fw-bold">Cuando estés en Safari, podrás instalarla.</p>
             </div>
-            <i class="bi bi-arrow-down ios-arrow"></i>
+
+            <div id="safari-instructions">
+                <h4 class="fw-bold mb-2">Instalar AERIS</h4>
+                <p class="small opacity-75 mb-4">Añade la app a tu inicio para que funcione al 100%.</p>
+                
+                <div class="d-flex align-items-center justify-content-center gap-2 text-primary fw-bold mb-2">
+                    <i class="bi bi-box-arrow-up fs-3"></i> 
+                    <span>1. Toca "Compartir" abajo</span>
+                </div>
+                
+                <div class="d-flex align-items-center justify-content-center gap-2 text-dark fw-bold border rounded-2 p-2 bg-light">
+                    <i class="bi bi-plus-square fs-5"></i> 
+                    <span>2. Selecciona "Añadir a inicio"</span>
+                </div>
+                
+                <i class="bi bi-arrow-down-circle-fill fs-1 text-primary mt-4 fade-down"></i>
+            </div>
         </div>
     </div>
+
+    <script>
+        // SCRIPT PARA DETECTAR TIKTOK/INSTAGRAM
+        function checkInAppBrowser() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            // Detectamos si es el navegador interno de TikTok o Instagram
+            const isInApp = /Instagram|TikTok/.test(userAgent);
+
+            if (isInApp) {
+                // Ocultamos instrucciones normales y mostramos las de alerta
+                document.getElementById('safari-instructions').style.display = 'none';
+                document.getElementById('tiktok-instructions').style.display = 'block';
+            }
+        }
+        
+        // Ejecutamos al cargar
+        checkInAppBrowser();
+
+        function closeIosModal() {
+            document.getElementById('iosInstallModal').style.display = 'none';
+        }
+    </script>
+
+    <style>
+        /* Animación para la flecha */
+        .fade-down { animation: float 2s infinite; }
+        @keyframes float {
+            0% { transform: translateY(0px); opacity: 1; }
+            50% { transform: translateY(10px); opacity: 0.5; }
+            100% { transform: translateY(0px); opacity: 1; }
+        }
+    </style>
 
     <div class="persona-modal" id="personaModal">
         <div class="persona-content">
