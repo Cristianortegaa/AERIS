@@ -293,7 +293,7 @@
                 </div>
                 <p class="small fw-bold opacity-50">Cuando se abra Safari/Chrome, podrás instalarla.</p>
             </div>
-            
+
             <div id="safari-instructions">
                 <h4 class="fw-bold mb-1">Instalar AERIS</h4>
                 <p class="small opacity-75 mb-4">Sigue estos pasos para que funcione al 100%:</p>
@@ -326,7 +326,7 @@
                         </div>
                         <div class="ms-3">
                             <div class="small text-uppercase opacity-50 fw-bold" style="font-size: 0.65rem;">Paso 3</div>
-                            <div class="fw-bold font-monospace" style="font-size: 0.9rem;">Dale a "Añadir a inicio"</div>
+                            <div class="fw-bold font-monospace" style="font-size: 0.9rem;">Dale a "Añadir a pantalla de inicio"</div>
                         </div>
                     </div>
 
@@ -722,51 +722,57 @@
         let lastWeatherData = null;
         let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
 
+        // --- LÓGICA DE PERSONALIDADES COMPLETA Y MEJORADA ---
         const aiLogic = {
             normal: { icon: "🤖", name: "Normal", tips: { 
-                hot: ["Mantente hidratado.", "Evita el sol directo.", "Usa ropa ligera.", "Busca la sombra.", "Día caluroso, precaución.", "No olvides las gafas de sol.", "Aplica protector solar si sales."], 
-                cold: ["Abrígate bien.", "Usa capas.", "Protege tu garganta.", "Hace frío ahí fuera.", "Mantén el calor corporal.", "Guantes y gorro recomendados.", "Evita corrientes de aire."], 
-                rain: ["Lleva paraguas.", "Suelo resbaladizo.", "Conduce con cuidado.", "Día de lluvia.", "Posibles chubascos.", "Impermeable recomendado.", "Calzado resistente al agua."], 
-                snow: ["Precaución con el hielo.", "Abrígate al máximo.", "Disfruta la nieve.", "Calzado antideslizante.", "Nieve en camino.", "Cadenas si vas a conducir.", "Visibilidad reducida."],
-                wind: ["Cuidado con objetos voladores.", "Asegura ventanas.", "Viento fuerte.", "Evita zonas arboladas.", "Sujeta el sombrero.", "Precaución al volante.", "No tiendas ropa fuera."],
-                nice: ["Día perfecto.", "Disfruta del aire libre.", "Condiciones agradables.", "Aprovecha el día.", "Tiempo estable.", "Ideal para pasear.", "Ventila la casa."],
-                allergy: ["¡Alerta de alergia! Toma antihistamínicos.", "Niveles altos de polen hoy.", "Usa gafas de sol si tienes alergia.", "Cierra ventanas si el polen te afecta.", "Lávate la cara al volver a casa."]
+                hot: ["Hidrátate bien, hace calor.", "Evita el sol directo ahora.", "Ropa ligera recomendada.", "Busca la sombra.", "El asfalto quema, cuidado.", "Usa protector solar.", "Día de altas temperaturas."], 
+                cold: ["Abrígate, hace fresco.", "No olvides la chaqueta.", "Protege tu garganta.", "Mantén el calor corporal.", "Buen momento para un café caliente.", "Cierra bien las ventanas.", "El aire está frío."], 
+                rain: ["Lleva paraguas sí o sí.", "Suelo mojado, precaución.", "Día de lluvia.", "Impermeable recomendado.", "Calzado resistente al agua.", "Posibles charcos.", "Conduce con suavidad."], 
+                snow: ["Nieve detectada.", "Cuidado con el hielo.", "Abrígate al máximo.", "Calzado antideslizante.", "Visibilidad reducida.", "Revisa el coche antes de salir.", "Disfruta el paisaje blanco."],
+                wind: ["Viento fuerte, cuidado.", "Asegura puertas y ventanas.", "Cuidado con las ramas.", "Sujeta bien el sombrero.", "Sensación térmica baja por viento.", "Evita zonas arboladas.", "Precaución al conducir."],
+                cloudy: ["Cielo cubierto.", "Día gris, pero tranquilo.", "Luz suave, buena para fotos.", "Ni frío ni calor, pero nublado.", "Quizás no necesites gafas de sol.", "Ambiente melancólico.", "Nubes altas."],
+                nice: ["Día espectacular.", "Aprovecha para salir.", "Condiciones perfectas.", "Ni una nube.", "Tiempo muy agradable.", "Ideal para pasear.", "Ventila la casa."],
+                allergy: ["Niveles altos de polen.", "Toma tus antihistamínicos.", "Usa gafas de sol.", "Evita abrir ventanas mucho tiempo.", "Lávate la cara al volver.", "Día duro para alérgicos."]
             }},
             zen: { icon: "🧘", name: "Zen", tips: { 
-                hot: ["Siente el calor como energía.", "Fluye con la temperatura.", "El sol nutre tu espíritu.", "Respira el verano.", "Calma interior ante el calor.", "Sé como el desierto: sereno.", "Acepta el sudor como purificación."], 
-                cold: ["El frío aclara la mente.", "Abraza la quietud del invierno.", "Medita con el frescor.", "Paz helada.", "El frío es solo una sensación.", "Respira el aire puro y gélido.", "La quietud del hielo."], 
-                rain: ["El agua limpia el alma.", "Escucha el ritmo de la lluvia.", "La naturaleza bebe.", "Deja que fluya.", "Gotas de consciencia.", "Somos agua, la lluvia es familia.", "Limpia tu aura con la tormenta."], 
-                snow: ["Silencio blanco.", "Pureza cristalina.", "El mundo descansa.", "Contempla la blancura.", "Paz invernal.", "Cada copo es un mandala único.", "El mundo se silencia para meditar."],
-                wind: ["Deja que el viento se lleve lo malo.", "Cambios en el aire.", "Sé flexible como el bambú.", "El aire renueva.", "Susurros del viento.", "Fluye sin resistencia.", "El viento trae nuevos comienzos."],
-                nice: ["Armonía perfecta.", "El universo sonríe.", "Equilibrio natural.", "Gratitud por este día.", "Presente perfecto.", "Conecta con la tierra.", "Respira la belleza."],
-                allergy: ["El polen es vida, pero respira con cuidado.", "Acepta la primavera sin resistencia.", "Purifica tu aire interior.", "Paz a tus ojos irritados.", "La naturaleza es intensa hoy."]
+                hot: ["El sol es energía pura.", "Siente el calor como un abrazo.", "Fluye como el verano.", "Respira el fuego del sol.", "Calma interior ante el calor.", "Sé como el desierto: sereno.", "Acepta la temperatura."], 
+                cold: ["El frío aclara la mente.", "Abraza la quietud del invierno.", "Medita con el frescor.", "Paz helada.", "Respira el aire puro y fresco.", "Conserva tu calor interior.", "La quietud del frío."], 
+                rain: ["El agua limpia el alma.", "Escucha el ritmo de la lluvia.", "La naturaleza bebe hoy.", "Deja que fluya.", "Gotas de consciencia.", "Somos agua, fluye.", "Limpia tu aura con la lluvia."], 
+                snow: ["Silencio blanco.", "Pureza cristalina.", "El mundo descansa bajo el manto.", "Contempla la blancura.", "Paz invernal.", "Cada copo es único, como tú.", "El mundo medita en silencio."],
+                wind: ["Deja que el viento se lleve lo malo.", "Cambios en el aire.", "Sé flexible como el bambú.", "El aire renueva la energía.", "Susurros del viento.", "Fluye sin resistencia.", "El viento trae nuevos comienzos."],
+                cloudy: ["Las nubes son pensamientos pasajeros.", "Luz difusa, mente tranquila.", "La belleza de lo gris.", "Calma bajo el cielo cubierto.", "Un día para mirar hacia dentro.", "Paz en la sombra.", "Sin sol también hay luz."],
+                nice: ["Armonía perfecta.", "El universo sonríe hoy.", "Equilibrio natural.", "Gratitud por este cielo azul.", "Presente perfecto.", "Conecta con la tierra.", "Respira la belleza del día."],
+                allergy: ["La naturaleza es intensa.", "Acepta la primavera.", "Purifica tu aire interior.", "Paz a tus ojos.", "La vida florece, respira con calma."]
             }},
             villano: { icon: "😈", name: "Villano", tips: { 
-                hot: ["¡Que arda el mundo!", "Sufre mortal.", "El asfalto se derrite, excelente.", "Sudor y lágrimas.", "Un horno perfecto.", "El sol es mi aliado hoy.", "Espero que no tengas aire acondicionado."], 
-                cold: ["Congélate hasta los huesos.", "El invierno eterno se acerca.", "Tiembla, insignificante.", "Hielo en tu corazón.", "Perfecto para mis planes fríos.", "Se te van a caer los dedos.", "El frío conserva mi maldad."], 
-                rain: ["¡Diluvio universal!", "Mójate, miserable.", "Truenos de destrucción.", "El cielo llora por ti.", "Caos acuático.", "Espero que tengas goteras.", "Rayos, truenos y desesperación."], 
-                snow: ["Sepultados en blanco.", "Frío mortal.", "La era de hielo comienza.", "Resbala y cae.", "Blanco como el miedo.", "Quedarás atrapado en la nieve.", "Congelación inminente."],
-                wind: ["¡Volad, necios!", "El viento aullará mi nombre.", "Destrucción aérea.", "Arrancaré los árboles.", "Tormenta perfecta.", "Volarán los tejados.", "El viento obedece mis órdenes."],
-                nice: ["Demasiada calma... sospechoso.", "Odio los días bonitos.", "La calma antes de mi tormenta.", "Qué asco de sol.", "Aburrido...", "Voy a nublar este día perfecto.", "La felicidad me da alergia."],
-                allergy: ["¡Sufre con tus estornudos!", "El polen es mi arma biológica.", "Llora, tus ojos rojos me divierten.", "Ni los antihistamínicos te salvarán.", "Mocos infinitos para ti."]
+                hot: ["¡Que arda todo!", "Espero que sudes mucho.", "El asfalto se derrite, excelente.", "Un horno perfecto para ti.", "Sufre, mortal acalorado.", "El sol es mi aliado hoy.", "Ojalá se te rompa el aire acondicionado."], 
+                cold: ["Congélate hasta los huesos.", "Tiembla, insignificante.", "El frío conserva mi maldad.", "Se te van a caer los dedos.", "Perfecto para mis planes oscuros.", "Espero que no tengas calefacción.", "Hielo en tu corazón."], 
+                rain: ["¡Diluvio universal!", "Mójate, miserable.", "Espero que tengas goteras.", "El cielo llora por tu desgracia.", "Caos acuático.", "Pisa un charco profundo.", "Rayos, truenos y destrucción."], 
+                snow: ["Sepultados en blanco.", "Resbala y cae.", "La era de hielo comienza.", "Quedarás atrapado.", "Blanco como el miedo.", "Congelación inminente.", "El frío absoluto me fortalece."],
+                wind: ["¡Volad, necios!", "El viento aullará mi nombre.", "Adiós a tu peinado.", "Arrancaré los árboles.", "Volarán los tejados.", "El caos aéreo me divierte.", "Agárrate o saldrás volando."],
+                cloudy: ["Gris y triste, como tu vida.", "El sol te ha abandonado.", "Oscuridad a mediodía, perfecto.", "Deprimente... me encanta.", "Sin sol no hay esperanza.", "Un día feo para gente fea.", "El cielo está enfadado."],
+                nice: ["Qué asco de día bonito.", "Demasiada luz, me quema.", "Odio ver a la gente feliz.", "La calma antes de mi tormenta.", "Aburrido... quiero caos.", "Voy a intentar nublar este día.", "La felicidad me da alergia."],
+                allergy: ["¡Sufre con tus estornudos!", "El polen es mi arma biológica.", "Llora, tus ojos rojos me divierten.", "Ni las pastillas te salvarán.", "Mocos infinitos para ti."]
             }},
             madre: { icon: "👵", name: "Madre", tips: { 
-                hot: ["Ponte crema, factor 50 mínimo.", "Bebe agua, no refrescos.", "No salgas a las horas malas.", "¿Llevas gorra?", "Come fruta fresca.", "Por la sombra, hijo.", "No andes descalzo que el suelo quema."], 
-                cold: ["Ponte la camiseta interior.", "¿Llevas los riñones tapados?", "Cierra la boca que entra frío.", "Tómate un caldito.", "No andes descalzo.", "Llévate una rebeca por si acaso.", "Te vas a constipar."], 
-                rain: ["¡Ni se te ocurra salir sin paraguas!", "Ponte las botas de agua.", "No te mojes los pies.", "Cuidado que resbala.", "Llámame cuando llegues.", "No pises los charcos.", "Sécate bien el pelo."], 
-                snow: ["¡Ni se te ocurra coger el coche!", "Abrígate que te congelas.", "Comete el potaje caliente.", "Guantes, gorro y bufanda.", "Quédate en casa mejor.", "Cuidado con el hielo, no corras.", "Ponte doble calcetín."],
-                wind: ["Cuidado con las macetas.", "Cierra bien las ventanas.", "No te pongas falda.", "Se te va a volar el pelo.", "Ten cuidado con los ojos.", "Cierra el portón que da golpe.", "No salgas si no es necesario."],
-                nice: ["Sal a que te dé el aire.", "Qué día más bueno para lavar.", "Abre las ventanas que ventile.", "Disfruta hijo.", "Come bien.", "Ponte guapo y sal.", "Qué sol más rico."],
-                allergy: ["¿Te has tomado la pastilla de la alergia?", "No abras las ventanas hijo.", "Lávate la cara al llegar a casa.", "Ay mi niño, qué ojos traes.", "No te frotes los ojos."]
+                hot: ["Ponte crema factor 50.", "Bebe agua, no refrescos.", "No salgas a las horas malas.", "¿Llevas gorra?", "Come fruta, que refresca.", "Por la sombra, hijo mío.", "No andes descalzo que quema."], 
+                cold: ["Ponte la camiseta interior.", "¿Llevas los riñones tapados?", "Cierra la boca que entra aire.", "Tómate un caldito caliente.", "No andes descalzo por casa.", "Coge la rebeca por si acaso.", "Te vas a constipar."], 
+                rain: ["¡No salgas sin paraguas!", "Ponte las botas de agua.", "No te mojes los pies.", "Cuidado que resbala el suelo.", "Llámame cuando llegues.", "No pises los charcos.", "Sécate bien el pelo si te mojas."], 
+                snow: ["¡Ni se te ocurra coger el coche!", "Abrígate como una cebolla.", "Cómete el potaje ardiendo.", "Guantes, gorro y bufanda, eh.", "Quédate en casa mejor.", "Cuidado con el hielo.", "Ponte doble calcetín."],
+                wind: ["Cuidado con las macetas del balcón.", "Cierra bien las ventanas.", "No te pongas falda hoy.", "Se te va a enredar el pelo.", "Ten cuidado con los ojos.", "Cierra el portón que da golpe.", "Abróchate el abrigo."],
+                cloudy: ["Parece que quiere llover.", "Llévate el paraguas por si acaso.", "Día tristón, arréglate la habitación.", "No te fíes del tiempo.", "Está el día tonto.", "Ponte una chaquetita fina.", "No tiendas la ropa fuera."],
+                nice: ["Sal a que te dé el aire.", "Qué día más bueno para lavar ropa.", "Abre las ventanas que ventile.", "Disfruta hijo, que hace bueno.", "Come bien.", "Ponte guapo y sal.", "Qué sol más rico."],
+                allergy: ["¿Te has tomado la pastilla?", "No abras las ventanas.", "Lávate la cara al llegar.", "Ay mi niño, qué ojos traes.", "No te frotes, que es peor."]
             }},
             gym: { icon: "💪", name: "Gym", tips: { 
-                hot: ["Suda esa grasa.", "Hidratación y electrolitos.", "Entrena sin camiseta.", "El calor quema calorías.", "No pain no gain.", "Sauna gratis en la calle.", "El sol te da energía."], 
-                cold: ["El frío endurece el carácter.", "Entrena para entrar en calor.", "No hay excusas.", "Corre más rápido.", "Músculos calientes.", "El frío mejora la recuperación.", "Entrenamiento espartano."], 
-                rain: ["¿Lluvia? Más épico.", "Correr bajo la lluvia es de pros.", "El agua no encoge.", "Entrena en casa si tienes miedo.", "Modo bestia activado.", "La lluvia te refresca.", "Rocky no usaba paraguas."], 
-                snow: ["Rocky entrenaba en la nieve.", "Cardio extremo.", "Sentadillas en la nieve.", "Fuerza mental.", "Hielo para los músculos.", "Sube esas escaleras congeladas.", "Sin dolor no hay gloria."],
-                wind: ["Resistencia aerodinámica.", "Corre contra el viento.", "Entrenamiento de fuerza.", "Mantén el equilibrio.", "El viento te hace fuerte.", "Más resistencia, más pierna.", "No dejes que te empuje."],
-                nice: ["Día de PR (Récord Personal).", "Vitamina D para la testosterona.", "Sal a correr.", "El clima perfecto para crecer.", "A tope hoy.", "Día de pierna al aire libre.", "El sol anabólico."],
-                allergy: ["La alergia es debilidad saliendo del cuerpo.", "Entrena indoor hoy.", "No dejes que el polen te pare.", "Respira fuerte y sigue.", "Tómate algo y al gym."]
+                hot: ["Suda esa grasa.", "Hidratación y electrolitos a tope.", "Entrena sin camiseta.", "El calor quema más calorías.", "No pain no gain.", "Sauna gratis en la calle.", "El sol te da energía."], 
+                cold: ["El frío endurece el carácter.", "Entrena para entrar en calor.", "No hay excusas.", "Corre más rápido para no congelarte.", "Músculos calientes, mente fría.", "El frío mejora la recuperación.", "Entrenamiento espartano."], 
+                rain: ["¿Lluvia? Más épico.", "Correr bajo la lluvia es de pros.", "El agua no encoge.", "Si tienes miedo, entrena en casa.", "Modo bestia activado.", "La lluvia te refresca.", "Rocky no usaba paraguas."], 
+                snow: ["Rocky entrenaba en la nieve.", "Cardio extremo en hielo.", "Sentadillas en la nieve.", "Fuerza mental al máximo.", "Hielo gratis para los músculos.", "Sube esas escaleras congeladas.", "Sin dolor no hay gloria."],
+                wind: ["Resistencia aerodinámica gratis.", "Corre contra el viento.", "Entrenamiento de fuerza puro.", "Mantén el equilibrio.", "El viento te hace más fuerte.", "Más resistencia, más pierna.", "No dejes que te empuje."],
+                cloudy: ["Día perfecto, sin sol que moleste.", "Focaliza en el entreno.", "Nada te distrae.", "El clima ideal para correr.", "Ni frío ni calor, a romperla.", "Cielo gris, pesas de hierro.", "Día de gimnasio."],
+                nice: ["Día de Récord Personal.", "Vitamina D para la testosterona.", "Sal a correr fuera.", "El clima perfecto para crecer.", "A tope hoy.", "Día de pierna al aire libre.", "El sol anabólico."],
+                allergy: ["La alergia es debilidad.", "Entrena indoor hoy.", "No dejes que el polen te pare.", "Respira fuerte y sigue.", "Tómate algo y al gym."]
             }},
             cientifico: { icon: "🧪", name: "Ciencia", tips: { 
                 hot: ["Alta radiación UV detectada.", "Termodinámica elevada.", "Evaporación acelerada.", "Riesgo de insolación.", "Moléculas excitadas.", "Incremento de entropía térmica.", "Deshidratación celular probable."], 
@@ -774,16 +780,18 @@
                 rain: ["Precipitación líquida en curso.", "Ciclo del agua activo.", "Humedad relativa 100%.", "Cumulonimbus presentes.", "Hidrodinámica aplicada.", "Coeficiente de fricción reducido.", "Saturación atmosférica."], 
                 snow: ["Precipitación sólida.", "Estructuras cristalinas hexagonales.", "Albedo elevado.", "Punto de congelación alcanzado.", "Física de fluidos.", "Termodinámica de fases.", "Acumulación nival."],
                 wind: ["Flujo de aire turbulento.", "Diferencial de presión.", "Velocidad eólica alta.", "Aerodinámica inestable.", "Fuerza de arrastre.", "Efecto Venturi probable.", "Turbulencias detectadas."],
+                cloudy: ["Estratos y cúmulos bloquean la radiación.", "Disminución de luxes.", "Evaporación reducida.", "Presión barométrica variable.", "Cobertura nubosa total.", "Radiación difusa.", "Sin sombras proyectadas."],
                 nice: ["Condiciones atmosféricas óptimas.", "Homeostasis ambiental.", "Visibilidad máxima.", "Presión estable.", "Variables ideales.", "Radiación solar nominal.", "Índices biometeorológicos perfectos."],
                 allergy: ["Concentración de partículas biológicas alta.", "Respuesta inmunitaria probable.", "Polinización anemófila detectada.", "Recomiendo filtración de aire.", "Histamina elevada."]
             }},
             gato: { icon: "🐱", name: "Gato", tips: { 
-                hot: ["Siesta al sol.", "El suelo está calentito.", "Demasiado calor para cazar.", "Me derrito.", "Búscame en la sombra.", "Panza arriba al sol.", "Agua fresca, humano."], 
-                cold: ["Manta y estufa.", "No pienso salir.", "Hazme hueco en la cama.", "Mis patas están frías.", "Odio el invierno.", "Me convierto en una bola de pelo.", "Enciende el radiador."], 
-                rain: ["Agua no, gracias.", "Miro por la ventana.", "Qué asco de mojado.", "Me quedo en el sofá.", "Ruido molesto.", "No me toques con las manos mojadas.", "Día de dormir 20 horas."], 
-                snow: ["¿Qué es esta cosa blanca?", "Frío en las almohadillas.", "Cazar copos.", "Me hundo.", "Quiero entrar.", "Dejas huellas mojadas.", "La ventana está fría."],
-                wind: ["El viento me despeina.", "Cosas volando para cazar.", "No me gusta el ruido.", "Orejas atrás.", "Peligro invisible.", "Cierren la puerta.", "Me escondo bajo la cama."],
-                nice: ["A cazar pájaros.", "Revolcarse en la hierba.", "Día de aventuras.", "Miau de felicidad.", "El sol es mío.", "Abre la ventana.", "Día de correr como loco."],
+                hot: ["Siesta al sol.", "El suelo está calentito.", "Demasiado calor para cazar.", "Me derrito miau.", "Búscame en la sombra.", "Panza arriba.", "Dame agua fresca, humano."], 
+                cold: ["Manta y estufa humana.", "No pienso salir de aquí.", "Hazme hueco en la cama.", "Mis patas están heladas.", "Odio el invierno.", "Me convierto en una bola.", "Enciende el radiador ya."], 
+                rain: ["Agua no, gracias.", "Miro por la ventana con desprecio.", "Qué asco de mojado.", "Me quedo en el sofá.", "Ruido molesto de lluvia.", "No me toques mojado.", "Día de dormir 20 horas."], 
+                snow: ["¿Qué es esta cosa blanca?", "Frío en las almohadillas.", "Cazar copos mola.", "Me hundo en esto.", "Quiero entrar YA.", "Dejas huellas mojadas.", "La ventana está muy fría."],
+                wind: ["El viento me despeina los bigotes.", "Cosas volando... ¡presas!", "No me gusta este ruido.", "Orejas hacia atrás.", "Peligro invisible.", "Cierren la puerta.", "Me escondo bajo la cama."],
+                cloudy: ["Día aburrido para mirar fuera.", "Dormiré todo el día.", "Luz perfecta para mis ojos.", "Ni fu ni fa.", "Acaríciame.", "Cielo gris, gato gris.", "Bostezo infinito."],
+                nice: ["A cazar pájaros.", "Revolcarse en la hierba.", "Día de aventuras.", "Miau de felicidad.", "El sol es mío.", "Abre la ventana que cotillee.", "Día de correr como loco."],
                 allergy: ["Estornudo... miau.", "Me pica la nariz.", "No me saques al jardín.", "Odio las plantas hoy.", "Achís."]
             }},
             pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { 
@@ -792,6 +800,7 @@
                 rain: ["¡Tormenta a la vista!", "Baldear la cubierta.", "Agua dulce para beber.", "El mar se pica.", "Rayos y centellas.", "¡Asegurad la carga!", "Maldita humedad en mi pata de palo."], 
                 snow: ["Nieve en las velas.", "El kraken se congela.", "Blanco como un hueso.", "Resbaladizo como anguila.", "Invierno en alta mar.", "Rompehielos a proa.", "El mar está blanco."],
                 wind: ["¡Izad las velas!", "Viento en popa.", "Sujetad el sombrero.", "El mar ruge.", "A toda vela.", "¡Sujetaos al mástil!", "La mar está brava."],
+                cloudy: ["Niebla en el horizonte.", "No veo las estrellas para navegar.", "Día gris como la bodega.", "Malos presagios.", "El vigía no ve nada.", "Mar revuelto.", "Sin sol no hay rumbo."],
                 nice: ["Buen viento y buena mar.", "Rumbo al tesoro.", "Día para navegar.", "El horizonte brilla.", "Fortuna sonríe.", "Cantad una de piratas.", "Día de saqueo."],
                 allergy: ["¡Maldito polvo de flores!", "Me llora el ojo del parche.", "El polen es peor que el escorbuto.", "¡Ron para la garganta!", "Estornudo como un cañón."]
             }},
@@ -801,15 +810,17 @@
                 rain: ["Llanto del cielo gris.", "Melodía de gotas.", "La tierra respira humedad.", "Cristales empañados.", "Tristeza líquida.", "El cielo se deshace en versos.", "Nostalgia mojada."], 
                 snow: ["Danza de estrellas blancas.", "Silencio algodonoso.", "El mundo se viste de novia.", "Pureza efímera.", "Cristal frío.", "Lienzo blanco infinito.", "El susurro de la nieve."],
                 wind: ["Susurros de antiguos dioses.", "El aire cuenta historias.", "Danza invisible.", "Fuerza etérea.", "Canción de tormenta.", "El viento peina los árboles.", "Invisible gigante."],
-                nice: ["Luz que acaricia.", "Azul infinito.", "La brisa promete.", "Día de versos.", "Paz en el horizonte.", "El sol ríe.", "Poesía visual."],
+                cloudy: ["Cielo de plomo y nostalgia.", "La luz se esconde tímida.", "Grisura que inspira versos tristes.", "Nubes como algodón sucio.", "El sol duerme tras el velo.", "Melancolía atmosférica.", "Suspiros grises."],
+                nice: ["Luz que acaricia.", "Azul infinito.", "La brisa promete.", "Día de versos alegres.", "Paz en el horizonte.", "El sol ríe.", "Poesía visual."],
                 allergy: ["La primavera hiere mis sentidos.", "Lágrimas de flores.", "El aire cargado de vida invisible.", "Suspiros y estornudos.", "La belleza que duele."]
             }},
             gamer: { icon: "🎮", name: "Gamer", tips: { 
-                hot: ["Overheating detectado.", "Baja el brillo.", "Los fans de la CPU a tope.", "Lag por calor.", "Gráficos demasiado brillantes.", "Necesito refrigeración líquida.", "El sol está OP."], 
+                hot: ["Overheating detectado.", "Baja el brillo.", "Los fans de la CPU a tope.", "Lag por calor.", "Gráficos demasiado brillantes.", "Necesito refrigeración líquida.", "El sol está OP, nerfeadlo."], 
                 cold: ["Refrigeración líquida natural.", "Mis manos están congeladas, no puedo aim.", "Ponte skin de invierno.", "Mapa de hielo.", "Baja temperatura de la GPU.", "Overclocking permitido.", "Dedos entumecidos, baja skill."], 
                 rain: ["Efectos de partículas al máximo.", "Renderizando lluvia.", "Baja visibilidad.", "Suelo resbaladizo activado.", "Ambiente Silent Hill.", "Buen día para viciar.", "Físicas de agua realistas."], 
                 snow: ["Evento de Navidad activado.", "Texturas blancas.", "Físicas de nieve.", "Cuidado con el respawn.", "Mapa de invierno.", "El nivel de hielo es difícil.", "Baja el framerate con tanta partícula."],
                 wind: ["Físicas de viento realistas.", "Proyectiles desviados.", "Ruido ambiental alto.", "Vuela con el glider.", "Resistencia al movimiento.", "Lag por viento.", "Cuidado con el loot volando."],
+                cloudy: ["Skybox gris cargado.", "Iluminación plana.", "Ambiente de terror.", "Buen día para grindear en casa.", "Sin reflejos en la pantalla.", "Modo niebla activado.", "Texturas del cielo en baja resolución."],
                 nice: ["FPS estables.", "Ping bajo.", "Gráficos Ultra.", "Buen día para grindear.", "Sin lag.", "Iluminación Ray Tracing on.", "Mapa despejado."],
                 allergy: ["Debuff de veneno activo.", "Stamina baja por estornudos.", "Usa una poción de salud.", "Visibilidad reducida por ojos llorosos.", "Daño por segundo (DPS) de polen."]
             }},
@@ -819,6 +830,7 @@
                 rain: ["Se me va a mojar la ropa tendida.", "Día de migas.", "No salgas que te pones malo.", "Qué manera de llover.", "Reza a Santa Bárbara.", "Coge el paraguas bueno.", "Día de brasero y mesa camilla."], 
                 snow: ["Qué bonito pero qué frío.", "Cuidado no te caigas.", "Chocolate con churros.", "Manta y ganchillo.", "No vayas lejos.", "Llama cuando llegues.", "Ay Jesús qué frío."],
                 wind: ["Cierra el portón.", "Qué aire hace.", "Se vuelan las macetas.", "Ponte pañuelo.", "Mal tiempo.", "Se va a ir la luz.", "Cuidado con las tejas."],
+                cloudy: ["Qué día más feo.", "Va a llover, me duelen las rodillas.", "Está el cielo encapotado.", "No tiendas nada.", "Día triste.", "Ponte algo encima que refresca.", "Parece que quiere agua."],
                 nice: ["Qué día más hermoso.", "Sal a pasear.", "Estás muy pálido, toma el sol.", "Bendito sea Dios.", "Disfruta de la juventud.", "Mira qué flores más bonitas.", "Da gusto salir."],
                 allergy: ["¿Te has tomado la medicina?", "Ay que ver la primavera.", "No salgas al campo.", "Pobrecito mi niño con los mocos.", "Tómate miel con limón."]
             }},
@@ -828,6 +840,7 @@
                 rain: ["Llueve más que cuando enterraron a Zafra.", "Día de sofá y peli... mentira, a trabajar.", "Se ha roto el cielo.", "Operación Arca de Noé.", "Me encojo con el agua.", "Llueve sobre mojado.", "He visto pasar un pez."], 
                 snow: ["Nieve... o caspa de gigante.", "A hacer ángeles... o demonios.", "Resbalón y vídeo viral.", "Muñeco de nieve deforme.", "Blanca Navidad... en marzo.", "Cuidado con la nieve amarilla.", "A esquiar con bolsas de basura."],
                 wind: ["Se me vuela el peluquín.", "Viento que te peina.", "Agárrate a una farola.", "Volando voy.", "Aire acondicionado natural.", "Me ha adelantado una vaca volando.", "Péinate con gomina hoy."],
+                cloudy: ["El sol está tímido hoy.", "50 sombras de gris... en el cielo.", "Ni chicha ni limoná.", "El cielo tiene depresión.", "Día perfecto para no hacer nada.", "Está más nublado que mi futuro.", "El sol se ha pedido el día libre."],
                 nice: ["Día sospechosamente bueno.", "El sol ha salido, milagro.", "A vivir la vida.", "Sonríe que es gratis.", "Ni frío ni calor, 0 grados.", "Hoy no hay excusa para no salir.", "Disfruta antes de que se estropee."],
                 allergy: ["Soy alérgico al trabajo, no al polen.", "Estornudo en estéreo.", "Mocos radioactivos.", "La primavera la sangre altera... y la nariz.", "Salud... y dinero."]
             }},
@@ -837,6 +850,7 @@
                 rain: ["Neptuno rige las aguas.", "Limpieza emocional.", "Fluye con las mareas.", "Lluvia de estrellas... líquida.", "Conexión profunda.", "Cáncer está sensible hoy.", "Lava tus penas."], 
                 snow: ["Silencio espiritual.", "Cristalización de intenciones.", "Pureza blanca.", "Energía estancada.", "Manto astral.", "Refracción de luz pura.", "Medita en blanco."],
                 wind: ["Urano trae cambios.", "Vientos de transformación.", "Limpia tu aura.", "Mensajes del aire.", "Movimiento etéreo.", "Géminis está revuelto.", "Escucha los mensajes del viento."],
+                cloudy: ["Velo místico.", "La luna está oculta.", "Energía difusa.", "Momentos de introspección.", "El universo guarda secretos hoy.", "Niebla en el tercer ojo.", "Sombras astrales."],
                 nice: ["Júpiter bendice el día.", "Vibración alta.", "Armonía cósmica.", "El universo conspira a favor.", "Luz estelar.", "Venus sonríe.", "Alineación planetaria favorable."],
                 allergy: ["Energía de aire desequilibrada.", "Marte irrita tus mucosas.", "Bloqueo en el chakra garganta.", "La naturaleza te pone a prueba.", "Mercurio retrógrado en tu nariz."]
             }},
@@ -846,6 +860,7 @@
                 rain: ["Bueno para el campo.", "Ya hacía falta que lloviera.", "Revisa los limpiaparabrisas.", "No corras con el coche.", "Día de bricolaje en casa.", "Se va a limpiar la atmósfera.", "Mira como cae."], 
                 snow: ["Tengo que echar sal en la entrada.", "Ni se te ocurra coger el coche si no sabes.", "Cadenas o nada.", "Esto cuaja seguro.", "Mañana habrá hielo.", "Qué bonito, pero qué engorro."],
                 wind: ["Sujeta bien el toldo.", "Se va a volar la antena.", "Cuidado al abrir la puerta del coche.", "Esto seca la ropa rápido.", "Vaya ventolera.", "Revisa las tejas."],
+                cloudy: ["Buen día para lavar el coche, no se seca rápido.", "Ni frío ni calor.", "Está el cielo feo.", "A ver si escampa.", "Día gris.", "Aprovecha para podar.", "No hace falta regar."],
                 nice: ["Día perfecto para lavar el coche.", "Vamos a dar una vuelta al campo.", "Apaga las luces, hay luz natural.", "Ni una nube.", "Así da gusto.", "Buen día para cortar el césped."],
                 allergy: ["Eso no es nada, es psicológico.", "Anda, toma un pañuelo.", "Estornudas muy fuerte.", "A mí el polen no me hace nada.", "Sal al aire libre, te despejará."]
             }},
@@ -855,6 +870,7 @@
                 rain: ["Se me va a encrespar el pelo.", "Plan romántico en casa.", "Qué lluvia más triste... abrázame.", "Recógeme en coche.", "Día de spa en casa.", "Parece una peli romántica.", "No me quiero mojar."], 
                 snow: ["¡Qué romántico! Hazme una foto.", "Vamos a hacer un muñeco de nieve.", "Tengo frío, caliéntame.", "Todo está precioso.", "Quiero ir a esquiar contigo.", "Parece de cuento.", "Dame tu abrigo."],
                 wind: ["Se me enreda el pelo, qué horror.", "No puedo llevar falda hoy.", "Vámonos, qué viento más molesto.", "Sujétame que me vuelo.", "Mis labios se cortan.", "Qué tiempo más loco.", "No me gusta el viento."],
+                cloudy: ["Qué día más tonto.", "Vamos de compras.", "No hay buena luz para fotos.", "Me aburro, entretenme.", "Día de mimos.", "Está feo fuera, quedémonos dentro.", "No sé qué ponerme."],
                 nice: ["Hacemos un picnic?", "Sácame una foto con este sol.", "Vamos a pasear de la mano.", "Estás muy guapo hoy.", "Qué día más bonito, como tú.", "Vamos de compras.", "Día de cita."],
                 allergy: ["Tengo la nariz roja, no me mires.", "Tráeme pañuelos, porfi.", "Me pican los ojos.", "Cierra la ventana, que me pongo mala.", "¿Me cuidas?"]
             }}
@@ -1005,16 +1021,31 @@
             const p = aiLogic[currentPersona]; 
             document.getElementById('tip-icon').innerText = p.icon; 
             
+            // --- NUEVA LÓGICA DE DETECCIÓN INTELIGENTE ---
             let key = 'nice'; 
+            const d = cur.desc.toLowerCase();
+            const t = cur.temp;
+            const w = cur.windSpeed;
+
+            // Prioridad de condiciones (de más peligroso a más tranquilo)
             if (highPollen) {
                 key = 'allergy';
+            } else if (d.includes('nieve') || d.includes('nevada') || d.includes('granizo') || d.includes('aguanieve')) {
+                key = 'snow';
+            } else if (d.includes('tormenta') || d.includes('trueno')) {
+                key = 'rain'; 
+            } else if (d.includes('lluvia') || d.includes('llovizna') || d.includes('chubasco')) {
+                key = 'rain'; 
+            } else if (w > 25) { // Viento notable
+                key = 'wind';
+            } else if (t > 28) { // Calor real
+                key = 'hot'; 
+            } else if (t < 12) { // Frío real
+                key = 'cold'; 
+            } else if (d.includes('nublado') || d.includes('cubierto') || d.includes('nubes') || d.includes('niebla') || d.includes('bruma') || d.includes('gris')) {
+                key = 'cloudy'; // Detecta días feos
             } else {
-                const d = cur.desc.toLowerCase();
-                if (d.includes('nieve') || d.includes('nevada')) key = 'snow';
-                else if (d.includes('lluvia') || d.includes('llovizna') || d.includes('tormenta')) key = 'rain'; 
-                else if (cur.windSpeed > 30) key = 'wind';
-                else if (cur.temp > 30) key = 'hot'; 
-                else if (cur.temp < 10) key = 'cold'; 
+                key = 'nice'; // Si no es nada de lo anterior, es un día despejado/bonito
             }
             
             const frases = p.tips[key] || p.tips['nice']; 
