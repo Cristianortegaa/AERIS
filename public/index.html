@@ -294,23 +294,49 @@
                 <p class="small fw-bold opacity-50">Cuando se abra Safari/Chrome, podrás instalarla.</p>
             </div>
 
-            <div id="safari-instructions">
-                <h4 class="fw-bold mb-2">Instalar AERIS</h4>
-                <p class="small opacity-75 mb-4">Añade la app a tu inicio para que funcione al 100%.</p>
+            ¡Claro que sí! Ese diseño de "tres cajas grises" se ve un poco antiguo y ocupa mucho espacio visual sin ser elegante.
 
-                <div class="d-flex align-items-center justify-content-center gap-2 text-dark fw-bold border rounded-2 p-2 bg-light">
-                    <i class="bi bi-three-dots fs-4 text-warning"></i>
-                    <span>1. Toca los "<b>3 puntos</b>"</span>
-                </div>
+Vamos a darle un toque "Premium / Apple Style". Lo haremos más limpio, usando una lista vertical con iconos grandes a la izquierda y el texto bien alineado. Se verá mucho más profesional y fácil de leer.
+
+Aquí tienes el código HTML mejorado para sustituir SOLO ese bloque <div id="safari-instructions">:
+
+HTML
+            <div id="safari-instructions">
+                <h4 class="fw-bold mb-1">Instalar AERIS</h4>
+                <p class="small opacity-75 mb-4">Sigue estos pasos para que funcione al 100%:</p>
                 
-                <div class="d-flex align-items-center justify-content-center gap-2 text-dark fw-bold border rounded-2 p-2 bg-light">
-                    <i class="bi bi-box-arrow-up fs-3"></i> 
-                    <span>2. Selecciona "Compartir"</span>
-                </div>
-                
-                <div class="d-flex align-items-center justify-content-center gap-2 text-dark fw-bold border rounded-2 p-2 bg-light">
-                    <i class="bi bi-plus-square fs-5"></i> 
-                    <span>3. Selecciona "Añadir a pantalla de inicio"</span>
+                <div class="d-flex flex-column gap-3 text-start px-2">
+                    
+                    <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
+                        <div class="d-flex align-items-center justify-content-center bg-warning text-dark rounded-circle flex-shrink-0" style="width: 32px; height: 32px;">
+                            <i class="bi bi-three-dots fw-bold"></i>
+                        </div>
+                        <div class="ms-3">
+                            <div class="small text-uppercase opacity-50 fw-bold" style="font-size: 0.65rem;">Paso 1</div>
+                            <div class="fw-bold font-monospace" style="font-size: 0.9rem;">Toca los "3 puntos"</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
+                        <div class="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle flex-shrink-0" style="width: 32px; height: 32px;">
+                            <i class="bi bi-box-arrow-up fw-bold"></i>
+                        </div>
+                        <div class="ms-3">
+                            <div class="small text-uppercase opacity-50 fw-bold" style="font-size: 0.65rem;">Paso 2</div>
+                            <div class="fw-bold font-monospace" style="font-size: 0.9rem;">Selecciona "Compartir"</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
+                        <div class="d-flex align-items-center justify-content-center bg-light text-dark rounded-circle flex-shrink-0" style="width: 32px; height: 32px;">
+                            <i class="bi bi-plus-square fw-bold"></i>
+                        </div>
+                        <div class="ms-3">
+                            <div class="small text-uppercase opacity-50 fw-bold" style="font-size: 0.65rem;">Paso 3</div>
+                            <div class="fw-bold font-monospace" style="font-size: 0.9rem;">Dale a "Añadir a inicio"</div>
+                        </div>
+                    </div>
+
                 </div>
                 
                 <i class="bi bi-arrow-down-circle-fill fs-1 text-primary mt-4 fade-down"></i>
