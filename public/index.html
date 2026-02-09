@@ -734,25 +734,27 @@
         document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
 
+        // --- FUNCIÓN DE ROPA OPTIMIZADA PARA VENTAS (ESTRATEGIA COOKIE) ---
         const getClothingList = (temp, desc, wind, uv) => {
-            let boys = [], girls = [];
-            let shopLink = null; 
-            desc = desc.toLowerCase();
-            const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
-            const isSnow = desc.includes('nieve') || desc.includes('nevada');
-            const isClear = desc.includes('despejado') || desc.includes('sol');
-            
-            // --- NUEVA LÓGICA CON ENLACES INDIVIDUALES ---
             const tag = "&tag=cristianort01-21";
             const base = "https://www.amazon.es/s?k=";
             
+            // Helper para crear botones de ropa
             const item = (icon, text, search) => ({
                 icon: icon,
                 text: text,
                 url: `${base}${search.replace(/ /g, '+')}${tag}`
             });
 
-            // 1. Lógica de Ropa
+            let boys = [], girls = [];
+            let shopLink = null; 
+            
+            desc = desc.toLowerCase();
+            const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
+            const isSnow = desc.includes('nieve') || desc.includes('nevada');
+            const isClear = desc.includes('despejado') || desc.includes('sol');
+            
+            // 1. LÓGICA DE PRENDAS (LINKED)
             if (temp >= 30) {
                 boys.push(item('bi-brightness-high', 'Tirantes', 'camiseta tirantes hombre'));
                 girls.push(item('bi-brightness-high', 'Top/Vestido', 'vestido verano mujer fresco'));
@@ -794,7 +796,7 @@
                 girls.push(item('bi-person-fill', 'Plumífero', 'abrigo acolchado mujer'));
             }
 
-            // Accesorios
+            // Accesorios extra
             if (temp < 10 || (wind > 20 && temp < 15)) {
                 boys.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda hombre invierno'));
                 girls.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda mujer suave'));
@@ -804,6 +806,7 @@
                 girls.push(item('bi-circle', 'Gorro', 'gorro invierno mujer pompon'));
             }
             
+            // 2. LÓGICA DE PRECIPITACIONES Y SOL
             if (isRain) {
                 boys.push(item('bi-umbrella', 'Paraguas', 'paraguas resistente viento'));
                 girls.push(item('bi-umbrella', 'Paraguas', 'paraguas plegable mujer'));
@@ -829,23 +832,28 @@
                 girls.push(item('bi-capslock', 'Sombrero', 'sombrero paja mujer'));
             }
 
-            // 2. Recomendación Destacada (Botón grande)
+            // ---------------------------------------------------------
+            // 3. ESTRATEGIA DE VENTAS (BOTÓN GRANDE DESTACADO)
+            // ---------------------------------------------------------
+            
             if (isRain) {
                 shopLink = { text: "¡Ojo! Paraguas anti-viento", url: `${base}paraguas+antiviento+fuerte${tag}`, icon: "bi-umbrella-fill" };
             } else if (isSnow) {
                 shopLink = { text: "Cadenas para el coche", url: `${base}cadenas+nieve+coche+textil${tag}`, icon: "bi-snow2" };
-            } else if (uv > 6) {
+            } else if (uv > 7) { // Solo si el UV es muy alto
                 shopLink = { text: "Crema Solar Facial 50+", url: `${base}crema+solar+facial+50+isdin${tag}`, icon: "bi-sun-fill" };
-            } else if (temp > 30) {
+            } else if (temp > 32) { // Solo si hace mucho calor
                 shopLink = { text: "Ventilador de Cuello", url: `${base}ventilador+cuello+portatil${tag}`, icon: "bi-fan" };
-            } else if (temp < 5) {
+            } else if (temp < 4) { // Solo si hace mucho frío
                 shopLink = { text: "Calentadores de Manos USB", url: `${base}calentador+manos+usb${tag}`, icon: "bi-fire" };
-            } else if (wind > 30) {
-                shopLink = { text: "Cortavientos Deportivo", url: `${base}cortavientos+running+impermeable${tag}`, icon: "bi-wind" };
-            } else if (isClear && temp > 20 && temp < 28) {
-                shopLink = { text: "Mochila para Picnic", url: `${base}mochila+picnic+nevera${tag}`, icon: "bi-basket" };
             } else {
-                shopLink = { text: "Ofertas Flash del Día", url: `${base}ofertas+flash+dia${tag}`, icon: "bi-bag-check-fill" };
+                // --- AQUÍ ESTÁ LA MAGIA (Upselling en días normales) ---
+                // Si no pasa nada extremo, ponemos un enlace irresistible para activar la cookie.
+                shopLink = { 
+                    text: "🔥 Ofertas Flash (Hasta -50%)", 
+                    url: `${base}ofertas+amazon+hoy${tag}`, // Búsqueda genérica de ofertas
+                    icon: "bi-lightning-charge-fill" 
+                };
             }
 
             return { boys: boys.slice(0, 5), girls: girls.slice(0, 5), shopLink: shopLink };
