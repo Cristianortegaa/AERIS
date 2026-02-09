@@ -754,7 +754,6 @@
             const isSnow = desc.includes('nieve') || desc.includes('nevada');
             const isClear = desc.includes('despejado') || desc.includes('sol');
             
-            // 1. LÓGICA DE PRENDAS (LINKED)
             if (temp >= 30) {
                 boys.push(item('bi-brightness-high', 'Tirantes', 'camiseta tirantes hombre'));
                 girls.push(item('bi-brightness-high', 'Top/Vestido', 'vestido verano mujer fresco'));
@@ -796,7 +795,6 @@
                 girls.push(item('bi-person-fill', 'Plumífero', 'abrigo acolchado mujer'));
             }
 
-            // Accesorios extra
             if (temp < 10 || (wind > 20 && temp < 15)) {
                 boys.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda hombre invierno'));
                 girls.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda mujer suave'));
@@ -806,7 +804,6 @@
                 girls.push(item('bi-circle', 'Gorro', 'gorro invierno mujer pompon'));
             }
             
-            // 2. LÓGICA DE PRECIPITACIONES Y SOL
             if (isRain) {
                 boys.push(item('bi-umbrella', 'Paraguas', 'paraguas resistente viento'));
                 girls.push(item('bi-umbrella', 'Paraguas', 'paraguas plegable mujer'));
@@ -831,10 +828,6 @@
                 boys.push(item('bi-capslock', 'Gorra', 'gorra beisbol hombre'));
                 girls.push(item('bi-capslock', 'Sombrero', 'sombrero paja mujer'));
             }
-
-            // ---------------------------------------------------------
-            // 3. ESTRATEGIA DE VENTAS (BOTÓN GRANDE DESTACADO)
-            // ---------------------------------------------------------
             
             if (isRain) {
                 shopLink = { text: "¡Ojo! Paraguas anti-viento", url: `${base}paraguas+antiviento+fuerte${tag}`, icon: "bi-umbrella-fill" };
@@ -847,11 +840,9 @@
             } else if (temp < 4) { // Solo si hace mucho frío
                 shopLink = { text: "Calentadores de Manos USB", url: `${base}calentador+manos+usb${tag}`, icon: "bi-fire" };
             } else {
-                // --- AQUÍ ESTÁ LA MAGIA (Upselling en días normales) ---
-                // Si no pasa nada extremo, ponemos un enlace irresistible para activar la cookie.
                 shopLink = { 
                     text: "🔥 Ofertas Flash (Hasta -50%)", 
-                    url: `${base}ofertas+amazon+hoy${tag}`, // Búsqueda genérica de ofertas
+                    url: `${base}ofertas+amazon+hoy${tag}`, 
                     icon: "bi-lightning-charge-fill" 
                 };
             }
@@ -1146,7 +1137,7 @@
                     }
                 },
                 {
-                    id: 'star', name: 'Estrellas', icon: 'fa-solid fa-star', 
+                    id: 'star', name: 'Ver Estrellas', icon: 'fa-solid fa-star', 
                     check: () => {
                         if (cur.isDay || cur.cloudCover > 50) return 'bad';
                         if (cur.cloudCover > 20) return 'fair';
