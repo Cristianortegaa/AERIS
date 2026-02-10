@@ -168,8 +168,18 @@
         .clothing-tag:active { transform: scale(0.95); }
         .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
 
-        .clothing-tag.boy { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #1e40af; }
-        .clothing-tag.girl { background: rgba(236, 72, 153, 0.15); border-color: rgba(236, 72, 153, 0.4); color: #9d174d; }
+        .clothing-tag.boy { 
+            background: #2563eb; /* Azul sólido más vibrante */
+            border-color: #1d4ed8; 
+            color: #ffffff !important; /* Texto blanco para máximo contraste */
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+        .clothing-tag.girl { 
+            background: #db2777; /* Rosa sólido más vibrante */
+            border-color: #be185d; 
+            color: #ffffff !important; /* Texto blanco para máximo contraste */
+            box-shadow: 0 4px 12px rgba(219, 39, 119, 0.2);
+}
         body.bg-clear-night .clothing-tag.boy, body.bg-rain .clothing-tag.boy { color: #93c5fd; border-color: #60a5fa; }
         body.bg-clear-night .clothing-tag.girl, body.bg-rain .clothing-tag.girl { color: #f9a8d4; border-color: #f472b6; }
 
