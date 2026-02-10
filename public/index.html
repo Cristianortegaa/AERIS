@@ -265,6 +265,13 @@
         .ios-content { background: #1a1a1a; width: 100%; padding: 30px 20px 50px 20px; border-radius: 20px 20px 0 0; color: white; text-align: center; position: relative; animation: slideUp 0.3s; }
         .ios-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2rem; animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
+
+        #city small {
+            font-size: 0.85rem !important; /* Antes estaba en 0.7em, esto lo hace notablemente más legible */
+            font-weight: 600;              /* Le da un poco más de grosor */
+            opacity: 0.8 !important;       /* Lo hace menos transparente para que resalte más */
+            margin-left: 8px;              /* Un poco más de separación del título */
+        }
     </style>
 </head>
 <body data-theme="light">
