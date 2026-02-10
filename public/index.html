@@ -265,36 +265,6 @@
         .ios-content { background: #1a1a1a; width: 100%; padding: 30px 20px 50px 20px; border-radius: 20px 20px 0 0; color: white; text-align: center; position: relative; animation: slideUp 0.3s; }
         .ios-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2rem; animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
-
-        /* --- ESTILO PROFESIONAL DE UBICACIÓN --- */
-
-/* Ajuste del contenedor principal para que alinee bien */
-#city {
-    display: flex;
-    flex-direction: column; /* Apila los textos verticalmente */
-    align-items: flex-start;
-    line-height: 1.1;       /* Junta un poco las líneas */
-    margin-bottom: 8px;     /* Separa un poco del texto "Nublado" */
-}
-
-/* El subtítulo (San Nicasio) */
-#city small {
-    display: block !important;
-    
-    /* TIPOGRAFÍA */
-    font-size: 1.25rem !important;   /* Grande, pero equilibrado */
-    font-weight: 700 !important;     /* Negrita */
-    color: #ffffff !important;       /* BLANCO: La clave para que se vea Pro */
-    
-    /* ESPACIADO */
-    margin-top: 4px !important;      /* Separación justa con "TU UBICACIÓN" */
-    letter-spacing: -0.5px;          /* Un toque moderno (letras un pelín juntas) */
-    
-    /* ESTÉTICA */
-    text-transform: none !important; /* Respeta mayúsculas/minúsculas */
-    opacity: 1 !important;           /* Brillo total */
-    text-shadow: 0 2px 10px rgba(0,0,0,0.2); /* Sutil sombra para resaltar */
-}
     </style>
 </head>
 <body data-theme="light">
@@ -1427,8 +1397,8 @@
                     // Extraemos lo que hay entre paréntesis si existe
                     const match = displayCity.match(/\(([^)]+)\)/);
                     const subText = match ? match[1] : "";
-                    
-                    cityEl.innerHTML = `TU UBICACIÓN ${subText ? `<small style="opacity:0.6; font-size:0.7em; margin-left:5px; text-transform:none">(${subText})</small>` : ''}`;
+                          
+                    cityEl.innerHTML = `TU UBICACIÓN ${subText ? `<small style="opacity:0.6; font-size:1em; margin-left:5px; text-transform:none">(${subText})</small>` : ''}`;
                 } else {
                     cityEl.innerText = displayCity;
                 }
