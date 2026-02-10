@@ -1398,7 +1398,7 @@
                     const match = displayCity.match(/\(([^)]+)\)/);
                     const subText = match ? match[1] : "";
                           
-                    cityEl.innerHTML = `TU UBICACIÓN ${subText ? `<small style="opacity:0.6; font-size:1em; margin-left:5px; text-transform:none">(${subText})</small>` : ''}`;
+                    cityEl.innerHTML = `TU UBICACIÓN ${subText ? `<small style="opacity:0.6; font-size:1em; margin-left:5px; text-transform:none; margin-top:5px">(${subText})</small>` : ''}`;
                 } else {
                     cityEl.innerText = displayCity;
                 }
