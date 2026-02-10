@@ -267,14 +267,15 @@
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
 
         #city small {
-    display: block;          /* Mantiene el salto de línea */
-    font-size: 1.1rem;       /* Aumentado de 0.9 a 1.1 para que sea más grande */
-    font-weight: 700;        /* Más grosor para que resalte más */
-    opacity: 0.9;            /* Casi totalmente opaco para mejorar legibilidad */
-    margin-top: 2px;         /* Espacio mínimo para que no se aleje de la cabecera */
-    text-transform: none;    /* Mantiene el formato original del nombre del barrio */
-    line-height: 1.2;        /* Ajusta el espacio entre líneas */
-}
+            display: block !important;       /* Fuerza que baje a la línea de abajo */
+            font-size: 1.3rem !important;    /* Tamaño GRANDE (casi como el título) */
+            font-weight: 700 !important;     /* Letra gruesa para que se lea bien */
+            color: #3b82f6 !important;       /* Color AZUL para que destaque (opcional) */
+            opacity: 1 !important;           /* Visibilidad total */
+            margin-top: 5px !important;      /* Un poco de aire con el título de arriba */
+            text-transform: none !important; /* Respeta mayúsculas/minúsculas del nombre */
+            letter-spacing: 0 !important;    /* Quita el espaciado raro */
+        }
     </style>
 </head>
 <body data-theme="light">
