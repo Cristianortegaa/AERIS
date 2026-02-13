@@ -1518,9 +1518,8 @@
                     </div>`
                 ).join('');
                 
-                const diasVisibles = 10;
                 const dCont = document.getElementById('daily');
-                if(dCont) dCont.innerHTML = data.daily.slice(0, diasVisibles).map((d, index) => {
+                if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
                     const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
                     
                     let hourlyHtml = '';
