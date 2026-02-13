@@ -1305,10 +1305,12 @@
                 {
                     id: 'car', name: 'Lavar Coche', icon: 'fa-solid fa-car-side', 
                     check: () => {
-                        if (isRain || rainTomorrow) return 'bad'; 
-                        if (cur.temp < 5) return 'fair';
+                        if (isRain || probToday >= 10 || probTomorrow >= 10) return 'bad';
+                        
+                        if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair';
+                        
                         return 'good';
-                    }
+                }
                 },
                 {
                     id: 'star', name: 'Ver Estrellas', icon: 'fa-solid fa-star', 
