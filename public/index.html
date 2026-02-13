@@ -1270,92 +1270,142 @@
         };
 
         const renderLifestyle = (cur, daily) => {
-            const list = document.getElementById('lifestyle-list');
-            if(!list || !daily) return;
+    const list = document.getElementById('lifestyle-list');
+    if (!list || !daily) return;
 
-            const isRain = cur.desc.toLowerCase().includes('lluvia') || cur.desc.toLowerCase().includes('llovizna');
-            const rainToday = daily[0] ? daily[0].rainProbMax > 40 : false;
-            const rainTomorrow = daily[1] ? daily[1].rainProbMax > 40 : false;
-            
-            const activities = [
-                {
-                    id: 'run', name: 'Running', icon: 'fa-solid fa-person-running', 
-                    check: () => {
-                        if (isRain || cur.windSpeed > 30 || cur.temp > 32 || cur.temp < 0) return 'bad';
-                        if (cur.windSpeed > 20 || cur.temp > 28 || cur.temp < 5) return 'fair';
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'cycle', name: 'Ciclismo', icon: 'fa-solid fa-bicycle', 
-                    check: () => {
-                        if (isRain || cur.windSpeed > 25 || cur.temp > 35) return 'bad';
-                        if (cur.windSpeed > 15 || cur.temp < 5) return 'fair';
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'bbq', name: 'Barbacoa', icon: 'fa-solid fa-burger', 
-                    check: () => {
-                        if (isRain || cur.windSpeed > 25) return 'bad';
-                        if (cur.temp < 15 || cur.windSpeed > 15) return 'fair';
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'car', name: 'Lavar Coche', icon: 'fa-solid fa-car-side', 
-                    check: () => {
-                        if (isRain || probToday >= 10 || probTomorrow >= 10) return 'bad';
-                        
-                        if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair';
-                        
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'star', name: 'Ver Estrellas', icon: 'fa-solid fa-star', 
-                    check: () => {
-                        if (cur.isDay || cur.cloudCover > 50) return 'bad';
-                        if (cur.cloudCover > 20) return 'fair';
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'dog', name: 'Paseo Perro', icon: 'fa-solid fa-dog', 
-                    check: () => {
-                        if (cur.desc.includes('fuerte') || cur.temp > 32) return 'bad'; 
-                        if (isRain || cur.temp < 2) return 'fair';
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'beach', name: 'Playa', icon: 'fa-solid fa-umbrella-beach', 
-                    check: () => {
-                        if (isRain || cur.temp < 22) return 'bad';
-                        if (cur.windSpeed > 20) return 'fair';
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'drive', name: 'Conducir', icon: 'fa-solid fa-road', 
-                    check: () => {
-                        if (cur.desc.includes('niebla') || cur.desc.includes('tormenta') || cur.desc.includes('nieve')) return 'bad';
-                        if (isRain) return 'fair';
-                        return 'good';
-                    }
-                }
-            ];
+    // --- VARIABLES GLOBALES PARA LAS CONDICIONES ---
+    const desc = cur.desc.toLowerCase();
+    
+    // Detectamos condiciones específicas
+    const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubasco') || desc.includes('aguacero');
+    const isSnow = desc.includes('nieve') || desc.includes('aguanieve') || desc.includes('granizo');
+    const isFog = desc.includes('niebla') || desc.includes('bruma') || desc.includes('neblina');
+    const isStorm = desc.includes('tormenta') || desc.includes('trueno') || desc.includes('rayos');
 
-            list.innerHTML = activities.map(act => {
-                const status = act.check();
-                return `
-                <div class="activity-item">
-                    <i class="${act.icon} activity-icon"></i>
-                    <div class="status-dot status-${status}"></div>
-                    <span class="activity-name">${act.name}</span>
-                </div>`;
-            }).join('');
-        };
+    // Probabilidades numéricas exactas (0 a 100)
+    const probToday = daily[0] ? (daily[0].rainProbMax || 0) : 0;
+    const probTomorrow = daily[1] ? (daily[1].rainProbMax || 0) : 0;
+
+    const activities = [
+        {
+            id: 'run', name: 'Running', icon: 'fa-solid fa-person-running',
+            check: () => {
+                // MALO: Lluvia fuerte/nieve, calor extremo (>32), frío extremo (<-5), viento fuerte (>35)
+                if (isRain || isSnow || cur.temp > 32 || cur.temp < -5 || cur.windSpeed > 35) return 'bad';
+                
+                // REGULAR: Llovizna ligera, calor considerable (>26), frío (<5), viento molesto (>20)
+                // Nota: probToday > 50 implica riesgo alto de mojarse aunque no llueva ahora
+                if (probToday > 50 || cur.temp > 26 || cur.temp < 5 || cur.windSpeed > 20) return 'fair';
+                
+                // IDEAL
+                return 'good';
+            }
+        },
+        {
+            id: 'cycle', name: 'Ciclismo', icon: 'fa-solid fa-bicycle',
+            check: () => {
+                // El viento es el peor enemigo del ciclista, más que la temperatura.
+                // MALO: Lluvia/Nieve (peligro resbalones), Viento > 30, Calor > 35
+                if (isRain || isSnow || cur.windSpeed > 30 || cur.temp > 35) return 'bad';
+                
+                // REGULAR: Viento > 15 (ya molesta), Frío < 5, Calor > 28
+                if (cur.windSpeed > 15 || cur.temp < 5 || cur.temp > 28) return 'fair';
+                
+                // IDEAL
+                return 'good';
+            }
+        },
+        {
+            id: 'bbq', name: 'Barbacoa', icon: 'fa-solid fa-burger',
+            check: () => {
+                // MALO: Si llueve o hay ALTA probabilidad hoy (>30%), o mucho viento (aviva fuego/humo)
+                if (isRain || isSnow || probToday > 30 || cur.windSpeed > 25) return 'bad';
+                
+                // REGULAR: Si hace frío (<15) o hay riesgo ligero de lluvia (>10%) o viento medio
+                if (cur.temp < 15 || probToday > 10 || cur.windSpeed > 15) return 'fair';
+                
+                // IDEAL
+                return 'good';
+            }
+        },
+        {
+            id: 'car', name: 'Lavar Coche', icon: 'fa-solid fa-car-side',
+            check: () => {
+                // LÓGICA FINAL Y ROBUSTA
+                // MALO: Llueve ahora, o probabilidad >= 10% HOY, o probabilidad >= 10% MAÑANA
+                if (isRain || isSnow || probToday >= 10 || probTomorrow >= 10) return 'bad';
+                
+                // REGULAR: Hace mucho frío (<4, se congela el agua) o hay riesgo mínimo (1-9%)
+                if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair';
+                
+                // IDEAL: Probabilidad 0% hoy y mañana
+                return 'good';
+            }
+        },
+        {
+            id: 'star', name: 'Ver Estrellas', icon: 'fa-solid fa-star',
+            check: () => {
+                // MALO: Es de día, o hay muchas nubes (>50%), o llueve
+                if (cur.isDay || cur.cloudCover > 50 || isRain || isSnow) return 'bad';
+                
+                // REGULAR: Algunas nubes (>20%) o luna muy brillante (opcional, difícil de medir aquí)
+                if (cur.cloudCover > 20) return 'fair';
+                
+                // IDEAL: Noche despejada
+                return 'good';
+            }
+        },
+        {
+            id: 'dog', name: 'Paseo Perro', icon: 'fa-solid fa-dog',
+            check: () => {
+                // MALO: Tormenta (miedo), Lluvia fuerte, Asfalto quemando (>30°C ambiente suele ser suelo muy caliente)
+                if (isStorm || isRain || cur.temp > 30 || cur.temp < -10) return 'bad';
+                
+                // REGULAR: Llovizna, Suelo mojado (prob > 50), Frío/Calor moderado
+                if (probToday > 50 || cur.temp > 25 || cur.temp < 5) return 'fair';
+                
+                // IDEAL
+                return 'good';
+            }
+        },
+        {
+            id: 'beach', name: 'Playa', icon: 'fa-solid fa-umbrella-beach',
+            check: () => {
+                // MALO: Lluvia, Frío (<22), Viento fuerte (arena vuela > 25)
+                if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad';
+                
+                // REGULAR: Nublado (>60%), Viento medio, Calor "normal" (22-25)
+                if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair';
+                
+                // IDEAL: Calor (>25), poco viento, sol
+                return 'good';
+            }
+        },
+        {
+            id: 'drive', name: 'Conducir', icon: 'fa-solid fa-road',
+            check: () => {
+                // MALO: Niebla, Nieve/Hielo, Tormenta, Viento extremo
+                if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad';
+                
+                // REGULAR: Lluvia, Viento fuerte (>30), Probabilidad alta de precipitación
+                if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair';
+                
+                // IDEAL
+                return 'good';
+            }
+        }
+    ];
+
+    list.innerHTML = activities.map(act => {
+        const status = act.check();
+        return `
+        <div class="activity-item">
+            <i class="${act.icon} activity-icon"></i>
+            <div class="status-dot status-${status}"></div>
+            <span class="activity-name">${act.name}</span>
+        </div>`;
+    }).join('');
+};
 
         async function getWeather(id) {
             try {
