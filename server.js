@@ -62,33 +62,6 @@ app.post('/api/subscribe', async (req, res) => {
     try { await Subscription.upsert({ endpoint: req.body.subscription.endpoint, keys: req.body.subscription.keys, lat: req.body.lat, lon: req.body.lon, city: req.body.city, lastNotification: new Date(0) }); res.status(201).json({}); } catch (e) { res.status(500).json({}); }
 });
 
-setInterval(async () => {
-    const users = await Subscription.findAll();
-    for (const user of users) {
-        if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
-        try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m&forecast_days=1&timezone=auto`;
-            const response = await axios.get(url);
-            const nowcast = response.data.minutely_15;
-            const current = response.data.current;
-            
-            let rainSum = 0; let startMin = 0; let found = false;
-            if(nowcast) { for(let i=0; i<4; i++) { const val = nowcast.precipitation[i] || 0; rainSum += val; if(val > 0 && !found) { startMin = i*15; found = true; } } }
-            
-            if (rainSum > 0.2) { 
-                const isSnow = current.temperature_2m <= 2; 
-                const type = isSnow ? "Nieve" : "Lluvia";
-                const icon = isSnow ? "❄️" : "☔";
-                const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
-                
-                await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({ title: `${icon} ${type} en ${user.city}`, body: `Se espera ${type.toLowerCase()} ${timeMsg}.`, icon: '/logo.png', badge: '/logo.png' }));
-                
-                user.lastNotification = new Date(); await user.save();
-            }
-        } catch (err) { if (err.statusCode === 410) await user.destroy(); }
-    }
-}, 15 * 60 * 1000);
-
 app.get('/api/search/:query', async (req, res) => {
     try {
         const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(req.params.query)}&count=8&language=es&format=json`;
@@ -102,7 +75,6 @@ app.get('/api/search/:query', async (req, res) => {
     } catch (e) { res.json([]); }
 });
 
-// CAMBIO 1: Nombre por defecto actualizado
 app.get('/api/geo', async (req, res) => { res.json({ id: `${req.query.lat},${req.query.lon}`, name: "Tu ubicación", region: "", lat: req.query.lat, lon: req.query.lon }); });
 
 // --- WEATHER API ---
@@ -116,35 +88,29 @@ app.get('/api/weather/:id', async (req, res) => {
         
         if (locationId.includes(',')) {
             [lat, lon] = locationId.split(',');
-            // Lista negra para forzar geocodificación inversa
             const badNames = ['undefined', 'null', 'Ubicación', 'Tu ubicación', 'Ubicación detectada', 'Ubicación Detectada', '', 'My Location'];
             
             if (!forcedName || badNames.includes(forcedName)) {
                 try {
-                    // Intento 1: Open-Meteo
                     const geoUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
                     const geoRes = await axios.get(geoUrl);
                     if (geoRes.data.results && geoRes.data.results.length > 0) {
-                        // CAMBIO: Formato "Tu ubicación (Ciudad)"
                         forcedName = `Tu ubicación (${geoRes.data.results[0].name})`;
                         const r = geoRes.data.results[0];
                         forcedRegion = [r.admin1, r.country].filter(Boolean).join(', ');
                     } else { throw new Error("OpenMeteo Empty"); }
                 } catch(err) {
                     try {
-                        // Intento 2: Nominatim
                         const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10`;
                         const nomRes = await axios.get(nomUrl, { headers: { 'User-Agent': 'AerisApp/1.0' } });
                         const a = nomRes.data.address;
                         const place = a.city || a.town || a.village || a.municipality;
-                        // CAMBIO: Formato "Tu ubicación (Ciudad)"
                         forcedName = place ? `Tu ubicación (${place})` : "Tu ubicación";
                         forcedRegion = [a.state, a.country].filter(Boolean).join(', ');
                     } catch(e2) { forcedName = "Tu ubicación"; }
                 }
             }
         } else {
-            // Búsqueda por texto (no cambiamos nada, muestra el nombre de la ciudad tal cual)
             const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`);
             if (!geoRes.data.results) throw new Error("Ciudad no encontrada");
             lat = geoRes.data.results[0].latitude;
@@ -249,6 +215,61 @@ app.get('/api/weather/:id', async (req, res) => {
         res.json(finalData);
 
     } catch (e) { console.error(e); res.status(500).json({ error: "Error interno" }); }
+});
+
+// --- RUTA CRON JOB (NUEVA PARA NOTIFICACIONES) ---
+app.get('/api/cron/check-rain', async (req, res) => {
+    try {
+        console.log(" Ejecutando Cron Job de Lluvia...");
+        const users = await Subscription.findAll();
+        let sentCount = 0;
+
+        for (const user of users) {
+            // Evitar spam: solo 1 notif por hora
+            if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
+            
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m&forecast_days=1&timezone=auto`;
+                const response = await axios.get(url);
+                const nowcast = response.data.minutely_15;
+                const current = response.data.current;
+                
+                let rainSum = 0; let startMin = 0; let found = false;
+                if(nowcast) { 
+                    // Miramos los próximos 60 min (4 bloques de 15 min)
+                    for(let i=0; i<4; i++) { 
+                        const val = nowcast.precipitation[i] || 0; 
+                        rainSum += val; 
+                        if(val > 0 && !found) { startMin = i*15; found = true; } 
+                    } 
+                }
+                
+                if (rainSum > 0.2) { 
+                    const isSnow = current.temperature_2m <= 2; 
+                    const type = isSnow ? "Nieve" : "Lluvia";
+                    const icon = isSnow ? "❄️" : "☔";
+                    const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
+                    
+                    await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({ 
+                        title: `${icon} ${type} en ${user.city}`, 
+                        body: `Se espera ${type.toLowerCase()} ${timeMsg}.`, 
+                        icon: '/logo.png', 
+                        badge: '/logo.png' 
+                    }));
+                    
+                    user.lastNotification = new Date(); 
+                    await user.save();
+                    sentCount++;
+                }
+            } catch (err) { 
+                if (err.statusCode === 410) await user.destroy(); // Eliminar suscripciones muertas
+            }
+        }
+        res.json({ success: true, message: `Cron ejecutado. Notificaciones enviadas: ${sentCount}` });
+    } catch (error) {
+        console.error("Error en Cron Job:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 const PORT = process.env.PORT || 3000;
