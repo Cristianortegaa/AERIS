@@ -247,7 +247,9 @@ app.get('/api/weather/:id', async (req, res) => {
                 return { 
                     fullDate: t, hour: parseInt(t.split('T')[1].split(':')[0]), displayTime: t.split('T')[1], 
                     temp: Math.round(w.hourly.temperature_2m[realIndex]), rainProb: w.hourly.precipitation_probability[realIndex], 
-                    precip: w.hourly.precipitation[realIndex], icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon 
+                    precip: w.hourly.precipitation[realIndex], icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon,
+                    weatherCode: w.hourly.weather_code[realIndex],
+                    isDay: w.hourly.is_day[realIndex]
                 };
             });
 
@@ -272,7 +274,8 @@ app.get('/api/weather/:id', async (req, res) => {
             location: { name: forcedName || "Tu ubicación", region: forcedRegion, lat, lon, timezone: w.timezone },
             current: { 
                 temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, 
-                windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, 
+                windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1,
+                weatherCode: w.current.weather_code,
                 uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time,
                 cloudCover: w.current.cloud_cover || 0, comparison: comparisonText
             },
@@ -280,7 +283,8 @@ app.get('/api/weather/:id', async (req, res) => {
             daily: w.daily.time.map((t, i) => {
                 return { 
                     fecha: t, tempMax: Math.round(w.daily.temperature_2m_max[i]), tempMin: Math.round(w.daily.temperature_2m_min[i]), 
-                    sunrise: w.daily.sunrise[i].split('T')[1], sunset: w.daily.sunset[i].split('T')[1], icon: decodeWMO(w.daily.weather_code[i], 1).icon, 
+                    sunrise: w.daily.sunrise[i].split('T')[1], sunset: w.daily.sunset[i].split('T')[1], icon: decodeWMO(w.daily.weather_code[i], 1).icon,
+                    weatherCode: w.daily.weather_code[i],
                     rainProbMax: w.daily.precipitation_probability_max[i],
                     dayHours: w.hourly.time.reduce((acc, timeStr, idx) => {
                         if (timeStr.startsWith(t)) {

@@ -266,79 +266,92 @@
         .ios-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2rem; animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
 
-        /* --- 4. COLORES Y ANIMACIONES DEL CLIMA (FINAL) --- */
-
-        /* 1. SOL: Amarillo y GIRA */
-        .bi-sun, .bi-sun-fill, .bi-brightness-high, .bi-brightness-high-fill {
-            color: #fbbf24 !important;
-            filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.6));
-            animation: spinSlow 20s linear infinite;
+        /* --- 4. SISTEMA DE ICONOS POR CAPAS (LAYERS) --- */
+        
+        /* Contenedor del icono compuesto */
+        .icon-stack {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1em; /* Se adapta al font-size del padre */
+            height: 1em;
+            vertical-align: middle;
         }
+
+        /* Capas individuales */
+        .layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* COLORES DE LOS ELEMENTOS */
+        .color-sun { 
+            color: #fbbf24 !important; /* Amarillo */
+            filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.5));
+            z-index: 1; 
+        }
+        .color-moon { 
+            color: #fef3c7 !important; /* Luna pálida */
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+            z-index: 1;
+        }
+        .color-cloud { 
+            color: #94a3b8 !important; /* Gris Pizarra */
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.1));
+            z-index: 2; /* Nube tapa al sol */
+        }
+        /* En modo noche, la nube se aclara un poco para verse sobre oscuro */
+        body.bg-clear-night .color-cloud, body.bg-cloudy-night .color-cloud, body.bg-rain .color-cloud {
+            color: #cbd5e1 !important; /* Gris muy claro */
+        }
+
+        .color-rain { 
+            color: #38bdf8 !important; /* Azul gotas */
+            z-index: 3; /* Gotas delante */
+            margin-top: 5px; /* Bajarlas un poco */
+        }
+        .color-snow { 
+            color: #fff !important; 
+            z-index: 3;
+            margin-top: 5px;
+        }
+        .color-storm { 
+            color: #a855f7 !important; /* Rayo morado */
+            z-index: 3;
+        }
+
+        /* ANIMACIONES ESPECÍFICAS (SOLO LO QUE SE MUEVE) */
+        .anim-spin { animation: spinSlow 15s linear infinite; }
+        .anim-rain-drop { animation: rainFall 0.8s infinite linear; }
+        .anim-snow-float { animation: snowFloat 3s ease-in-out infinite; }
+        .anim-flash { animation: stormFlash 2s infinite; }
+
         @keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        /* 2. LUNA: Pálida y FLOTA suave */
-        .bi-moon, .bi-moon-stars, .bi-moon-fill, .bi-moon-stars-fill {
-            color: #fef3c7 !important;
-            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
-            animation: floatIcon 4s ease-in-out infinite;
+        
+        /* Animación de lluvia cayendo */
+        @keyframes rainFall {
+            0% { transform: translateY(-3px); opacity: 0; }
+            30% { opacity: 1; }
+            100% { transform: translateY(5px); opacity: 0; }
         }
 
-        /* 3. NUBES: Grises (se ven en blanco) y FLOTAN */
-        .bi-cloud, .bi-cloud-fill, .bi-clouds, .bi-clouds-fill, 
-        .bi-cloud-sun, .bi-cloud-sun-fill, .bi-cloud-fog2 {
-            color: #94a3b8 !important; /* Gris */
-            filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.1));
-            animation: floatIcon 5s ease-in-out infinite;
+        /* Animación de nieve flotando */
+        @keyframes snowFloat {
+            0%, 100% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(3px) translateX(2px); }
         }
 
-        /* 4. LLUVIA: Azul y REBOTA (Simula caer) */
-        .bi-cloud-rain, .bi-cloud-drizzle, .bi-cloud-rain-heavy, 
-        .bi-cloud-rain-fill, .bi-cloud-drizzle-fill, .bi-cloud-lightning-rain {
-            color: #0ea5e9 !important; /* Azul cielo */
-            filter: drop-shadow(0 2px 4px rgba(14, 165, 233, 0.3));
-            animation: rainBounce 1.5s ease-in-out infinite;
-        }
-        /* Animación de "caída/rebote" */
-        @keyframes rainBounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(3px); } /* Se mueve hacia abajo */
-        }
-
-        /* 5. TORMENTA: Morado y VIBRA */
-        .bi-cloud-lightning, .bi-cloud-lightning-fill {
-            color: #a855f7 !important;
-            filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
-            animation: stormShake 3s ease-in-out infinite; /* Vibra cada 3 seg */
-        }
-        @keyframes stormShake {
-            0%, 90%, 100% { transform: translateX(0); }
-            92% { transform: translateX(-2px); }
-            94% { transform: translateX(2px); }
-            96% { transform: translateX(-2px); }
-            98% { transform: translateX(2px); }
-        }
-
-        /* 6. NIEVE: Gris azulado y FLOTA LENTO */
-        .bi-cloud-snow, .bi-snow, .bi-snow2 {
-            color: #cbd5e1 !important;
-            filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.1));
-            animation: floatIcon 6s ease-in-out infinite; /* Muy lento */
-        }
-
-        /* Animación genérica de flotar */
-        @keyframes floatIcon {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-3px); }
-        }
-
-        /* --- MODO NOCHE/OSCURO (Nubes Blancas) --- */
-        body.bg-clear-night .bi-cloud, body.bg-clear-night .bi-clouds, 
-        body.bg-clear-night .bi-cloud-moon, 
-        body.bg-cloudy-night .bi-cloud, body.bg-cloudy-night .bi-clouds,
-        body.bg-rain .bi-cloud, body.bg-rain .bi-clouds,
-        [data-bs-theme="dark"] .bi-cloud, [data-bs-theme="dark"] .bi-clouds {
-            color: #f1f5f9 !important;
-            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
+        @keyframes stormFlash {
+            0%, 90%, 100% { opacity: 1; transform: scale(1); }
+            92% { opacity: 0.5; transform: scale(1.1); }
+            94% { opacity: 1; transform: scale(1); }
         }
     </style>
 </head>
@@ -1482,6 +1495,53 @@
             }).join('');
         };
 
+        // --- FUNCIÓN MAESTRA DE ICONOS POR CAPAS ---
+        const getWeatherIconHTML = (code, isDay, size = "fs-1") => {
+            const c = parseInt(code);
+            let layers = '';
+
+            // --- GRUPO 1: SOL / LUNA (FONDO) ---
+            if (c === 0 || c === 1) {
+                // Despejado
+                if (isDay) layers += `<i class="bi bi-sun-fill layer color-sun anim-spin"></i>`;
+                else       layers += `<i class="bi bi-moon-stars-fill layer color-moon"></i>`;
+            } else if (c === 2 || c === 3 || c === 45 || c === 48) {
+                // Nublado (Sol/Luna detrás de nube)
+                if (isDay) layers += `<i class="bi bi-sun-fill layer color-sun" style="font-size: 0.7em; top: -20%; left: 20%;"></i>`;
+                else       layers += `<i class="bi bi-moon-fill layer color-moon" style="font-size: 0.6em; top: -20%; left: 20%;"></i>`;
+                
+                // Capa Nube (Encima)
+                layers += `<i class="bi bi-cloud-fill layer color-cloud"></i>`;
+                if(c === 45 || c === 48) layers += `<i class="bi bi-cloud-haze2 layer" style="opacity:0.5; color:#fff"></i>`;
+            } 
+            
+            // --- GRUPO 2: LLUVIA (Nube + Gotas) ---
+            else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(c)) {
+                layers += `<i class="bi bi-cloud-fill layer color-cloud"></i>`; // Nube quieta
+                // Gotas animadas (usamos iconos de gotas pequeñas)
+                layers += `<i class="bi bi-droplet-fill layer color-rain anim-rain-drop" style="font-size: 0.5em; top: 10%;"></i>`;
+            }
+
+            // --- GRUPO 3: NIEVE (Nube + Copos) ---
+            else if ([71, 73, 75, 77, 85, 86].includes(c)) {
+                layers += `<i class="bi bi-cloud-fill layer color-cloud"></i>`;
+                layers += `<i class="bi bi-snow2 layer color-snow anim-snow-float" style="font-size: 0.6em; top: 10%;"></i>`;
+            }
+
+            // --- GRUPO 4: TORMENTA (Nube + Rayo) ---
+            else if ([95, 96, 99].includes(c)) {
+                layers += `<i class="bi bi-cloud-fill layer color-cloud" style="filter: brightness(0.7);"></i>`; // Nube oscura
+                layers += `<i class="bi bi-lightning-fill layer color-storm anim-flash" style="font-size: 0.6em; top: 10%;"></i>`;
+            }
+            
+            // Fallback (por si acaso)
+            else {
+                layers += `<i class="bi bi-cloud-fill layer color-cloud"></i>`;
+            }
+
+            return `<div class="icon-stack ${size}">${layers}</div>`;
+        };
+
         async function getWeather(id) {
             try {
                 let storedName = localStorage.getItem('lastName');
@@ -1531,7 +1591,8 @@
 
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
-                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; animation: fadeIn 0.5s"></i>`;
+                // ICONO PRINCIPAL (Grande)
+                document.getElementById('weather-icon-container').innerHTML = getWeatherIconHTML(cur.weatherCode, cur.isDay, "").replace('class="icon-stack "', 'class="icon-stack" style="font-size: 5rem;"');
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
@@ -1583,19 +1644,27 @@
 
                 const hCont = document.getElementById('hourly');
                 if(hCont) hCont.innerHTML = data.hourly.map(h => 
-                    `<div class="hourly-item">
+                    {
+                        // Usamos el código numérico y el isDay que ahora envía el servidor
+                        const iconHTML = getWeatherIconHTML(h.weatherCode, h.isDay === 1, "fs-2");
+                        return `
+                    <div class="hourly-item">
                         <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        <i class="bi ${h.icon} fs-4"></i>
+                        ${iconHTML}
                         <div class="fw-bold fs-5">${h.temp}°</div>
                         <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
                             ${h.rainProb>0?h.rainProb+'%':''}
                         </div>
-                    </div>`
+                    </div>`;
+                    }
                 ).join('');
                 
                 const dCont = document.getElementById('daily');
                 if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
                     const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
+                    
+                    // Icono diario (siempre "día" para que se vea bien)
+                    const iconHTML = getWeatherIconHTML(d.weatherCode, true, "fs-2");
                     
                     let hourlyHtml = '';
                     if (d.dayHours && d.dayHours.length > 0) {
@@ -1622,7 +1691,7 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-column align-items-center" style="width:25%">
-                                <i class="bi ${d.icon} fs-5"></i>
+                                ${iconHTML}
                                 <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
                             </div>
                             <div class="text-end fw-bold" style="width:30%">
