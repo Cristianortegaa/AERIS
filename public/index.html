@@ -265,99 +265,6 @@
         .ios-content { background: #1a1a1a; width: 100%; padding: 30px 20px 50px 20px; border-radius: 20px 20px 0 0; color: white; text-align: center; position: relative; animation: slideUp 0.3s; }
         .ios-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2rem; animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
-
-        /* --- 4. ICONOS 3D NÍTIDOS Y MODERNOS --- */
-        
-        /* Contenedor base: usa el tamaño de fuente para escalar */
-        .icon-3d-container {
-            position: relative;
-            display: inline-flex; /* Importante para que centre bien */
-            width: 1em;
-            height: 1em;
-            align-items: center;
-            justify-content: center;
-            vertical-align: middle;
-            line-height: 1;
-        }
-
-        /* Las capas se apilan exactamente una sobre otra */
-        .layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        /* --- COLORES Y CAPAS (Z-INDEX) --- */
-        
-        /* NIVEL 1: FONDO (SOL / LUNA) - Se mueven */
-        .layer-sun { 
-            color: #fbbf24 !important; /* Amarillo Ámbar */
-            filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.7));
-            z-index: 1; 
-        }
-        .layer-moon { 
-            color: #e0f2fe !important; /* Azul muy pálido */
-            filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.6));
-            z-index: 1;
-        }
-
-        /* NIVEL 2: NUBE - QUIETA Y NÍTIDA */
-        .layer-cloud { 
-            color: #e2e8f0 !important; /* Gris claro (Slate-200) para mejor definición */
-            /* Sombra más definida para efecto 3D nítido */
-            filter: drop-shadow(2px 3px 2px rgba(30, 41, 59, 0.2));
-            z-index: 2; 
-            transform: scale(0.95); /* Un pelín más pequeña para que se vea el sol detrás */
-        }
-        /* En modo noche, la nube es un poco más brillante */
-        body.bg-clear-night .layer-cloud, body.bg-rain .layer-cloud {
-            color: #f8fafc !important;
-            filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.3));
-        }
-
-        /* NIVEL 3: PRECIPITACIÓN (LLUVIA/NIEVE) - Caen */
-        .layer-rain { 
-            color: #0ea5e9 !important; /* Azul intenso */
-            z-index: 3;
-            margin-top: 12%; /* Salen de debajo de la nube */
-            filter: drop-shadow(1px 1px 1px rgba(14, 165, 233, 0.3));
-        }
-        .layer-snow { 
-            color: #fff !important; 
-            z-index: 3; 
-            margin-top: 12%; 
-        }
-        .layer-bolt { 
-            color: #facc15 !important; 
-            z-index: 3; 
-            filter: drop-shadow(0 0 8px #facc15); 
-        }
-
-        /* --- ANIMACIONES --- */
-        
-        /* SOLO EL SOL GIRA */
-        .anim-spin { animation: spin 25s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        /* SOLO LLUVIA/NIEVE CAEN */
-        .anim-rain { animation: rainDrop 1s infinite linear; }
-        @keyframes rainDrop {
-            0% { transform: translateY(-6px); opacity: 0; }
-            30% { opacity: 1; }
-            80% { opacity: 1; }
-            100% { transform: translateY(8px); opacity: 0; }
-        }
-
-        .anim-snow { animation: snowFloat 3s infinite ease-in-out; }
-        @keyframes snowFloat {
-            0% { transform: translateY(0) translateX(0); opacity: 0;}
-            20% { opacity: 1;}
-            100% { transform: translateY(8px) translateX(4px); opacity: 0; }
-        }
-        
-        /* RAYO VIBRA */
-        .anim-pulse { animation: pulse 0.8s infinite alternate; }
-        @keyframes pulse { 0% { opacity: 1; } 100% { opacity: 0.6; } }
     </style>
 </head>
 <body data-theme="light">
@@ -1500,46 +1407,6 @@
             }).join('');
         };
 
-        // FUNCIÓN MAESTRA: NUBES QUIETAS, SOL GIRA
-        const getWeatherIconHTML = (code, isDay, sizeClass = "") => {
-            const c = parseInt(code);
-            let layers = '';
-
-            // --- 1. FONDO (SOL O LUNA) - CON ANIMACIÓN SI ES SOL ---
-            if ([0, 1, 2, 3, 45, 48, 80, 81].includes(c)) {
-                if (isDay) layers += `<i class="bi bi-sun-fill layer layer-sun anim-spin"></i>`;
-                else       layers += `<i class="bi bi-moon-stars-fill layer layer-moon"></i>`;
-            }
-
-            // --- 2. NUBES - SIN ANIMACIÓN (QUIETAS) ---
-            if (c === 0) {
-                // Despejado total: Sin nube
-            } else if (c === 1) {
-                // Nube pequeña desplazada
-                layers += `<i class="bi bi-cloud-fill layer layer-cloud" style="font-size: 0.65em; transform: translate(35%, 25%);"></i>`;
-            } else {
-                // Nube normal centrada
-                layers += `<i class="bi bi-cloud-fill layer layer-cloud"></i>`;
-            }
-
-            // --- 3. PRECIPITACIÓN (ANIMADA) ---
-            if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(c)) {
-                layers += `<i class="bi bi-cloud-drizzle-fill layer layer-rain anim-rain"></i>`;
-            }
-            if ([71, 73, 75, 77, 85, 86].includes(c)) {
-                layers += `<i class="bi bi-snow2 layer layer-snow anim-snow"></i>`;
-            }
-            if ([95, 96, 99].includes(c)) {
-                layers += `<i class="bi bi-lightning-fill layer layer-bolt anim-pulse"></i>`;
-            }
-
-            // IMPORTANTE: Usamos estilo inline para el tamaño si se pasa
-            const style = sizeClass.includes('rem') ? `style="font-size: ${sizeClass};"` : '';
-            const classes = sizeClass.includes('rem') ? 'icon-3d-container' : `icon-3d-container ${sizeClass}`;
-
-            return `<div class="${classes}" ${style}>${layers}</div>`;
-        };
-
         async function getWeather(id) {
             try {
                 let storedName = localStorage.getItem('lastName');
@@ -1589,7 +1456,7 @@
 
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
-                document.getElementById('weather-icon-container').innerHTML = getWeatherIconHTML(cur.weatherCode, cur.isDay, "6.5rem");
+                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
@@ -1640,23 +1507,16 @@
                 }
 
                 const hCont = document.getElementById('hourly');
-                if(hCont) hCont.innerHTML = data.hourly.map(h => {
-                    // FORZAMOS LA NOCHE si la hora es < 7 o > 20
-                    const hour = parseInt(h.displayTime.split(':')[0]);
-                    const isRealDay = (hour >= 7 && hour <= 20);
-
-                    // Generamos icono
-                    const iconHTML = getWeatherIconHTML(h.weatherCode, isRealDay, "fs-1");
-
-                    return `<div class="hourly-item">
+                if(hCont) hCont.innerHTML = data.hourly.map(h => 
+                    `<div class="hourly-item">
                         <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        ${iconHTML}
+                        <i class="bi ${h.icon} fs-4"></i>
                         <div class="fw-bold fs-5">${h.temp}°</div>
                         <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
                             ${h.rainProb>0?h.rainProb+'%':''}
                         </div>
                     </div>`
-                }).join('');
+                ).join('');
                 
                 const dCont = document.getElementById('daily');
                 if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
@@ -1664,22 +1524,17 @@
                     
                     let hourlyHtml = '';
                     if (d.dayHours && d.dayHours.length > 0) {
-                        hourlyHtml = d.dayHours.map(h => {
-                            // Usamos el 'h.isDay' que añadimos al backend en el paso 1
-                            const subIconHTML = getWeatherIconHTML(h.weatherCode, h.isDay, "fs-4");
-                            return `<div class="day-hourly-item">
+                        hourlyHtml = d.dayHours.map(h => 
+                            `<div class="day-hourly-item">
                                 <span class="opacity-50 fw-bold">${h.time}</span>
-                                <div class="my-1">${subIconHTML}</div>
+                                <i class="bi ${h.icon} fs-5 text-primary"></i>
                                 <span class="fw-bold">${h.temp}°</span>
                                 <small style="color:#3b82f6; font-weight:800; font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small>
                             </div>`
-                        }).join('');
+                        ).join('');
                     } else {
                         hourlyHtml = '<div class="text-center w-100 opacity-50 small">No hay datos horarios disponibles</div>';
                     }
-
-                    // Usamos weatherCode (que añadimos en el paso 1 al backend)
-                    const mainIconHTML = getWeatherIconHTML(d.weatherCode, true, "fs-2");
 
                     return `
                     <div style="cursor:pointer" onclick="toggleDay(${index})">
@@ -1692,7 +1547,7 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-column align-items-center" style="width:25%">
-                                ${mainIconHTML}
+                                <i class="bi ${d.icon} fs-5"></i>
                                 <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
                             </div>
                             <div class="text-end fw-bold" style="width:30%">

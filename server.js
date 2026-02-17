@@ -62,82 +62,32 @@ app.post('/api/subscribe', async (req, res) => {
     try { await Subscription.upsert({ endpoint: req.body.subscription.endpoint, keys: req.body.subscription.keys, lat: req.body.lat, lon: req.body.lon, city: req.body.city, lastNotification: new Date(0) }); res.status(201).json({}); } catch (e) { res.status(500).json({}); }
 });
 
-// --- NUEVA RUTA PARA EL CRONJOB EXTERNO ---
-app.get('/api/cron/check-rain', async (req, res) => {
-    console.log('⚡ Cronjob disparado: Comprobando lluvia...');
-    
-    try {
-        const users = await Subscription.findAll();
-        let notificacionesEnviadas = 0;
-
-        for (const user of users) {
-            // Evitar spam: Si ya avisamos hace menos de 1 hora, saltar
-            if (user.lastNotification && (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000)) {
-                continue;
-            }
-
-            try {
-                // Consultamos Open-Meteo para este usuario
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m&forecast_days=1&timezone=auto`;
-                const response = await axios.get(url);
-                const nowcast = response.data.minutely_15;
-                const current = response.data.current;
+setInterval(async () => {
+    const users = await Subscription.findAll();
+    for (const user of users) {
+        if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
+        try {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m&forecast_days=1&timezone=auto`;
+            const response = await axios.get(url);
+            const nowcast = response.data.minutely_15;
+            const current = response.data.current;
+            
+            let rainSum = 0; let startMin = 0; let found = false;
+            if(nowcast) { for(let i=0; i<4; i++) { const val = nowcast.precipitation[i] || 0; rainSum += val; if(val > 0 && !found) { startMin = i*15; found = true; } } }
+            
+            if (rainSum > 0.2) { 
+                const isSnow = current.temperature_2m <= 2; 
+                const type = isSnow ? "Nieve" : "Lluvia";
+                const icon = isSnow ? "❄️" : "☔";
+                const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
                 
-                let rainSum = 0; 
-                let startMin = 0; 
-                let found = false;
-
-                // Sumamos la precipitación de la próxima hora (4 periodos de 15 min)
-                if(nowcast) { 
-                    for(let i=0; i<4; i++) { 
-                        const val = nowcast.precipitation[i] || 0; 
-                        rainSum += val; 
-                        if(val > 0 && !found) { 
-                            startMin = i*15; 
-                            found = true; 
-                        } 
-                    } 
-                }
+                await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({ title: `${icon} ${type} en ${user.city}`, body: `Se espera ${type.toLowerCase()} ${timeMsg}.`, icon: '/logo.png', badge: '/logo.png' }));
                 
-                // Si va a llover (más de 0.2mm acumulados)
-                if (rainSum > 0.2) { 
-                    const isSnow = current.temperature_2m <= 2; 
-                    const type = isSnow ? "Nieve" : "Lluvia";
-                    const icon = isSnow ? "❄️" : "☔";
-                    const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
-                    
-                    console.log(`Enviando alerta a ${user.city}`);
-
-                    await webpush.sendNotification(
-                        { endpoint: user.endpoint, keys: user.keys }, 
-                        JSON.stringify({ 
-                            title: `${icon} ${type} en ${user.city}`, 
-                            body: `Se espera ${type.toLowerCase()} ${timeMsg}.`, 
-                            icon: '/logo.png', 
-                            badge: '/logo.png' 
-                        })
-                    );
-                    
-                    // Actualizamos la última notificación para no repetir en 1h
-                    user.lastNotification = new Date(); 
-                    await user.save();
-                    notificacionesEnviadas++;
-                }
-            } catch (err) { 
-                console.error('Error procesando usuario:', err.message);
-                if (err.statusCode === 410) {
-                    console.log('Usuario inactivo, eliminando suscripción...');
-                    await user.destroy(); 
-                }
+                user.lastNotification = new Date(); await user.save();
             }
-        }
-        res.status(200).send(`Cron ejecutado. Alertas enviadas: ${notificacionesEnviadas}`);
-    
-    } catch (error) {
-        console.error('Error general en el Cron:', error);
-        res.status(500).send('Error en el cron');
+        } catch (err) { if (err.statusCode === 410) await user.destroy(); }
     }
-});
+}, 15 * 60 * 1000);
 
 app.get('/api/search/:query', async (req, res) => {
     try {
@@ -280,16 +230,13 @@ app.get('/api/weather/:id', async (req, res) => {
             daily: w.daily.time.map((t, i) => {
                 return { 
                     fecha: t, tempMax: Math.round(w.daily.temperature_2m_max[i]), tempMin: Math.round(w.daily.temperature_2m_min[i]), 
-                    sunrise: w.daily.sunrise[i].split('T')[1], sunset: w.daily.sunset[i].split('T')[1], icon: decodeWMO(w.daily.weather_code[i], 1).icon,
-                    weatherCode: w.daily.weather_code[i],
+                    sunrise: w.daily.sunrise[i].split('T')[1], sunset: w.daily.sunset[i].split('T')[1], icon: decodeWMO(w.daily.weather_code[i], 1).icon, 
                     rainProbMax: w.daily.precipitation_probability_max[i],
                     dayHours: w.hourly.time.reduce((acc, timeStr, idx) => {
                         if (timeStr.startsWith(t)) {
                             acc.push({
                                 time: timeStr.split('T')[1], temp: Math.round(w.hourly.temperature_2m[idx]), rainProb: w.hourly.precipitation_probability[idx], 
-                                icon: decodeWMO(w.hourly.weather_code[idx], w.hourly.is_day[idx]).icon,
-                                weatherCode: w.hourly.weather_code[idx],
-                                isDay: w.hourly.is_day[idx]
+                                icon: decodeWMO(w.hourly.weather_code[idx], 1).icon
                             });
                         }
                         return acc;
