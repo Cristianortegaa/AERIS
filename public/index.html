@@ -1592,7 +1592,7 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 // ICONO PRINCIPAL (Grande)
-                document.getElementById('weather-icon-container').innerHTML = getWeatherIconHTML(cur.weatherCode, cur.isDay, "").replace('class="icon-stack "', 'class="icon-stack" style="font-size: 5rem;"');
+                document.getElementById('weather-icon-container').innerHTML = getWeatherIconHTML(cur.weatherCode, cur.isDay, "").replace('class="icon-box ', 'class="icon-box " style="font-size: 5rem;" ');
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
@@ -1645,19 +1645,26 @@
                 const hCont = document.getElementById('hourly');
                 if(hCont) hCont.innerHTML = data.hourly.map(h => 
                     {
-                        // Usamos el código numérico y el isDay que ahora envía el servidor
-                        const iconHTML = getWeatherIconHTML(h.weatherCode, h.isDay === 1, "fs-2");
-                        return `
-                    <div class="hourly-item">
+                        // 1. OBTENER LA HORA REAL (0 a 23)
+                        const hour = parseInt(h.displayTime.split(':')[0]);
+                        
+                        // 2. LÓGICA DE NOCHE FORZADA: Si es antes de las 7 o después de las 20, ES NOCHE.
+                        const isReallyDay = (hour >= 7 && hour <= 20);
+
+                        // 3. Generar el icono chulo
+                        const iconHTML = getWeatherIconHTML(h.weatherCode, isReallyDay, "fs-1");
+
+                        return `<div class="hourly-item">
                         <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        ${iconHTML}
+                        <div style="height: 45px; display: flex; align-items: center; justify-content: center;">
+                            ${iconHTML}
+                        </div>
                         <div class="fw-bold fs-5">${h.temp}°</div>
                         <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
                             ${h.rainProb>0?h.rainProb+'%':''}
                         </div>
-                    </div>`;
-                    }
-                ).join('');
+                    </div>`
+                }).join('');
                 
                 const dCont = document.getElementById('daily');
                 if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
