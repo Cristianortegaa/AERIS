@@ -62,32 +62,82 @@ app.post('/api/subscribe', async (req, res) => {
     try { await Subscription.upsert({ endpoint: req.body.subscription.endpoint, keys: req.body.subscription.keys, lat: req.body.lat, lon: req.body.lon, city: req.body.city, lastNotification: new Date(0) }); res.status(201).json({}); } catch (e) { res.status(500).json({}); }
 });
 
-setInterval(async () => {
-    const users = await Subscription.findAll();
-    for (const user of users) {
-        if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
-        try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m&forecast_days=1&timezone=auto`;
-            const response = await axios.get(url);
-            const nowcast = response.data.minutely_15;
-            const current = response.data.current;
-            
-            let rainSum = 0; let startMin = 0; let found = false;
-            if(nowcast) { for(let i=0; i<4; i++) { const val = nowcast.precipitation[i] || 0; rainSum += val; if(val > 0 && !found) { startMin = i*15; found = true; } } }
-            
-            if (rainSum > 0.2) { 
-                const isSnow = current.temperature_2m <= 2; 
-                const type = isSnow ? "Nieve" : "Lluvia";
-                const icon = isSnow ? "❄️" : "☔";
-                const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
-                
-                await webpush.sendNotification({ endpoint: user.endpoint, keys: user.keys }, JSON.stringify({ title: `${icon} ${type} en ${user.city}`, body: `Se espera ${type.toLowerCase()} ${timeMsg}.`, icon: '/logo.png', badge: '/logo.png' }));
-                
-                user.lastNotification = new Date(); await user.save();
+// --- NUEVA RUTA PARA EL CRONJOB EXTERNO ---
+app.get('/api/cron/check-rain', async (req, res) => {
+    console.log('⚡ Cronjob disparado: Comprobando lluvia...');
+    
+    try {
+        const users = await Subscription.findAll();
+        let notificacionesEnviadas = 0;
+
+        for (const user of users) {
+            // Evitar spam: Si ya avisamos hace menos de 1 hora, saltar
+            if (user.lastNotification && (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000)) {
+                continue;
             }
-        } catch (err) { if (err.statusCode === 410) await user.destroy(); }
+
+            try {
+                // Consultamos Open-Meteo para este usuario
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m&forecast_days=1&timezone=auto`;
+                const response = await axios.get(url);
+                const nowcast = response.data.minutely_15;
+                const current = response.data.current;
+                
+                let rainSum = 0; 
+                let startMin = 0; 
+                let found = false;
+
+                // Sumamos la precipitación de la próxima hora (4 periodos de 15 min)
+                if(nowcast) { 
+                    for(let i=0; i<4; i++) { 
+                        const val = nowcast.precipitation[i] || 0; 
+                        rainSum += val; 
+                        if(val > 0 && !found) { 
+                            startMin = i*15; 
+                            found = true; 
+                        } 
+                    } 
+                }
+                
+                // Si va a llover (más de 0.2mm acumulados)
+                if (rainSum > 0.2) { 
+                    const isSnow = current.temperature_2m <= 2; 
+                    const type = isSnow ? "Nieve" : "Lluvia";
+                    const icon = isSnow ? "❄️" : "☔";
+                    const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
+                    
+                    console.log(`Enviando alerta a ${user.city}`);
+
+                    await webpush.sendNotification(
+                        { endpoint: user.endpoint, keys: user.keys }, 
+                        JSON.stringify({ 
+                            title: `${icon} ${type} en ${user.city}`, 
+                            body: `Se espera ${type.toLowerCase()} ${timeMsg}.`, 
+                            icon: '/logo.png', 
+                            badge: '/logo.png' 
+                        })
+                    );
+                    
+                    // Actualizamos la última notificación para no repetir en 1h
+                    user.lastNotification = new Date(); 
+                    await user.save();
+                    notificacionesEnviadas++;
+                }
+            } catch (err) { 
+                console.error('Error procesando usuario:', err.message);
+                if (err.statusCode === 410) {
+                    console.log('Usuario inactivo, eliminando suscripción...');
+                    await user.destroy(); 
+                }
+            }
+        }
+        res.status(200).send(`Cron ejecutado. Alertas enviadas: ${notificacionesEnviadas}`);
+    
+    } catch (error) {
+        console.error('Error general en el Cron:', error);
+        res.status(500).send('Error en el cron');
     }
-}, 15 * 60 * 1000);
+});
 
 app.get('/api/search/:query', async (req, res) => {
     try {
