@@ -1112,6 +1112,20 @@
             } 
         };
 
+        // --- HELPER PARA RENDERIZAR ICONOS PERSONALIZADOS ---
+        const renderIcon = (iconName, size = "fs-4") => {
+            // Si el icono es "cloud-sun", renderizamos el SVG multicolor (Sol Amarillo, Nube Gris)
+            if (iconName.includes('bi-cloud-sun')) {
+                return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" class="bi ${size}" viewBox="0 0 16 16" style="overflow: visible;">
+                  <path d="M10.5 1.5a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0v-1zm3.743 1.964a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.707l.707-.707zm-7.779-.707a.5.5 0 0 0-.707.707l.707.707a.5.5 0 0 0 .707-.707l-.707-.707zm1.964 3.743a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.707l.707-.707zM13.5 9a4.5 4.5 0 0 0 0-9 0v1a3.5 3.5 0 0 1 0 7h-1a.5.5 0 0 0 0 1h1zm0-9a5.5 5.5 0 0 1 0 11h-1a.5.5 0 0 1 0-1h1a4.5 4.5 0 0 0 0-9z" style="fill: #facc15; filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4));"/>
+                  <path d="M13.405 7.027a5.001 5.001 0 0 0-9.499-1.004A3.5 3.5 0 1 0 3.5 13H13a3 3 0 0 0 .405-5.973zM8.5 5.5a4 4 0 0 1 3.976 3.555.5.5 0 0 0 .5.445H13a2 2 0 0 1 0 4H3.5a2.5 2.5 0 1 1 .06-5H4a.5.5 0 0 0 .453-.285A3 3 0 0 1 8.5 5.5z" style="fill: #94a3b8; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));"/>
+                </svg>`;
+            }
+            // Para el resto, usamos el icono estándar con sus clases CSS de color
+            return `<i class="bi ${iconName} ${size}"></i>`;
+        };
+
         document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
         
         const updateHeartUI = () => { 
@@ -1498,10 +1512,12 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
-                // --- ICONO GRANDE CON COLORES ---
-                document.getElementById('weather-icon-container').innerHTML = `
-                    <i class="bi ${cur.icon}" style="font-size: 5.5rem; animation: float 3s infinite ease-in-out;"></i>
-                `;
+                // --- ICONO GRANDE CON COLORES (USANDO LA FUNCIÓN NUEVA) ---
+                if (cur.icon.includes('bi-cloud-sun')) {
+                    document.getElementById('weather-icon-container').innerHTML = renderIcon(cur.icon, "fw-bold").replace('fs-4', '').replace('width="1em"', 'width="5.5rem"').replace('height="1em"', 'height="5.5rem"');
+                } else {
+                    document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5.5rem; animation: float 3s infinite ease-in-out;"></i>`;
+                }
 
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
@@ -1552,11 +1568,12 @@
                     if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
                 }
 
+                // --- RENDERIZADO HORARIO (USANDO renderIcon) ---
                 const hCont = document.getElementById('hourly');
                 if(hCont) hCont.innerHTML = data.hourly.map(h => 
                     `<div class="hourly-item">
                         <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        <i class="bi ${h.icon} fs-4"></i>
+                        ${renderIcon(h.icon, "fs-4")}
                         <div class="fw-bold fs-5">${h.temp}°</div>
                         <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
                             ${h.rainProb>0?h.rainProb+'%':''}
@@ -1564,6 +1581,7 @@
                     </div>`
                 ).join('');
                 
+                // --- RENDERIZADO DIARIO (USANDO renderIcon y LÓGICA NOCHE) ---
                 const dCont = document.getElementById('daily');
                 if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
                     const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
@@ -1584,7 +1602,7 @@
 
                             return `<div class="day-hourly-item">
                                 <span class="opacity-50 fw-bold">${h.time}</span>
-                                <i class="bi ${iconClass} fs-5 text-primary"></i>
+                                ${renderIcon(iconClass, "fs-5 text-primary")}
                                 <span class="fw-bold">${h.temp}°</span>
                                 <small style="color:#3b82f6; font-weight:800; font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small>
                             </div>`
@@ -1604,7 +1622,7 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-column align-items-center" style="width:25%">
-                                <i class="bi ${d.icon} fs-5"></i>
+                                ${renderIcon(d.icon, "fs-5")}
                                 <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
                             </div>
                             <div class="text-end fw-bold" style="width:30%">
