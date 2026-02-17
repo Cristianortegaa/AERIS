@@ -265,6 +265,67 @@
         .ios-content { background: #1a1a1a; width: 100%; padding: 30px 20px 50px 20px; border-radius: 20px 20px 0 0; color: white; text-align: center; position: relative; animation: slideUp 0.3s; }
         .ios-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2rem; animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
+
+        /* --- 4. ICONOS METEOROLÓGICOS PREMIUM (Superprofesional) --- */
+        /* Sol: Amarillo vibrante con resplandor */
+        .wi-sun { 
+            background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.6)); 
+            transform: scale(1.1);
+        }
+        /* Luna: Blanco azulado suave */
+        .wi-moon { 
+            background: linear-gradient(135deg, #f8fafc 0%, #94a3b8 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5)); 
+        }
+        /* Nubes: Gris con profundidad */
+        .wi-cloud { 
+            background: linear-gradient(180deg, #e2e8f0 0%, #64748b 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            filter: drop-shadow(0 5px 10px rgba(0,0,0,0.2)); 
+        }
+        /* Lluvia: Azul eléctrico */
+        .wi-rain { 
+            background: linear-gradient(180deg, #7dd3fc 0%, #0284c7 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            filter: drop-shadow(0 5px 10px rgba(2, 132, 199, 0.4)); 
+        }
+        /* Nieve: Blanco puro */
+        .wi-snow { 
+            background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.9)); 
+        }
+        /* Tormenta: Violeta intenso */
+        .wi-storm { 
+            background: linear-gradient(135deg, #c084fc 0%, #7c3aed 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            filter: drop-shadow(0 0 15px rgba(124, 58, 237, 0.6)); 
+        }
+        /* Niebla: Difusa */
+        .wi-fog { color: #cbd5e1; opacity: 0.6; filter: blur(1.5px); }
+        
+        /* Efecto bicolor para parcialmente nublado (truco de degradado) */
+        .wi-partly-day { 
+            background: linear-gradient(120deg, #f59e0b 40%, #94a3b8 60%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15)); 
+        }
+        .wi-partly-night { 
+            background: linear-gradient(120deg, #f8fafc 40%, #475569 60%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2)); 
+        }
     </style>
 </head>
 <body data-theme="light">
@@ -1456,7 +1517,7 @@
 
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
-                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
+                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; animation: fadeIn 0.5s"></i>`;
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
