@@ -294,6 +294,12 @@
             color: #60a5fa !important; /* Azul hielo */
             filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
         }
+        
+        /* ESTILO PARA LA LUNA (Solución al problema de la noche) */
+        .bi-moon, .bi-moon-fill, .bi-cloud-moon, .bi-cloud-moon-fill, .bi-moon-stars-fill {
+            color: #64748b !important; /* Gris azulado (Visible en fondo blanco) */
+            filter: drop-shadow(0 0 5px rgba(100, 116, 139, 0.3));
+        }
 
         /* Ajuste para el icono principal grande */
         #weather-icon-container i {
@@ -1564,14 +1570,25 @@
                     
                     let hourlyHtml = '';
                     if (d.dayHours && d.dayHours.length > 0) {
-                        hourlyHtml = d.dayHours.map(h => 
-                            `<div class="day-hourly-item">
+                        hourlyHtml = d.dayHours.map(h => {
+                            // --- SOLUCIÓN NOCHE ---
+                            const hour = parseInt(h.time.split(':')[0]);
+                            const sunriseHour = parseInt(d.sunrise.split(':')[0]);
+                            const sunsetHour = parseInt(d.sunset.split(':')[0]);
+                            
+                            let iconClass = h.icon;
+                            // Si es antes del amanecer o después del atardecer, forzar iconos de noche
+                            if (hour < sunriseHour || hour > sunsetHour) {
+                                iconClass = iconClass.replace('bi-sun', 'bi-moon').replace('bi-cloud-sun', 'bi-cloud-moon');
+                            }
+
+                            return `<div class="day-hourly-item">
                                 <span class="opacity-50 fw-bold">${h.time}</span>
-                                <i class="bi ${h.icon} fs-5"></i>
+                                <i class="bi ${iconClass} fs-5 text-primary"></i>
                                 <span class="fw-bold">${h.temp}°</span>
                                 <small style="color:#3b82f6; font-weight:800; font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small>
                             </div>`
-                        ).join('');
+                        }).join('');
                     } else {
                         hourlyHtml = '<div class="text-center w-100 opacity-50 small">No hay datos horarios disponibles</div>';
                     }
