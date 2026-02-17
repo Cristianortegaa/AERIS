@@ -30,25 +30,7 @@ const decodeWMO = (code, isDay = 1) => {
     const nightIcons = { 0:'bi-moon', 1:'bi-cloud-moon', 2:'bi-cloud-moon', 3:'bi-clouds' };
     const textMap = { 0:"Despejado", 1:"Mayormente despejado", 2:"Parcialmente nublado", 3:"Nublado", 45:"Niebla", 48:"Niebla escarcha", 51:"Llovizna", 53:"Llovizna moderada", 55:"Llovizna fuerte", 61:"Lluvia leve", 63:"Lluvia", 65:"Lluvia fuerte", 71:"Nieve leve", 73:"Nieve", 75:"Nieve fuerte", 80:"Chubascos", 81:"Chubascos fuertes", 82:"Tormenta violenta", 95:"Tormenta", 96:"Tormenta con granizo", 99:"Tormenta fuerte" };
     let icon = isDay ? (dayIcons[c] || 'bi-cloud') : (nightIcons[c] || dayIcons[c] || 'bi-cloud');
-    
-    // --- LÓGICA DE COLORES SUPERPROFESIONAL ---
-    let colorClass = 'wi-cloud'; // Por defecto gris
-
-    if (c === 0) { // Despejado
-        colorClass = isDay ? 'wi-sun' : 'wi-moon';
-    } else if (c === 1 || c === 2) { // Parcialmente nublado (Sol/Luna + Nube)
-        colorClass = isDay ? 'wi-partly-day' : 'wi-partly-night';
-    } else if (c === 45 || c === 48) { // Niebla
-        colorClass = 'wi-fog';
-    } else if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) { // Lluvia
-        colorClass = 'wi-rain';
-    } else if ((c >= 71 && c <= 77) || c === 85 || c === 86) { // Nieve
-        colorClass = 'wi-snow';
-    } else if (c >= 95) { // Tormenta
-        colorClass = 'wi-storm';
-    }
-
-    return { text: textMap[c] || "Variable", icon: `${icon} ${colorClass}` };
+    return { text: textMap[c] || "Variable", icon: icon };
 };
 
 // --- MOTOR DE ALERTAS ---
