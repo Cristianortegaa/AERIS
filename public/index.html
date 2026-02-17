@@ -266,93 +266,88 @@
         .ios-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2rem; animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
 
-        /* --- 4. SISTEMA DE ICONOS POR CAPAS (LAYERS) --- */
+        /* --- 4. ICONOS PREMIUM 3D POR CAPAS --- */
         
-        /* Contenedor del icono compuesto */
-        .icon-stack {
+        .icon-3d-container {
             position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 1em; /* Se adapta al font-size del padre */
+            display: inline-block;
+            width: 1em;
             height: 1em;
+            line-height: 1;
             vertical-align: middle;
         }
 
-        /* Capas individuales */
+        /* Todas las capas ocupan el mismo espacio */
         .layer {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
         }
 
-        /* COLORES DE LOS ELEMENTOS */
-        .color-sun { 
-            color: #fbbf24 !important; /* Amarillo */
-            filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.5));
-            z-index: 1; 
+        /* --- COLORES REALES --- */
+        /* Sol: Amarillo Ámbar brillante */
+        .layer-sun { 
+            color: #fbbf24 !important; 
+            filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
+            z-index: 1; /* Detrás de la nube */
         }
-        .color-moon { 
-            color: #fef3c7 !important; /* Luna pálida */
-            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+        
+        /* Luna: Blanco azulado */
+        .layer-moon { 
+            color: #e0f2fe !important; 
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
             z-index: 1;
         }
-        .color-cloud { 
-            color: #94a3b8 !important; /* Gris Pizarra */
-            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.1));
-            z-index: 2; /* Nube tapa al sol */
+
+        /* Nube: Gris claro con volumen */
+        .layer-cloud { 
+            color: #cbd5e1 !important; /* Gris */
+            filter: drop-shadow(1px 2px 4px rgba(0,0,0,0.15));
+            z-index: 2; /* Delante del sol */
+            transform: scale(0.9); /* Un pelín más pequeña para ver el sol detrás */
         }
-        /* En modo noche, la nube se aclara un poco para verse sobre oscuro */
-        body.bg-clear-night .color-cloud, body.bg-cloudy-night .color-cloud, body.bg-rain .color-cloud {
-            color: #cbd5e1 !important; /* Gris muy claro */
+        /* En modo noche o lluvia fuerte, la nube es más blanca para contrastar */
+        body.bg-clear-night .layer-cloud, body.bg-rain .layer-cloud {
+            color: #f8fafc !important;
         }
 
-        .color-rain { 
-            color: #38bdf8 !important; /* Azul gotas */
-            z-index: 3; /* Gotas delante */
-            margin-top: 5px; /* Bajarlas un poco */
-        }
-        .color-snow { 
-            color: #fff !important; 
-            z-index: 3;
-            margin-top: 5px;
-        }
-        .color-storm { 
-            color: #a855f7 !important; /* Rayo morado */
-            z-index: 3;
+        /* Lluvia: Azul intenso */
+        .layer-rain { 
+            color: #0ea5e9 !important; 
+            z-index: 3; /* Delante de todo */
+            margin-top: 10%; /* Que salgan de abajo */
         }
 
-        /* ANIMACIONES ESPECÍFICAS (SOLO LO QUE SE MUEVE) */
-        .anim-spin { animation: spinSlow 15s linear infinite; }
-        .anim-rain-drop { animation: rainFall 0.8s infinite linear; }
-        .anim-snow-float { animation: snowFloat 3s ease-in-out infinite; }
-        .anim-flash { animation: stormFlash 2s infinite; }
-
-        @keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        /* Nieve: Blanco puro */
+        .layer-snow { color: #fff !important; z-index: 3; margin-top: 10%; }
         
-        /* Animación de lluvia cayendo */
-        @keyframes rainFall {
-            0% { transform: translateY(-3px); opacity: 0; }
+        /* Rayo: Amarillo eléctrico */
+        .layer-bolt { color: #facc15 !important; z-index: 3; filter: drop-shadow(0 0 5px #facc15); }
+
+        /* --- ANIMACIONES (SOLO LO QUE SE PIDE) --- */
+        
+        /* El sol gira muy lento */
+        .anim-spin { animation: spin 20s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Las gotas caen (solo las gotas) */
+        .anim-rain { animation: rainDrop 1s infinite linear; }
+        @keyframes rainDrop {
+            0% { transform: translateY(-5px); opacity: 0; }
             30% { opacity: 1; }
             100% { transform: translateY(5px); opacity: 0; }
         }
 
-        /* Animación de nieve flotando */
+        /* La nieve flota */
+        .anim-snow { animation: snowFloat 3s infinite ease-in-out; }
         @keyframes snowFloat {
             0%, 100% { transform: translateY(0) translateX(0); }
-            50% { transform: translateY(3px) translateX(2px); }
+            50% { transform: translateY(5px) translateX(3px); }
         }
 
-        @keyframes stormFlash {
-            0%, 90%, 100% { opacity: 1; transform: scale(1); }
-            92% { opacity: 0.5; transform: scale(1.1); }
-            94% { opacity: 1; transform: scale(1); }
-        }
+        /* La nube flota muy suave (apenas perceptible) */
+        .anim-float { animation: float 4s infinite ease-in-out; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
     </style>
 </head>
 <body data-theme="light">
@@ -1495,51 +1490,49 @@
             }).join('');
         };
 
-        // --- FUNCIÓN MAESTRA DE ICONOS POR CAPAS ---
-        const getWeatherIconHTML = (code, isDay, size = "fs-1") => {
+        // FUNCIÓN MAESTRA DE ICONOS 3D
+        const getWeatherIconHTML = (code, isDay, sizeClass = "fs-1") => {
             const c = parseInt(code);
             let layers = '';
 
-            // --- GRUPO 1: SOL / LUNA (FONDO) ---
-            if (c === 0 || c === 1) {
-                // Despejado
-                if (isDay) layers += `<i class="bi bi-sun-fill layer color-sun anim-spin"></i>`;
-                else       layers += `<i class="bi bi-moon-stars-fill layer color-moon"></i>`;
-            } else if (c === 2 || c === 3 || c === 45 || c === 48) {
-                // Nublado (Sol/Luna detrás de nube)
-                if (isDay) layers += `<i class="bi bi-sun-fill layer color-sun" style="font-size: 0.7em; top: -20%; left: 20%;"></i>`;
-                else       layers += `<i class="bi bi-moon-fill layer color-moon" style="font-size: 0.6em; top: -20%; left: 20%;"></i>`;
-                
-                // Capa Nube (Encima)
-                layers += `<i class="bi bi-cloud-fill layer color-cloud"></i>`;
-                if(c === 45 || c === 48) layers += `<i class="bi bi-cloud-haze2 layer" style="opacity:0.5; color:#fff"></i>`;
-            } 
+            // --- 1. FONDO (SOL O LUNA) ---
+            // Solo si está despejado o parcialmente nublado
+            if ([0, 1, 2, 3, 45, 48, 80, 81].includes(c)) {
+                if (isDay) layers += `<i class="bi bi-sun-fill layer layer-sun anim-spin"></i>`;
+                else       layers += `<i class="bi bi-moon-stars-fill layer layer-moon"></i>`;
+            }
+
+            // --- 2. NUBES ---
+            if (c === 0) {
+                // Despejado total: Sin nube
+            } else if (c === 1) {
+                // Mayormente despejado: Nube pequeñita
+                layers += `<i class="bi bi-cloud-fill layer layer-cloud anim-float" style="font-size: 0.6em; transform: translate(30%, 20%);"></i>`;
+            } else {
+                // El resto: Nube normal
+                layers += `<i class="bi bi-cloud-fill layer layer-cloud anim-float"></i>`;
+            }
+
+            // --- 3. PRECIPITACIÓN (ANIMADA) ---
             
-            // --- GRUPO 2: LLUVIA (Nube + Gotas) ---
-            else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(c)) {
-                layers += `<i class="bi bi-cloud-fill layer color-cloud"></i>`; // Nube quieta
-                // Gotas animadas (usamos iconos de gotas pequeñas)
-                layers += `<i class="bi bi-droplet-fill layer color-rain anim-rain-drop" style="font-size: 0.5em; top: 10%;"></i>`;
-            }
-
-            // --- GRUPO 3: NIEVE (Nube + Copos) ---
-            else if ([71, 73, 75, 77, 85, 86].includes(c)) {
-                layers += `<i class="bi bi-cloud-fill layer color-cloud"></i>`;
-                layers += `<i class="bi bi-snow2 layer color-snow anim-snow-float" style="font-size: 0.6em; top: 10%;"></i>`;
-            }
-
-            // --- GRUPO 4: TORMENTA (Nube + Rayo) ---
-            else if ([95, 96, 99].includes(c)) {
-                layers += `<i class="bi bi-cloud-fill layer color-cloud" style="filter: brightness(0.7);"></i>`; // Nube oscura
-                layers += `<i class="bi bi-lightning-fill layer color-storm anim-flash" style="font-size: 0.6em; top: 10%;"></i>`;
+            // Lluvia
+            if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(c)) {
+                // Usamos el icono de gotas solas
+                layers += `<i class="bi bi-cloud-drizzle-fill layer layer-rain anim-rain" style="opacity:0.8"></i>`;
             }
             
-            // Fallback (por si acaso)
-            else {
-                layers += `<i class="bi bi-cloud-fill layer color-cloud"></i>`;
+            // Nieve
+            if ([71, 73, 75, 77, 85, 86].includes(c)) {
+                layers += `<i class="bi bi-snow2 layer layer-snow anim-snow"></i>`;
             }
 
-            return `<div class="icon-stack ${size}">${layers}</div>`;
+            // Tormenta
+            if ([95, 96, 99].includes(c)) {
+                layers += `<i class="bi bi-lightning-fill layer layer-bolt" style="animation: pulse 0.5s infinite alternate;"></i>`;
+            }
+
+            // Empaquetamos todo en el contenedor
+            return `<div class="icon-3d-container ${sizeClass}">${layers}</div>`;
         };
 
         async function getWeather(id) {
@@ -1591,8 +1584,7 @@
 
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
-                // ICONO PRINCIPAL (Grande)
-                document.getElementById('weather-icon-container').innerHTML = getWeatherIconHTML(cur.weatherCode, cur.isDay, "").replace('class="icon-box ', 'class="icon-box " style="font-size: 5rem;" ');
+                document.getElementById('weather-icon-container').innerHTML = getWeatherIconHTML(cur.weatherCode, cur.isDay, "").replace('icon-3d-container', 'icon-3d-container style="font-size: 5rem;"');
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
@@ -1643,22 +1635,17 @@
                 }
 
                 const hCont = document.getElementById('hourly');
-                if(hCont) hCont.innerHTML = data.hourly.map(h => 
-                    {
-                        // 1. OBTENER LA HORA REAL (0 a 23)
-                        const hour = parseInt(h.displayTime.split(':')[0]);
-                        
-                        // 2. LÓGICA DE NOCHE FORZADA: Si es antes de las 7 o después de las 20, ES NOCHE.
-                        const isReallyDay = (hour >= 7 && hour <= 20);
+                if(hCont) hCont.innerHTML = data.hourly.map(h => {
+                    // FORZAMOS LA NOCHE si la hora es < 7 o > 20
+                    const hour = parseInt(h.displayTime.split(':')[0]);
+                    const isRealDay = (hour >= 7 && hour <= 20);
 
-                        // 3. Generar el icono chulo
-                        const iconHTML = getWeatherIconHTML(h.weatherCode, isReallyDay, "fs-1");
+                    // Generamos icono
+                    const iconHTML = getWeatherIconHTML(h.weatherCode, isRealDay, "fs-1");
 
-                        return `<div class="hourly-item">
+                    return `<div class="hourly-item">
                         <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        <div style="height: 45px; display: flex; align-items: center; justify-content: center;">
-                            ${iconHTML}
-                        </div>
+                        ${iconHTML}
                         <div class="fw-bold fs-5">${h.temp}°</div>
                         <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
                             ${h.rainProb>0?h.rainProb+'%':''}
@@ -1670,22 +1657,24 @@
                 if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
                     const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
                     
-                    // Icono diario (siempre "día" para que se vea bien)
-                    const iconHTML = getWeatherIconHTML(d.weatherCode, true, "fs-2");
-                    
                     let hourlyHtml = '';
                     if (d.dayHours && d.dayHours.length > 0) {
-                        hourlyHtml = d.dayHours.map(h => 
-                            `<div class="day-hourly-item">
+                        hourlyHtml = d.dayHours.map(h => {
+                            // Usamos el 'h.isDay' que añadimos al backend en el paso 1
+                            const subIconHTML = getWeatherIconHTML(h.weatherCode, h.isDay, "fs-4");
+                            return `<div class="day-hourly-item">
                                 <span class="opacity-50 fw-bold">${h.time}</span>
-                                <i class="bi ${h.icon} fs-5 text-primary"></i>
+                                <div class="my-1">${subIconHTML}</div>
                                 <span class="fw-bold">${h.temp}°</span>
                                 <small style="color:#3b82f6; font-weight:800; font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small>
                             </div>`
-                        ).join('');
+                        }).join('');
                     } else {
                         hourlyHtml = '<div class="text-center w-100 opacity-50 small">No hay datos horarios disponibles</div>';
                     }
+
+                    // Usamos weatherCode (que añadimos en el paso 1 al backend)
+                    const mainIconHTML = getWeatherIconHTML(d.weatherCode, true, "fs-2");
 
                     return `
                     <div style="cursor:pointer" onclick="toggleDay(${index})">
@@ -1698,7 +1687,7 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-column align-items-center" style="width:25%">
-                                ${iconHTML}
+                                ${mainIconHTML}
                                 <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
                             </div>
                             <div class="text-end fw-bold" style="width:30%">

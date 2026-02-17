@@ -247,9 +247,7 @@ app.get('/api/weather/:id', async (req, res) => {
                 return { 
                     fullDate: t, hour: parseInt(t.split('T')[1].split(':')[0]), displayTime: t.split('T')[1], 
                     temp: Math.round(w.hourly.temperature_2m[realIndex]), rainProb: w.hourly.precipitation_probability[realIndex], 
-                    precip: w.hourly.precipitation[realIndex], icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon,
-                    weatherCode: w.hourly.weather_code[realIndex],
-                    isDay: w.hourly.is_day[realIndex]
+                    precip: w.hourly.precipitation[realIndex], icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon 
                 };
             });
 
@@ -274,8 +272,7 @@ app.get('/api/weather/:id', async (req, res) => {
             location: { name: forcedName || "Tu ubicación", region: forcedRegion, lat, lon, timezone: w.timezone },
             current: { 
                 temp: Math.round(w.current.temperature_2m), feelsLike: Math.round(w.current.apparent_temperature), humidity: w.current.relative_humidity_2m, 
-                windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1,
-                weatherCode: w.current.weather_code,
+                windSpeed: Math.round(w.current.wind_speed_10m), desc: currentWMO.text, icon: currentWMO.icon, isDay: w.current.is_day === 1, 
                 uv: w.daily.uv_index_max[0] || 0, aqi: a.current.us_aqi || 0, pm25: a.current.pm2_5 || 0, pm10: a.current.pm10 || 0, time: w.current.time,
                 cloudCover: w.current.cloud_cover || 0, comparison: comparisonText
             },
@@ -290,7 +287,9 @@ app.get('/api/weather/:id', async (req, res) => {
                         if (timeStr.startsWith(t)) {
                             acc.push({
                                 time: timeStr.split('T')[1], temp: Math.round(w.hourly.temperature_2m[idx]), rainProb: w.hourly.precipitation_probability[idx], 
-                                icon: decodeWMO(w.hourly.weather_code[idx], 1).icon
+                                icon: decodeWMO(w.hourly.weather_code[idx], w.hourly.is_day[idx]).icon,
+                                weatherCode: w.hourly.weather_code[idx],
+                                isDay: w.hourly.is_day[idx]
                             });
                         }
                         return acc;
