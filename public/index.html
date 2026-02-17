@@ -1112,26 +1112,6 @@
             } 
         };
 
-        // --- HELPER PARA RENDERIZAR ICONOS PERSONALIZADOS ---
-        const renderIcon = (iconName, size = "fs-4") => {
-            // CLOUD + SUN (DÍA) -> SOL AMARILLO, NUBE GRIS
-            // Usamos "includes" para pillar tanto bi-cloud-sun como bi-cloud-sun-fill
-            if (iconName.includes('bi-cloud-sun') && !iconName.includes('moon')) {
-                return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16" class="bi ${size}" style="overflow: visible;">
-                  <g style="fill: #facc15; filter: drop-shadow(0 0 3px rgba(250, 204, 21, 0.6));">
-                     <path d="M10.5 1.5a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0v-1zm3.743 1.964a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.707l.707-.707zm-7.779-.707a.5.5 0 0 0-.707.707l.707.707a.5.5 0 0 0 .707-.707l-.707-.707zm1.964 3.743a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.707l.707-.707zM13.5 9a4.5 4.5 0 0 0 0-9 0v1a3.5 3.5 0 0 1 0 7h-1a.5.5 0 0 0 0 1h1zm0-9a5.5 5.5 0 0 1 0 11h-1a.5.5 0 0 1 0-1h1a4.5 4.5 0 0 0 0-9z"/>
-                  </g>
-                  <g style="fill: #94a3b8; stroke: rgba(255,255,255,0.8); stroke-width: 1.5px; stroke-linejoin: round;">
-                     <path d="M13.405 7.027a5.001 5.001 0 0 0-9.499-1.004A3.5 3.5 0 1 0 3.5 13H13a3 3 0 0 0 .405-5.973z"/>
-                  </g>
-                </svg>`;
-            }
-            
-            // Para el resto, usamos el icono estándar con sus clases CSS de color
-            return `<i class="bi ${iconName} ${size}"></i>`;
-        };
-
         document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
         
         const updateHeartUI = () => { 
@@ -1518,12 +1498,10 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
-                // --- ICONO GRANDE CON COLORES (USANDO LA FUNCIÓN NUEVA) ---
-                if (cur.icon.includes('bi-cloud-sun')) {
-                    document.getElementById('weather-icon-container').innerHTML = renderIcon(cur.icon, "fw-bold").replace('fs-4', '').replace('width="1em"', 'width="5.5rem"').replace('height="1em"', 'height="5.5rem"');
-                } else {
-                    document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5.5rem; animation: float 3s infinite ease-in-out;"></i>`;
-                }
+                // --- ICONO GRANDE CON COLORES ---
+                document.getElementById('weather-icon-container').innerHTML = `
+                    <i class="bi ${cur.icon}" style="font-size: 5.5rem; animation: float 3s infinite ease-in-out;"></i>
+                `;
 
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
@@ -1574,28 +1552,18 @@
                     if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
                 }
 
-                // --- RENDERIZADO HORARIO (USANDO renderIcon) ---
                 const hCont = document.getElementById('hourly');
-                if(hCont) hCont.innerHTML = data.hourly.map(h => {
-                    // Lógica para detectar si una hora específica es de noche o de día
-                    // Usamos una lógica simple basada en horas promedio si no tenemos el sunrise/sunset exacto de ese día a mano
-                    let iconClass = h.icon;
-                    const hour = h.hour;
-                    if (hour < 7 || hour > 20) {
-                        iconClass = iconClass.replace('bi-sun', 'bi-moon').replace('bi-cloud-sun', 'bi-cloud-moon');
-                    }
-
-                    return `<div class="hourly-item">
+                if(hCont) hCont.innerHTML = data.hourly.map(h => 
+                    `<div class="hourly-item">
                         <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        ${renderIcon(iconClass, "fs-4")}
+                        <i class="bi ${h.icon} fs-4"></i>
                         <div class="fw-bold fs-5">${h.temp}°</div>
                         <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
                             ${h.rainProb>0?h.rainProb+'%':''}
                         </div>
                     </div>`
-                }).join('');
+                ).join('');
                 
-                // --- RENDERIZADO DIARIO (USANDO renderIcon y LÓGICA NOCHE) ---
                 const dCont = document.getElementById('daily');
                 if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
                     const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
@@ -1616,7 +1584,7 @@
 
                             return `<div class="day-hourly-item">
                                 <span class="opacity-50 fw-bold">${h.time}</span>
-                                ${renderIcon(iconClass, "fs-5 text-primary")}
+                                <i class="bi ${iconClass} fs-5 text-primary"></i>
                                 <span class="fw-bold">${h.temp}°</span>
                                 <small style="color:#3b82f6; font-weight:800; font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small>
                             </div>`
@@ -1636,7 +1604,7 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-column align-items-center" style="width:25%">
-                                ${renderIcon(d.icon, "fs-5")}
+                                <i class="bi ${d.icon} fs-5"></i>
                                 <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
                             </div>
                             <div class="text-end fw-bold" style="width:30%">
