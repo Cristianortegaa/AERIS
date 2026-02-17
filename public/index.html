@@ -265,6 +265,41 @@
         .ios-content { background: #1a1a1a; width: 100%; padding: 30px 20px 50px 20px; border-radius: 20px 20px 0 0; color: white; text-align: center; position: relative; animation: slideUp 0.3s; }
         .ios-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2rem; animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
+
+        /* --- COLORES DINÁMICOS PARA ICONOS --- */
+        .bi-sun, .bi-sun-fill { 
+            color: #facc15 !important; /* Amarillo Sol Intenso */
+            filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.4)); 
+        }
+
+        .bi-cloud-sun, .bi-cloud-sun-fill { 
+            color: #f59e0b !important; /* Naranja/Amarillo atardecer */
+        }
+
+        .bi-cloud, .bi-clouds, .bi-cloud-fill { 
+            color: #94a3b8 !important; /* Gris nube suave pero visible */
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .bi-cloud-rain, .bi-cloud-rain-fill, .bi-cloud-drizzle, .bi-droplet-fill { 
+            color: #0ea5e9 !important; /* Azul agua brillante */
+            filter: drop-shadow(0 0 5px rgba(14, 165, 233, 0.3));
+        }
+
+        .bi-cloud-lightning-rain, .bi-cloud-lightning-fill { 
+            color: #8b5cf6 !important; /* Violeta eléctrico para tormentas */
+        }
+
+        .bi-snow, .bi-cloud-snow { 
+            color: #60a5fa !important; /* Azul hielo */
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
+        }
+
+        /* Ajuste para el icono principal grande */
+        #weather-icon-container i {
+            transition: all 0.5s ease;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.15));
+        }
     </style>
 </head>
 <body data-theme="light">
@@ -1456,7 +1491,12 @@
 
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
-                document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5rem; color: var(--accent); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); animation: fadeIn 0.5s"></i>`;
+                
+                // --- ICONO GRANDE CON COLORES ---
+                document.getElementById('weather-icon-container').innerHTML = `
+                    <i class="bi ${cur.icon}" style="font-size: 5.5rem; animation: float 3s infinite ease-in-out;"></i>
+                `;
+
                 document.getElementById('hum').innerText = cur.humidity;
                 document.getElementById('wind').innerText = cur.windSpeed;
                 document.getElementById('uv').innerText = cur.uv;
@@ -1527,7 +1567,7 @@
                         hourlyHtml = d.dayHours.map(h => 
                             `<div class="day-hourly-item">
                                 <span class="opacity-50 fw-bold">${h.time}</span>
-                                <i class="bi ${h.icon} fs-5 text-primary"></i>
+                                <i class="bi ${h.icon} fs-5"></i>
                                 <span class="fw-bold">${h.temp}°</span>
                                 <small style="color:#3b82f6; font-weight:800; font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small>
                             </div>`
