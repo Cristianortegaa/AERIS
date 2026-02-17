@@ -1114,14 +1114,20 @@
 
         // --- HELPER PARA RENDERIZAR ICONOS PERSONALIZADOS ---
         const renderIcon = (iconName, size = "fs-4") => {
-            // Si el icono es "cloud-sun", renderizamos el SVG multicolor (Sol Amarillo, Nube Gris)
-            if (iconName.includes('bi-cloud-sun')) {
+            // CLOUD + SUN (DÍA) -> SOL AMARILLO, NUBE GRIS
+            // Usamos "includes" para pillar tanto bi-cloud-sun como bi-cloud-sun-fill
+            if (iconName.includes('bi-cloud-sun') && !iconName.includes('moon')) {
                 return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" class="bi ${size}" viewBox="0 0 16 16" style="overflow: visible;">
-                  <path d="M10.5 1.5a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0v-1zm3.743 1.964a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.707l.707-.707zm-7.779-.707a.5.5 0 0 0-.707.707l.707.707a.5.5 0 0 0 .707-.707l-.707-.707zm1.964 3.743a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.707l.707-.707zM13.5 9a4.5 4.5 0 0 0 0-9 0v1a3.5 3.5 0 0 1 0 7h-1a.5.5 0 0 0 0 1h1zm0-9a5.5 5.5 0 0 1 0 11h-1a.5.5 0 0 1 0-1h1a4.5 4.5 0 0 0 0-9z" style="fill: #facc15; filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4));"/>
-                  <path d="M13.405 7.027a5.001 5.001 0 0 0-9.499-1.004A3.5 3.5 0 1 0 3.5 13H13a3 3 0 0 0 .405-5.973zM8.5 5.5a4 4 0 0 1 3.976 3.555.5.5 0 0 0 .5.445H13a2 2 0 0 1 0 4H3.5a2.5 2.5 0 1 1 .06-5H4a.5.5 0 0 0 .453-.285A3 3 0 0 1 8.5 5.5z" style="fill: #94a3b8; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));"/>
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16" class="bi ${size}" style="overflow: visible;">
+                  <g style="fill: #facc15; filter: drop-shadow(0 0 3px rgba(250, 204, 21, 0.6));">
+                     <path d="M10.5 1.5a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0v-1zm3.743 1.964a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.707l.707-.707zm-7.779-.707a.5.5 0 0 0-.707.707l.707.707a.5.5 0 0 0 .707-.707l-.707-.707zm1.964 3.743a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.707l.707-.707zM13.5 9a4.5 4.5 0 0 0 0-9 0v1a3.5 3.5 0 0 1 0 7h-1a.5.5 0 0 0 0 1h1zm0-9a5.5 5.5 0 0 1 0 11h-1a.5.5 0 0 1 0-1h1a4.5 4.5 0 0 0 0-9z"/>
+                  </g>
+                  <g style="fill: #94a3b8; stroke: rgba(255,255,255,0.8); stroke-width: 1.5px; stroke-linejoin: round;">
+                     <path d="M13.405 7.027a5.001 5.001 0 0 0-9.499-1.004A3.5 3.5 0 1 0 3.5 13H13a3 3 0 0 0 .405-5.973z"/>
+                  </g>
                 </svg>`;
             }
+            
             // Para el resto, usamos el icono estándar con sus clases CSS de color
             return `<i class="bi ${iconName} ${size}"></i>`;
         };
@@ -1570,16 +1576,24 @@
 
                 // --- RENDERIZADO HORARIO (USANDO renderIcon) ---
                 const hCont = document.getElementById('hourly');
-                if(hCont) hCont.innerHTML = data.hourly.map(h => 
-                    `<div class="hourly-item">
+                if(hCont) hCont.innerHTML = data.hourly.map(h => {
+                    // Lógica para detectar si una hora específica es de noche o de día
+                    // Usamos una lógica simple basada en horas promedio si no tenemos el sunrise/sunset exacto de ese día a mano
+                    let iconClass = h.icon;
+                    const hour = h.hour;
+                    if (hour < 7 || hour > 20) {
+                        iconClass = iconClass.replace('bi-sun', 'bi-moon').replace('bi-cloud-sun', 'bi-cloud-moon');
+                    }
+
+                    return `<div class="hourly-item">
                         <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        ${renderIcon(h.icon, "fs-4")}
+                        ${renderIcon(iconClass, "fs-4")}
                         <div class="fw-bold fs-5">${h.temp}°</div>
                         <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
                             ${h.rainProb>0?h.rainProb+'%':''}
                         </div>
                     </div>`
-                ).join('');
+                }).join('');
                 
                 // --- RENDERIZADO DIARIO (USANDO renderIcon y LÓGICA NOCHE) ---
                 const dCont = document.getElementById('daily');
