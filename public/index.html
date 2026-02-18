@@ -1529,11 +1529,18 @@
                 document.getElementById('temp').innerText = cur.temp + '°';
                 document.getElementById('desc').innerText = cur.desc;
                 
-                // --- ICONO GRANDE CON COLORES (USANDO LA FUNCIÓN NUEVA) ---
-                if (cur.icon.includes('bi-cloud-sun')) {
-                    document.getElementById('weather-icon-container').innerHTML = renderIcon(cur.icon, "fw-bold").replace('fs-4', '').replace('width="1em"', 'width="5.5rem"').replace('height="1em"', 'height="5.5rem"');
+                // --- ICONO GRANDE CON COLORES ---
+                // Usamos renderIcon. Si es la imagen, le pasamos "5.5rem" para que sepa que es la grande.
+                // Si es un icono normal, renderIcon lo devuelve como <i>, pero necesitamos los estilos extra de animación/tamaño.
+                
+                const renderedIcon = renderIcon(cur.icon, "5.5rem");
+                
+                if (renderedIcon.includes('<img')) {
+                    // Es nuestra imagen personalizada (ya lleva el estilo dentro de renderIcon)
+                    document.getElementById('weather-icon-container').innerHTML = renderedIcon;
                 } else {
-                    document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5.5rem; animation: float 3s infinite ease-in-out;"></i>`;
+                    // Es un icono normal (fuente), le aplicamos el estilo inline manual para asegurar tamaño y animación
+                     document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5.5rem; animation: float 3s infinite ease-in-out;"></i>`;
                 }
 
                 document.getElementById('hum').innerText = cur.humidity;
@@ -1585,27 +1592,18 @@
                     if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
                 }
 
-                // --- RENDERIZADO HORARIO (USANDO renderIcon) ---
                 const hCont = document.getElementById('hourly');
-                if(hCont) hCont.innerHTML = data.hourly.map(h => {
-                    // Lógica para detectar si una hora específica es de noche o de día
-                    let iconClass = h.icon;
-                    const hour = h.hour;
-                    if (hour < 7 || hour > 20) {
-                        iconClass = iconClass.replace('bi-sun', 'bi-moon').replace('bi-cloud-sun', 'bi-cloud-moon');
-                    }
-
-                    return `<div class="hourly-item">
+                if(hCont) hCont.innerHTML = data.hourly.map(h => 
+                    `<div class="hourly-item">
                         <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        ${renderIcon(iconClass, "fs-4")}
+                        ${renderIcon(h.icon, "fs-4")}
                         <div class="fw-bold fs-5">${h.temp}°</div>
                         <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
                             ${h.rainProb>0?h.rainProb+'%':''}
                         </div>
                     </div>`
-                }).join('');
+                ).join('');
                 
-                // --- RENDERIZADO DIARIO (USANDO renderIcon y LÓGICA NOCHE) ---
                 const dCont = document.getElementById('daily');
                 if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
                     const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
