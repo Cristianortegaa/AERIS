@@ -1115,23 +1115,31 @@
         // --- HELPER PARA RENDERIZAR ICONOS PERSONALIZADOS ---
         const renderIcon = (iconName, size = "fs-4") => {
             // 1. TU IMAGEN PROPIA (Solo para "Intervalos Nubosos" de día)
+            // Se activa cuando la API pide 'bi-cloud-sun' y NO es de noche
             if (iconName.includes('bi-cloud-sun') && !iconName.includes('moon')) {
+                
+                // Determinar tamaño
+                let imgWidth = "48px"; // Tamaño para LISTAS (ajustado para que se vea igual que fs-4/5)
+                let animation = "";
                 
                 // Si el size es grande (el de arriba del todo)
                 if (size.includes("5.5rem") || size.includes("fs-1")) {
-                    return `<img src="icono-clima.png" alt="Sol y Nube" style="width: 160px; height: auto; vertical-align: middle; animation: float 3s infinite ease-in-out;">`;
+                    imgWidth = "160px"; // Más grande para el principal
+                    animation = "animation: float 3s infinite ease-in-out;";
                 }
 
-                // Ajuste para listas (usamos 'em' para que escale con el texto y 'transform' para centrar)
-                return `<img src="icono-clima.png" alt="Sol y Nube" style="width: 1.8em; height: auto; vertical-align: middle; transform: translateY(-8%);">`;
+                // Renderizamos la etiqueta IMG apuntando a tu archivo
+                return `<img src="icono-clima.png" alt="Sol y Nube" style="width: ${imgWidth}; height: auto; vertical-align: middle; ${animation}">`;
             }
             
             // 2. CASO ESPECIAL: LUNA (Noche)
+            // Mantenemos la luna gris/azulada para que se vea bien en fondo blanco
             if (iconName.includes('moon')) {
                 return `<i class="bi ${iconName} ${size}" style="color: #64748b !important; filter: drop-shadow(0 0 5px rgba(100, 116, 139, 0.3));"></i>`;
             }
 
-            // 3. RESTO DE ICONOS
+            // 3. RESTO DE ICONOS (Lluvia, Nieve, Sol solo, etc.)
+            // Usan los colores definidos en el CSS (Amarillo, Azul, etc.)
             return `<i class="bi ${iconName} ${size}"></i>`;
         };
 
