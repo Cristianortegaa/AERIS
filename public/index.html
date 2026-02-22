@@ -1113,7 +1113,6 @@
         };
 
         // --- HELPER PARA RENDERIZAR ICONOS PERSONALIZADOS ---
-        // --- HELPER PARA RENDERIZAR ICONOS PERSONALIZADOS ---
         const renderIcon = (iconName, size = "fs-4") => {
             // 1. TU IMAGEN PROPIA (Solo para "Intervalos Nubosos" de día)
             if (iconName.includes('bi-cloud-sun') && !iconName.includes('moon')) {
@@ -1123,9 +1122,8 @@
                     return `<img src="icono-clima.png" alt="Sol y Nube" style="width: 160px; height: auto; vertical-align: middle; animation: float 3s infinite ease-in-out;">`;
                 }
 
-                // Si es para las listas (horas y días), lo igualamos al tamaño de los iconos fs-4/fs-5
-                // Usamos 28px y margin para centrarlo perfectamente con el texto
-                return `<img src="icono-clima.png" alt="Sol y Nube" style="width: 28px; height: 28px; object-fit: contain; vertical-align: middle; margin-top: -4px; margin-bottom: 4px;">`;
+                // Ajuste para listas (usamos 'em' para que escale con el texto y 'transform' para centrar)
+                return `<img src="icono-clima.png" alt="Sol y Nube" style="width: 1.8em; height: auto; vertical-align: middle; transform: translateY(-8%);">`;
             }
             
             // 2. CASO ESPECIAL: LUNA (Noche)
