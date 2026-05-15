@@ -132,7 +132,18 @@ app.get('/api/weather/:id', async (req, res) => {
             axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen,oak_pollen,pine_pollen,cypress_pollen,hazel_pollen,plane_tree_pollen,poplar_pollen,ash_pollen&timezone=auto`)
         ]);
 
-        if (wRes.status === 'rejected') throw new Error("Fallo API Clima");
+        if (wRes.status === 'rejected') {
+            // Extraemos el error real de Axios / Open-Meteo
+            const errorReal = wRes.reason;
+            const detallesOpenMeteo = errorReal.response ? errorReal.response.data : errorReal.message;
+            
+            // Lo imprimimos en rojo en los logs de Render
+            console.error("🚨 ERROR REAL DE OPEN-METEO:", JSON.stringify(detallesOpenMeteo, null, 2));
+            
+            // Lanzamos el error para que el frontend reciba el 500, pero ahora sabremos por qué
+            throw new Error(`Fallo API Clima: ${errorReal.message}`);
+        }
+
         const w = wRes.value.data;
         const a = (aRes.status === 'fulfilled') ? aRes.value.data : { current: {} };
         const p = (pRes.status === 'fulfilled') ? pRes.value.data : { current: {} };
@@ -262,7 +273,7 @@ app.get('/api/cron/check-rain', async (req, res) => {
                     sentCount++;
                 }
             } catch (err) { 
-                if (err.statusCode === 410) await user.destroy(); // Eliminar suscripciones muertas
+                if (err.statusCode === 410) await user.destroy(); 
             }
         }
         res.json({ success: true, message: `Cron ejecutado. Notificaciones enviadas: ${sentCount}` });
