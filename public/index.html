@@ -4,1727 +4,382 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AERIS - Tu App del Tiempo</title>
-    
+    <meta name="description" content="AERIS es tu app del tiempo con personalidad. Pronóstico, alertas de lluvia, calidad del aire, polen y recomendaciones de ropa según el clima.">
+
+    <!-- Open Graph -->
     <meta property="og:title" content="AERIS - El tiempo con personalidad 🤖⚡">
     <meta property="og:description" content="¿Tu app del tiempo es aburrida? AERIS te dice si va a llover y te echa la bronca si no llevas paraguas.">
     <meta property="og:image" content="https://aeris-ghg8.onrender.com/logo.png">
     <meta property="og:url" content="https://aeris-ghg8.onrender.com">
     <meta property="og:type" content="website">
 
+    <!-- Fuentes -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
+
+    <!-- Estilos propios -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    
+    <!-- html2canvas (CDN estable vía jsDelivr) -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- Bootstrap JS — cargado en head para que el modal funcione sin race condition -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Aplicar tema antes de render para evitar flash -->
     <script>
-        (function() {
-            const savedTheme = localStorage.getItem('aeris_theme_pref');
-            if (savedTheme) {
-                document.documentElement.setAttribute('data-bs-theme', savedTheme);
-            }
+        (function () {
+            var t = localStorage.getItem('aeris_theme_pref');
+            if (t) document.documentElement.setAttribute('data-bs-theme', t);
         })();
     </script>
-    
+
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="manifest" href="/manifest.json">
-    
     <meta name="theme-color" content="#bae6fd">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    <style>
-        /* --- 1. CONFIGURACIÓN BASE --- */
-        :root { 
-            --bg-1: #bae6fd; --bg-2: #e0f2fe; 
-            --glass: rgba(255, 255, 255, 0.75); 
-            --glass-border: rgba(255, 255, 255, 0.5); 
-            --text: #0c4a6e; --text-sec: #475569; 
-            --accent: #0284c7; 
-            --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); 
-            --skeleton-base: rgba(255, 255, 255, 0.4); 
-            --skeleton-shine: rgba(255, 255, 255, 0.8); 
-            --invert-close: 0; 
-        }
-        
-        [data-bs-theme="dark"], [data-theme="dark"] { 
-            --bg-1: #0f172a; --bg-2: #020617; 
-            --glass: rgba(15, 23, 42, 0.8); 
-            --glass-border: rgba(255, 255, 255, 0.1); 
-            --text: #f8fafc; --text-sec: #cbd5e1; 
-            --accent: #38bdf8; 
-            --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6); 
-            --skeleton-base: rgba(255, 255, 255, 0.05); 
-            --skeleton-shine: rgba(255, 255, 255, 0.15); 
-            --invert-close: 1; 
-        }
-
-        /* --- 2. FONDOS VIVOS --- */
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            color: var(--text); 
-            min-height: 100vh; 
-            padding-bottom: 80px; 
-            transition: background 1.5s ease, color 0.5s ease; 
-            overflow-x: hidden;
-            background-size: 300% 300%;
-            animation: gradientBG 20s ease infinite;
-            background-image: linear-gradient(180deg, var(--bg-1), var(--bg-2));
-        }
-
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        /* ESTADOS DEL CLIMA */
-        body.bg-clear-day { background-image: linear-gradient(-45deg, #38bdf8, #bae6fd, #e0f2fe, #7dd3fc); --glass: rgba(255, 255, 255, 0.8); --glass-border: rgba(255, 255, 255, 0.6); --text: #0c4a6e; --text-sec: #334155; --accent: #0284c7; --skeleton-base: rgba(0, 0, 0, 0.05); --skeleton-shine: rgba(0, 0, 0, 0.1); }
-        body.bg-clear-night { background-image: linear-gradient(-45deg, #020617, #0f172a, #1e1b4b, #312e81); --glass: rgba(15, 23, 42, 0.75); --glass-border: rgba(255, 255, 255, 0.15); --text: #f8fafc; --text-sec: #cbd5e1; --accent: #818cf8; --invert-close: 1; --skeleton-base: rgba(255, 255, 255, 0.1); --skeleton-shine: rgba(255, 255, 255, 0.2); }
-        body.bg-cloudy-day { background-image: linear-gradient(-45deg, #94a3b8, #cbd5e1, #e2e8f0, #f8fafc); --glass: rgba(255, 255, 255, 0.85); --glass-border: rgba(255, 255, 255, 0.5); --text: #1e293b; --text-sec: #475569; --accent: #475569; }
-        body.bg-cloudy-night { background-image: linear-gradient(-45deg, #0f172a, #1e293b, #334155, #020617); --glass: rgba(15, 23, 42, 0.8); --glass-border: rgba(255, 255, 255, 0.1); --text: #f1f5f9; --text-sec: #94a3b8; --accent: #94a3b8; --invert-close: 1; }
-        body.bg-rain { background-image: linear-gradient(-45deg, #1f2937, #374151, #4b5563, #111827); --glass: rgba(0, 0, 0, 0.4); --glass-border: rgba(255, 255, 255, 0.2); --text: #ffffff; --text-sec: #e5e7eb; --accent: #38bdf8; --invert-close: 1; }
-        body.bg-snow { background-image: linear-gradient(-45deg, #e2e8f0, #f1f5f9, #ffffff, #cbd5e1); --glass: rgba(255, 255, 255, 0.9); --glass-border: rgba(255, 255, 255, 0.8); --text: #0f172a; --text-sec: #334155; --accent: #0ea5e9; }
-        body.bg-hot { background-image: linear-gradient(-45deg, #f59e0b, #fbbf24, #fcd34d, #fef3c7); --glass: rgba(255, 255, 255, 0.8); --glass-border: rgba(255, 255, 255, 0.6); --text: #78350f; --text-sec: #92400e; --accent: #d97706; }
-
-        /* --- 3. COMPONENTES --- */
-        #splash-screen { position: fixed; inset: 0; background: linear-gradient(180deg, #bae6fd, #e0f2fe); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s ease-out, visibility 0.6s; }
-        #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-        .splash-logo-container { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 50px rgba(0,0,0,0.15); animation: breathe 3s infinite; }
-        .splash-title { margin-top: 20px; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: 2px; opacity: 0.8; color: #0c4a6e; }
-        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-
-        .glass-card { background: var(--glass); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-radius: 24px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--glass-border); box-shadow: var(--card-shadow); transition: transform 0.2s, background 0.5s; position: relative; color: var(--text); }
-        .skeleton { background-color: var(--skeleton-base); background-image: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 40px, var(--skeleton-base) 80px); background-size: 200px 100%; background-repeat: no-repeat; display: inline-block; border-radius: 8px; color: transparent !important; animation: shimmer 1.5s infinite linear; pointer-events: none; min-height: 1em; }
-        .skeleton-circle { width: 100%; height: 100%; border-radius: 50%; }
-        
-        .nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; position: relative; z-index: 100; }
-        .search-group { flex-grow: 1; position: relative; }
-        .search-input { width: 100%; border: none; background: var(--glass); padding: 12px 20px; border-radius: 50px; outline: none; color: var(--text); font-weight: 600; box-shadow: var(--card-shadow); border: 1px solid var(--glass-border); }
-        .search-input::placeholder { color: var(--text-sec); opacity: 0.7; }
-        .btn-icon { background: var(--glass); border: 1px solid var(--glass-border); width: 45px; height: 45px; border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; box-shadow: var(--card-shadow); }
-        .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); }
-        .btn-icon.active { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
-        
-        .temp-big { font-family:'Outfit'; font-weight:700; font-size: clamp(3.5rem, 10vw, 5.5rem); line-height: 1; letter-spacing: -2px; text-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .hourly-scroll { display:flex; overflow-x:auto; gap:15px; padding:10px 0; scrollbar-width:none; }
-        .hourly-item { min-width:60px; text-align:center; }
-        .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
-        .suggestions-list { position: absolute; top: 120%; left: 0; width: 100%; background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-radius: 16px; padding: 8px 0; margin: 0; list-style: none; display: none; z-index: 1000; box-shadow: 0 15px 50px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); max-height: 300px; overflow-y: auto; }
-        .suggestions-list.show { display: block; }
-        .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; line-height: 1.3; transition: background 0.2s; color: var(--text); }
-        .suggestion-item:hover { background: var(--accent); color: white; }
-        
-        .aqi-bar { height: 6px; border-radius: 10px; background: linear-gradient(to right, #4ade80, #facc15, #f87171, #9333ea); position: relative; margin-top: 10px; }
-        .aqi-dot { width: 12px; height: 12px; background: white; border: 2px solid rgba(0,0,0,0.2); border-radius: 50%; position: absolute; top: -3px; transition: left 1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-
-        .fav-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 85%; max-width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px) saturate(180%); z-index: 2000; box-shadow: 10px 0 40px rgba(0,0,0,0.1); transform: translateX(-105%); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 24px 24px 0; }
-        body.bg-rain .fav-sidebar, body.bg-clear-night .fav-sidebar, body.bg-cloudy-night .fav-sidebar { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); }
-        .fav-sidebar.open { transform: translateX(0); }
-        .fav-header { padding: 30px 25px; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; display: flex; justify-content: space-between; align-items: center; color: var(--text); border-bottom: 1px solid var(--glass-border); }
-        .fav-list { list-style: none; padding: 15px; margin: 0; overflow-y: auto; flex-grow: 1; }
-        .fav-item { padding: 16px 20px; margin-bottom: 10px; border-radius: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; color: var(--text); background: rgba(255, 255, 255, 0.5); border: 1px solid transparent; }
-        body.bg-rain .fav-item, body.bg-clear-night .fav-item { background: rgba(255, 255, 255, 0.05); }
-        .fav-item-info { display: flex; flex-direction: column; justify-content: center; gap: 4px; max-width: 80%; }
-        .fav-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-        .fav-region { font-size: 0.75rem; opacity: 0.6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-        .fav-delete { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; opacity: 0.4; transition: all 0.2s; color: var(--text); flex-shrink: 0; }
-        .fav-delete:active { opacity: 1 !important; background: rgba(239, 68, 68, 0.1); transform: scale(0.95); color: #ef4444; }
-
-        .ai-container { cursor: pointer; transition: transform 0.2s; user-select: none; position: relative; padding: 5px; border-radius: 12px; display: flex; align-items: center; gap: 8px; color: var(--text); }
-        .ai-container:hover { background: rgba(255,255,255,0.1); }
-        .ai-container:active { transform: scale(0.95); }
-        .persona-modal { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(10px); background: rgba(0,0,0,0.6); }
-        .persona-modal.show { opacity: 1; pointer-events: all; }
-        .persona-content { width: 90%; max-width: 380px; background: var(--bg-1); border: 1px solid var(--glass-border); border-radius: 24px; padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); max-height: 80vh; display: flex; flex-direction: column; color: var(--text); }
-        body.bg-rain .persona-content, body.bg-clear-night .persona-content { background: #0f172a; color: white; }
-        .persona-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; overflow-y: auto; padding: 5px; margin-top: 15px; }
-        .persona-option { background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 16px; padding: 12px 5px; text-align: center; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-        .persona-option:hover { background: rgba(255,255,255,0.25); transform: translateY(-3px); }
-        .persona-option.active { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.2); box-shadow: 0 0 0 2px var(--accent); }
-        .persona-icon { font-size: 2rem; display:block; line-height: 1; }
-        .persona-name { font-size: 0.75rem; font-weight: 700; color: var(--text); }
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
-        .overlay.show { opacity: 1; pointer-events: all; }
-
-        .share-btn {
-            position: absolute; top: 15px; right: 15px; width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(255,255,255,0.25); border: 1px solid var(--glass-border);
-            color: var(--text); display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: 0.2s; z-index: 50;
-        }
-        .share-btn:hover { background: var(--accent); color: white; transform: scale(1.1); }
-        
-        .clothing-tag {
-            border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 50px;
-            font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px;
-            transition: all 0.2s; background: rgba(255,255,255,0.4); color: var(--text);
-            text-decoration: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position: relative; overflow: hidden;
-        }
-        .clothing-tag:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); background: rgba(255,255,255,0.6); }
-        .clothing-tag:active { transform: scale(0.95); }
-        .outfit-icon { font-size: 1.2rem; margin-right: 5px; color: var(--accent); }
-
-        .clothing-tag.boy { 
-            background: #2563eb; /* Azul sólido más vibrante */
-            border-color: #1d4ed8; 
-            color: #ffffff !important; /* Texto blanco para máximo contraste */
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-        }
-        .clothing-tag.girl { 
-            background: #db2777; /* Rosa sólido más vibrante */
-            border-color: #be185d; 
-            color: #ffffff !important; /* Texto blanco para máximo contraste */
-            box-shadow: 0 4px 12px rgba(219, 39, 119, 0.2);
-}
-        body.bg-clear-night .clothing-tag.boy, body.bg-rain .clothing-tag.boy { color: #93c5fd; border-color: #60a5fa; }
-        body.bg-clear-night .clothing-tag.girl, body.bg-rain .clothing-tag.girl { color: #f9a8d4; border-color: #f472b6; }
-
-        .day-detail {
-            overflow: hidden; transition: all 0.3s ease-in-out; border-bottom: 1px solid var(--glass-border);
-            background: rgba(0,0,0,0.03); border-radius: 12px; margin-bottom: 10px;
-        }
-        .day-detail-content { padding: 15px; display: flex; overflow-x: auto; gap: 15px; scrollbar-width: none; }
-        .day-hourly-item { min-width: 50px; text-align: center; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 90px; }
-
-        .pollen-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .pollen-name { font-size: 0.85rem; font-weight: 600; width: 80px; color: var(--text); }
-        .pollen-bar-bg { flex-grow: 1; height: 6px; background: rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
-        body.bg-clear-night .pollen-bar-bg { background: rgba(255,255,255,0.2); }
-        .pollen-bar-fill { height: 100%; border-radius: 10px; transition: width 1s; }
-        .pollen-val { font-size: 0.75rem; font-weight: 700; width: 40px; text-align: right; color: var(--text); }
-
-        /* ESTILOS LIFESTYLE */
-        .activity-scroll { display: flex; overflow-x: auto; gap: 15px; padding: 5px 0; scrollbar-width: none; }
-        .activity-item { 
-            min-width: 80px; text-align: center; padding: 12px 8px; background: rgba(255,255,255,0.2); 
-            border-radius: 16px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; gap: 8px;
-        }
-        .activity-icon { font-size: 1.8rem; color: var(--text); margin-bottom: 4px; }
-        .status-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-        .status-good { background-color: #4ade80; box-shadow: 0 0 10px #4ade80; }
-        .status-fair { background-color: #facc15; box-shadow: 0 0 10px #facc15; }
-        .status-bad { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
-        .activity-name { font-size: 0.75rem; font-weight: 700; opacity: 0.9; color: var(--text); }
-
-        .alert-card {
-            background: #ef4444; color: white; padding: 15px 20px; border-radius: 20px;
-            margin-bottom: 20px; display: flex; align-items: start; gap: 15px;
-            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4); animation: slideDown 0.5s ease;
-        }
-        .alert-card.orange { background: #f97316; box-shadow: 0 10px 30px rgba(249, 115, 22, 0.4); }
-        .alert-card.yellow { background: #eab308; color: #422006; box-shadow: 0 10px 30px rgba(234, 179, 8, 0.4); }
-        
-        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes pulseAlert { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        .alert-icon { font-size: 1.8rem; animation: pulseAlert 2s infinite; }
-
-        /* ESTILO NUEVO BOTÓN AFILIADO/COMPRA (ARREGLADO PARA QUE SE VEA SIEMPRE) */
-        .shop-btn {
-            display: inline-flex; align-items: center; gap: 6px;
-            margin-top: 10px; padding: 10px 20px;
-            border-radius: 50px; font-size: 0.9rem; font-weight: 700;
-            
-            /* CORRECCIÓN: Fondo gris suave y texto oscuro siempre */
-            background: #f3f4f6; 
-            color: #1f2937 !important; /* Texto oscuro forzado */
-            border: 1px solid #e5e7eb;
-            
-            text-decoration: none;
-            transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-        }
-        .shop-btn:hover { 
-            background: var(--accent); 
-            color: white !important; /* Al pasar el ratón se pone azul y texto blanco */
-            transform: translateY(-2px);
-            border-color: var(--accent);
-        }
-
-        /* ESTILO BOTÓN KO-FI / DONAR */
-        .support-btn {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            background: linear-gradient(45deg, #FF5E5B, #ff8a88);
-            color: white; border: none; padding: 12px 20px;
-            border-radius: 50px; font-weight: 700; text-decoration: none;
-            box-shadow: 0 4px 15px rgba(255, 94, 91, 0.4);
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-top: 20px; width: 100%; font-size: 0.9rem;
-        }
-        .support-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 94, 91, 0.6); color: white; }
-        .support-icon { font-size: 1.1rem; animation: heartbeat 1.5s infinite; }
-        @keyframes heartbeat { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
-
-        /* --- BOTÓN INSTALAR PWA --- */
-        #installBtn { display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background: #0f172a; color: white; padding: 12px 24px; border-radius: 50px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: slideUp 0.5s ease-out; cursor: pointer; align-items: center; gap: 10px; }
-        @keyframes slideUp { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
-        /* MODAL iOS */
-        #iosInstallModal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: none; align-items: flex-end; justify-content: center; }
-        .ios-content { background: #1a1a1a; width: 100%; padding: 30px 20px 50px 20px; border-radius: 20px 20px 0 0; color: white; text-align: center; position: relative; animation: slideUp 0.3s; }
-        .ios-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2rem; animation: bounce 2s infinite; }
-        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
-
-        /* --- COLORES DINÁMICOS PARA ICONOS --- */
-        .bi-sun, .bi-sun-fill { 
-            color: #facc15 !important; /* Amarillo Sol Intenso */
-            filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.4)); 
-        }
-
-        .bi-cloud-sun, .bi-cloud-sun-fill { 
-            color: #f59e0b !important; /* Naranja/Amarillo atardecer */
-        }
-
-        .bi-cloud, .bi-clouds, .bi-cloud-fill { 
-            color: #94a3b8 !important; /* Gris nube suave pero visible */
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-        }
-
-        .bi-cloud-rain, .bi-cloud-rain-fill, .bi-cloud-drizzle, .bi-droplet-fill { 
-            color: #0ea5e9 !important; /* Azul agua brillante */
-            filter: drop-shadow(0 0 5px rgba(14, 165, 233, 0.3));
-        }
-
-        .bi-cloud-lightning-rain, .bi-cloud-lightning-fill { 
-            color: #8b5cf6 !important; /* Violeta eléctrico para tormentas */
-        }
-
-        .bi-snow, .bi-cloud-snow { 
-            color: #60a5fa !important; /* Azul hielo */
-            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
-        }
-        
-        /* ESTILO PARA LA LUNA (Solución al problema de la noche) */
-        .bi-moon, .bi-moon-fill, .bi-cloud-moon, .bi-cloud-moon-fill, .bi-moon-stars-fill {
-            color: #64748b !important; /* Gris azulado (Visible en fondo blanco) */
-            filter: drop-shadow(0 0 5px rgba(100, 116, 139, 0.3));
-        }
-
-        /* Ajuste para el icono principal grande */
-        #weather-icon-container i {
-            transition: all 0.5s ease;
-            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.15));
-        }
-    </style>
 </head>
 <body data-theme="light">
 
-    <div id="splash-screen">
-        <div class="splash-logo-container">
-            <img src="logo.png" alt="Aeris" style="width: 70px; height: 70px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
-            <i class="bi bi-cloud-sun-fill" style="font-size: 3rem; color: #0284c7; display:none;"></i>
-        </div>
-        <div class="splash-title">AERIS</div>
+<!-- SPLASH SCREEN -->
+<div id="splash-screen">
+    <div class="splash-logo-container">
+        <img src="logo.png" alt="Aeris" style="width:70px;height:70px;object-fit:contain"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <i class="bi bi-cloud-sun-fill" style="font-size:3rem;color:#0284c7;display:none;"></i>
     </div>
+    <div class="splash-title">AERIS</div>
+</div>
 
-    <button id="installBtn">
-        <i class="bi bi-download"></i> Instalar App
-    </button>
+<!-- BOTÓN INSTALAR PWA -->
+<button id="installBtn" aria-label="Instalar app">
+    <i class="bi bi-download"></i> Instalar App
+</button>
 
-    <div id="iosInstallModal" onclick="closeIosModal()">
-        <div class="ios-content" onclick="event.stopPropagation()">
-            <div class="mb-3">
-                <img src="logo.png" style="width:64px; border-radius:14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+<!-- MODAL INSTALACIÓN iOS -->
+<div id="iosInstallModal" onclick="closeIosModal()" role="dialog" aria-modal="true" aria-label="Instrucciones de instalación">
+    <div class="ios-content" onclick="event.stopPropagation()">
+        <div class="mb-3">
+            <img src="logo.png" style="width:64px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,0.2);" alt="Aeris">
+        </div>
+
+        <div id="tiktok-instructions" style="display:none;">
+            <h4 class="fw-bold text-danger mb-2">⚠️ Estás en TikTok</h4>
+            <p class="small opacity-75 mb-3">Desde aquí <b>NO</b> se puede instalar. Tienes que salir al navegador real.</p>
+            <div class="bg-dark text-white p-3 rounded-3 text-start mb-3 border border-secondary">
+                <div class="d-flex gap-3 mb-2 align-items-center">
+                    <i class="bi bi-three-dots fs-4 text-warning"></i>
+                    <span class="small">1. Toca los <b>3 puntos</b> o la <b>Brújula</b> (esquina superior derecha).</span>
+                </div>
+                <div class="d-flex gap-3 align-items-center">
+                    <i class="bi bi-compass fs-4 text-warning"></i>
+                    <span class="small">2. Elige <b>"Abrir en el navegador"</b>.</span>
+                </div>
             </div>
+            <p class="small fw-bold opacity-50">Cuando se abra Safari/Chrome, podrás instalarla.</p>
+        </div>
 
-            <div id="tiktok-instructions" style="display: none;">
-                <h4 class="fw-bold text-danger mb-2">⚠️ Estás en TikTok</h4>
-                <p class="small opacity-75 mb-3">Desde aquí <b>NO</b> se puede instalar. Tienes que salir al navegador real.</p>
-                
-                <div class="bg-dark text-white p-3 rounded-3 text-start mb-3 border border-secondary">
-                    <div class="d-flex gap-3 mb-2 align-items-center">
-                        <i class="bi bi-three-dots fs-4 text-warning"></i>
-                        <span class="small">1. Toca los <b>3 puntos</b> o la <b>Brújula</b> (esquina superior derecha).</span>
+        <div id="safari-instructions">
+            <h4 class="fw-bold mb-1">Instalar AERIS</h4>
+            <p class="small opacity-75 mb-4">Sigue estos pasos para que funcione al 100%:</p>
+            <div class="d-flex flex-column gap-3 text-start px-2">
+                <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
+                    <div class="d-flex align-items-center justify-content-center bg-warning text-dark rounded-circle flex-shrink-0" style="width:32px;height:32px;">
+                        <i class="bi bi-three-dots fw-bold"></i>
                     </div>
-                    <div class="d-flex gap-3 align-items-center">
-                        <i class="bi bi-compass fs-4 text-warning"></i>
-                        <span class="small">2. Elige <b>"Abrir en el navegador"</b>.</span>
+                    <div class="ms-3">
+                        <div class="small text-uppercase opacity-50 fw-bold" style="font-size:0.65rem;">Paso 1</div>
+                        <div class="fw-bold font-monospace" style="font-size:0.9rem;">Toca los "3 puntos"</div>
                     </div>
                 </div>
-                <p class="small fw-bold opacity-50">Cuando se abra Safari/Chrome, podrás instalarla.</p>
-            </div>
-
-            <div id="safari-instructions">
-                <h4 class="fw-bold mb-1">Instalar AERIS</h4>
-                <p class="small opacity-75 mb-4">Sigue estos pasos para que funcione al 100%:</p>
-                
-                <div class="d-flex flex-column gap-3 text-start px-2">
-                    
-                    <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
-                        <div class="d-flex align-items-center justify-content-center bg-warning text-dark rounded-circle flex-shrink-0" style="width: 32px; height: 32px;">
-                            <i class="bi bi-three-dots fw-bold"></i>
-                        </div>
-                        <div class="ms-3">
-                            <div class="small text-uppercase opacity-50 fw-bold" style="font-size: 0.65rem;">Paso 1</div>
-                            <div class="fw-bold font-monospace" style="font-size: 0.9rem;">Toca los "3 puntos"</div>
-                        </div>
+                <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
+                    <div class="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle flex-shrink-0" style="width:32px;height:32px;">
+                        <i class="bi bi-box-arrow-up fw-bold"></i>
                     </div>
-
-                    <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
-                        <div class="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle flex-shrink-0" style="width: 32px; height: 32px;">
-                            <i class="bi bi-box-arrow-up fw-bold"></i>
-                        </div>
-                        <div class="ms-3">
-                            <div class="small text-uppercase opacity-50 fw-bold" style="font-size: 0.65rem;">Paso 2</div>
-                            <div class="fw-bold font-monospace" style="font-size: 0.9rem;">Selecciona "Compartir"</div>
-                        </div>
+                    <div class="ms-3">
+                        <div class="small text-uppercase opacity-50 fw-bold" style="font-size:0.65rem;">Paso 2</div>
+                        <div class="fw-bold font-monospace" style="font-size:0.9rem;">Selecciona "Compartir"</div>
                     </div>
-
-                    <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
-                        <div class="d-flex align-items-center justify-content-center bg-light text-dark rounded-circle flex-shrink-0" style="width: 32px; height: 32px;">
-                            <i class="bi bi-plus-square fw-bold"></i>
-                        </div>
-                        <div class="ms-3">
-                            <div class="small text-uppercase opacity-50 fw-bold" style="font-size: 0.65rem;">Paso 3</div>
-                            <div class="fw-bold font-monospace" style="font-size: 0.9rem;">Dale a "Añadir a pantalla de inicio"</div>
-                        </div>
-                    </div>
-
                 </div>
-                
-                <i class="bi bi-arrow-down-circle-fill fs-1 text-primary mt-4 fade-down"></i>
+                <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
+                    <div class="d-flex align-items-center justify-content-center bg-light text-dark rounded-circle flex-shrink-0" style="width:32px;height:32px;">
+                        <i class="bi bi-plus-square fw-bold"></i>
+                    </div>
+                    <div class="ms-3">
+                        <div class="small text-uppercase opacity-50 fw-bold" style="font-size:0.65rem;">Paso 3</div>
+                        <div class="fw-bold font-monospace" style="font-size:0.9rem;">Dale a "Añadir a pantalla de inicio"</div>
+                    </div>
+                </div>
             </div>
+            <i class="bi bi-arrow-down-circle-fill fs-1 text-primary mt-4 fade-down"></i>
         </div>
     </div>
+</div>
 
-    <script>
-        // --- FUNCIÓN DE DETECCIÓN AGRESIVA ---
-        function updateInstallModal() {
-            const ua = (navigator.userAgent || navigator.vendor || window.opera).toLowerCase();
-            
-            // Palabras clave que identifican los navegadores "trampa"
-            const isTrap = ua.includes('tiktok') || 
-                           ua.includes('bytedance') || 
-                           ua.includes('instagram') || 
-                           ua.includes('musical_ly'); 
+<!-- MODAL PERSONALIDAD IA -->
+<div class="persona-modal" id="personaModal" role="dialog" aria-modal="true" aria-label="Elige personalidad">
+    <div class="persona-content">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0">Elige Personalidad</h5>
+            <button class="btn-close" id="closePersonaModal" aria-label="Cerrar" style="filter:invert(var(--invert-close));"></button>
+        </div>
+        <div class="persona-grid" id="personaGrid"></div>
+    </div>
+</div>
 
-            const safariDiv = document.getElementById('safari-instructions');
-            const tiktokDiv = document.getElementById('tiktok-instructions');
-            
-            if (isTrap) {
-                // Si es trampa, ocultamos lo normal y mostramos la alerta ROJA
-                if(safariDiv) safariDiv.style.display = 'none';
-                if(tiktokDiv) tiktokDiv.style.display = 'block';
-                return true;
-            } else {
-                // Si es navegador normal
-                if(safariDiv) safariDiv.style.display = 'block';
-                if(tiktokDiv) tiktokDiv.style.display = 'none';
-                return false;
-            }
-        }
+<!-- OVERLAY SIDEBAR -->
+<div class="overlay" id="overlay"></div>
 
-        // --- LÓGICA DE EJECUCIÓN (INTENTOS MÚLTIPLES) ---
-        // Ejecutamos varias veces por si TikTok tarda en cargar su info
-        window.addEventListener('load', () => {
-            updateInstallModal();
-            setTimeout(updateInstallModal, 300);
-            setTimeout(updateInstallModal, 1000);
-        });
+<!-- SIDEBAR FAVORITOS -->
+<div class="fav-sidebar" id="favSidebar" role="navigation" aria-label="Mis lugares favoritos">
+    <div class="fav-header">
+        <span>Mis Lugares</span>
+        <button class="btn btn-sm rounded-circle d-flex align-items-center justify-content-center"
+                style="width:32px;height:32px;opacity:0.7;background:rgba(150,150,150,0.2);border:none;color:var(--text)"
+                id="closeSidebar" aria-label="Cerrar menú">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+    <ul class="fav-list" id="favList" aria-label="Lista de favoritos"></ul>
+    <div class="p-3">
+        <a href="https://ko-fi.com/aerisweather" target="_blank" rel="noopener" class="support-btn" aria-label="Apoyar en Ko-fi">
+            <i class="fa-solid fa-arrow-up-right-dots"></i> Ayúdame a Seguir Creciendo
+        </a>
+        <div class="text-center mt-3 opacity-50">
+            <small style="font-size:0.65rem;letter-spacing:1px;color:var(--text)">AERIS WEATHER</small>
+        </div>
+    </div>
+</div>
 
-        // --- BOTÓN DE INSTALAR (EL QUE PULSA EL USUARIO) ---
-        const installBtn = document.getElementById('installBtn');
-        const iosModal = document.getElementById('iosInstallModal');
-        
-        // Detectar iOS
-        const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-        const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator.standalone);
+<!-- CONTENIDO PRINCIPAL -->
+<div class="container pt-3">
 
-        if (isIos && !isInStandaloneMode) {
-            if(installBtn) {
-                installBtn.style.display = 'flex';
-                installBtn.onclick = () => {
-                    // ¡AQUÍ ESTÁ LA CLAVE! Comprobamos justo antes de abrir
-                    updateInstallModal(); 
-                    iosModal.style.display = 'flex';
-                };
-            }
-        }
-
-        // Lógica Android/PC (Standard)
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            if(installBtn) {
-                installBtn.style.display = 'flex';
-                installBtn.onclick = async () => {
-                    if (deferredPrompt) {
-                        deferredPrompt.prompt();
-                        const { outcome } = await deferredPrompt.userChoice;
-                        if (outcome === 'accepted') installBtn.style.display = 'none';
-                        deferredPrompt = null;
-                    } else {
-                        // Fallback por si acaso
-                        updateInstallModal();
-                        iosModal.style.display = 'flex';
-                    }
-                };
-            }
-        });
-
-        window.addEventListener('appinstalled', () => {
-            if(installBtn) installBtn.style.display = 'none';
-        });
-
-        function closeIosModal() {
-            document.getElementById('iosInstallModal').style.display = 'none';
-        }
-    </script>
-
-    <style>
-        /* Animación para la flecha */
-        .fade-down { animation: float 2s infinite; }
-        @keyframes float {
-            0% { transform: translateY(0px); opacity: 1; }
-            50% { transform: translateY(10px); opacity: 0.5; }
-            100% { transform: translateY(0px); opacity: 1; }
-        }
-    </style>
-
-    <div class="persona-modal" id="personaModal">
-        <div class="persona-content">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="fw-bold mb-0">Elige Personalidad</h5>
-                <button class="btn-close" id="closePersonaModal" style="filter: invert(var(--invert-close));"></button>
-            </div>
-            <div class="persona-grid" id="personaGrid"></div>
+    <!-- BARRA DE NAVEGACIÓN -->
+    <div class="nav-bar">
+        <div class="d-flex gap-2">
+            <button class="btn-icon" id="favMenuBtn" aria-label="Abrir mis lugares">
+                <i class="bi bi-list-stars fs-5"></i>
+            </button>
+        </div>
+        <div class="search-group ms-2">
+            <input type="text" class="search-input" id="citySearch"
+                   placeholder="Buscar ciudad..." autocomplete="off"
+                   aria-label="Buscar ciudad" aria-autocomplete="list" aria-controls="suggestions">
+            <ul class="suggestions-list" id="suggestions" role="listbox" aria-label="Sugerencias de ciudades"></ul>
+        </div>
+        <div class="d-flex gap-2 ms-2">
+            <button class="btn-icon" id="themeBtn" aria-label="Cambiar tema claro/oscuro">
+                <i class="bi bi-moon-stars-fill fs-5"></i>
+            </button>
+            <button class="btn-icon" id="geoBtn" aria-label="Usar mi ubicación actual">
+                <i class="bi bi-geo-alt-fill fs-5"></i>
+            </button>
         </div>
     </div>
 
-    <div class="overlay" id="overlay"></div>
-    <div class="fav-sidebar" id="favSidebar">
-        <div class="fav-header">
-            <span>Mis Lugares</span>
-            <button class="btn btn-sm rounded-circle d-flex align-items-center justify-content-center" style="width:32px; height:32px; opacity:0.7; background:rgba(150,150,150,0.2); border:none; color:var(--text)" id="closeSidebar"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <ul class="fav-list" id="favList"></ul>
-        
-        <div class="p-3">
-            <a href="https://ko-fi.com/aerisweather" target="_blank" class="support-btn">
-                <i class="fa-solid fa-arrow-up-right-dots"></i> Ayudame a Seguir Creciendo.
-            </a>
-            <div class="text-center mt-3 opacity-50"><small style="font-size:0.65rem; letter-spacing:1px; color:var(--text)">AERIS WEATHER</small></div>
+    <!-- BANNERS DE ESTADO -->
+    <div id="offline-banner" role="alert" aria-live="polite">
+        <i class="bi bi-wifi-off"></i>
+        <span id="offline-msg">Sin conexión — mostrando datos guardados</span>
+    </div>
+
+    <div id="error-banner" role="alert" aria-live="assertive">
+        <i class="bi bi-exclamation-circle-fill error-icon"></i>
+        <div>
+            <div class="fw-bold">No se pudo cargar el tiempo</div>
+            <div class="small opacity-75">Comprueba tu conexión e inténtalo de nuevo</div>
+            <button onclick="retryWeather()" class="btn btn-sm btn-light mt-2 fw-bold rounded-pill px-3">
+                <i class="bi bi-arrow-clockwise me-1"></i> Reintentar
+            </button>
         </div>
     </div>
 
-    <div class="container pt-3">
-        <div class="nav-bar">
-            <div class="d-flex gap-2">
-                <button class="btn-icon" id="favMenuBtn"><i class="bi bi-list-stars fs-5"></i></button>
+    <!-- ALERTAS METEOROLÓGICAS -->
+    <div id="alerts-container" aria-live="polite"></div>
+
+    <!-- TARJETA PRINCIPAL -->
+    <div class="glass-card" id="capture-card">
+        <button class="share-btn" id="shareBtn" aria-label="Compartir captura del tiempo">
+            <i class="bi bi-camera-fill"></i>
+        </button>
+
+        <div class="d-flex justify-content-between align-items-start">
+            <div style="flex-grow:1;max-width:70%;display:flex;flex-direction:column;">
+                <h4 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton"
+                    style="color:var(--accent);letter-spacing:1px;width:100px;min-height:1em;"></h4>
+                <div id="desc" class="h4 text-capitalize fw-bold skeleton"
+                     style="width:180px;min-height:1.2em;line-height:1.2;"></div>
             </div>
-            
-            <div class="search-group ms-2">
-                <input type="text" class="search-input" id="citySearch" placeholder="Buscar ciudad..." autocomplete="off">
-                <ul class="suggestions-list" id="suggestions"></ul>
-            </div>
-            <div class="d-flex gap-2 ms-2">
-                <button class="btn-icon" id="geoBtn"><i class="bi bi-geo-alt-fill fs-5"></i></button>
+            <div id="weather-icon-container"
+                 style="width:110px;height:110px;margin-top:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
+                 aria-hidden="true">
+                <div class="skeleton skeleton-circle" style="width:80px;height:80px;"></div>
             </div>
         </div>
 
-        <div id="alerts-container"></div>
-
-        <div class="glass-card" id="capture-card">
-            <button class="share-btn" id="shareBtn" title="Compartir"><i class="bi bi-camera-fill"></i></button>
-
-            <div class="d-flex justify-content-between align-items-start">
-                <div style="flex-grow: 1; max-width: 70%; display: flex; flex-direction: column;"> 
-                    <h4 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton" style="color:var(--accent); letter-spacing:1px; width: 100px; min-height: 1em;"></h4>
-                    <div id="desc" class="h4 text-capitalize fw-bold skeleton" style="width: 180px; min-height: 1.2em; line-height: 1.2;"></div>
+        <div class="mt-1 d-flex align-items-end">
+            <div class="d-flex flex-column">
+                <div id="temp" class="temp-big skeleton" style="line-height:0.9;width:140px;min-height:0.8em;margin-bottom:10px;"></div>
+                <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec);font-size:0.9rem">
+                    Sensación: <span id="feels-like" class="skeleton" style="width:30px;display:inline-block">--</span>°
                 </div>
-                <div id="weather-icon-container" style="width: 110px; height: 110px; margin-top: 10px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
-                    <div class="skeleton skeleton-circle" style="width: 80px; height: 80px;"></div>
-                </div>
+                <div id="compare-txt" class="small opacity-50 fw-bold" style="font-size:0.8rem;margin-top:-2px;"></div>
             </div>
-            
-            <div class="mt-1 d-flex align-items-end">
-                <div class="d-flex flex-column">
-                    <div id="temp" class="temp-big skeleton" style="line-height:0.9; width: 140px; min-height: 0.8em; margin-bottom: 10px;"></div>
-                    <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec); font-size:0.9rem">
-                        Sensación: <span id="feels-like" class="skeleton" style="width: 30px; display:inline-block">--</span>°
-                    </div>
-                    <div id="compare-txt" class="small opacity-50 fw-bold" style="font-size: 0.8rem; margin-top: -2px;"></div>
-                </div>
-                <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
-                    <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
-                    <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width: 25px; display:inline-block"></span>°</span>
-                </div>
-            </div>
-
-            <div class="d-flex gap-4 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
-                <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width: 30px; display:inline-block"></span>%</span>
-                <span><i class="bi bi-wind text-info"></i> <span id="wind" class="skeleton" style="width: 30px; display:inline-block"></span> km/h</span>
-                <span id="outfit-display" style="display:none; margin-left: 5px;"><i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span></span>
-                <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width: 20px; display:inline-block"></span></span>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
-                <div><i id="favHeart" class="bi bi-heart fs-3" style="cursor:pointer; transition:0.2s; color: var(--text-sec)"></i></div>
-                <div class="ai-container" id="ai-toggle" style="opacity: 0.9;">
-                    <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size: 0.8rem; line-height: 1.2; width: 180px; min-height: 2em; display:block"></span>
-                    <span id="tip-icon" class="fs-4">🤖</span>
-                </div>
+            <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
+                <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width:25px;display:inline-block"></span>°</span>
+                <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width:25px;display:inline-block"></span>°</span>
             </div>
         </div>
 
-        <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
-                <i class="bi bi-bag-heart-fill"></i> OUTFIT RECOMENDADO <span style="font-weight:400; opacity:0.7">(Toca para comprar)</span>
-            </h6>
-            <div id="clothing-advice">
-                <div class="d-flex flex-wrap gap-2">
-                    <div class="skeleton" style="width: 80px; height: 30px; border-radius: 50px;"></div>
-                    <div class="skeleton" style="width: 100px; height: 30px; border-radius: 50px;"></div>
-                </div>
-            </div>
+        <!-- STATS ROW: humedad, viento+dirección, presión, UV -->
+        <div class="d-flex flex-wrap gap-3 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
+            <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width:30px;display:inline-block"></span>%</span>
+            <span>
+                <i class="bi bi-wind text-info"></i>
+                <span id="wind" class="skeleton" style="width:30px;display:inline-block"></span> km/h
+                <span id="wind-dir" class="ms-1" style="font-size:0.8em;opacity:0.7;"></span>
+            </span>
+            <span><i class="bi bi-speedometer2 text-secondary"></i> <span id="pressure" class="skeleton" style="width:35px;display:inline-block"></span> hPa</span>
+            <span id="outfit-display" style="display:none;margin-left:5px"><i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span></span>
+            <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width:20px;display:inline-block"></span></span>
         </div>
 
-        <div class="glass-card" id="rain-card" style="display:none; transition: opacity 0.5s ease;">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)"><i class="bi bi-cloud-drizzle-fill"></i> TENDENCIA LLUVIA</h6>
-                <small class="fw-bold" style="color:var(--accent); font-size:0.75rem" id="rain-summary">--</small>
+        <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
+            <div>
+                <i id="favHeart" class="bi bi-heart fs-3" style="cursor:pointer;transition:0.2s;color:var(--text-sec)" aria-label="Añadir a favoritos" role="button" tabindex="0"></i>
             </div>
-            <div class="rain-chart-wrapper"><canvas id="rainChart"></canvas></div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
-            <div class="hourly-scroll" id="hourly">
-                <div class="hourly-item"><div class="skeleton" style="width:40px; height:15px; margin-bottom:5px"></div><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto 5px"></div><div class="skeleton" style="width:30px; height:20px;"></div></div>
-            </div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS <small class="fw-normal opacity-50 ms-1">(Toca para ver horas)</small></h6>
-            <div id="daily">
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                    <div style="width:35%"><div class="skeleton" style="width:80%; height:1.2em; margin-bottom:5px"></div><div class="skeleton" style="width:50%; height:0.8em"></div></div>
-                    <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px; height:30px; margin:0 auto"></div></div>
-                    <div style="width:30%"><div class="skeleton" style="width:100%; height:1.2em"></div></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="glass-card">
-            <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
-            <div class="d-flex align-items-end justify-content-between mt-2">
-                <div class="fw-bold fs-2 skeleton" id="aqi-val" style="width:40px; height:40px"></div>
-                <div class="small opacity-75 text-end fw-bold skeleton" id="aqi-text" style="width:80px; height:1em"></div>
-            </div>
-            <div class="aqi-bar"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
-            <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
-                <span>PM2.5: <span id="pm25">--</span></span>
-                <span>PM10: <span id="pm10">--</span></span>
-            </div>
-        </div>
-
-        <div class="glass-card" id="pollen-card" style="display:none">
-            <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-flower1"></i> ALERGIAS Y POLEN</h6>
-            <div id="pollen-list"></div>
-        </div>
-
-        <div class="glass-card">
-            <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-activity"></i> ESTILO DE VIDA</h6>
-            <div class="activity-scroll" id="lifestyle-list">
-                <div class="skeleton" style="width:80px; height:80px; border-radius:16px"></div>
-                <div class="skeleton" style="width:80px; height:80px; border-radius:16px"></div>
-                <div class="skeleton" style="width:80px; height:80px; border-radius:16px"></div>
-            </div>
-            <div class="d-flex justify-content-center gap-3 mt-2 small opacity-75 fw-bold" style="font-size: 0.65rem; color: var(--text);">
-                <div class="d-flex align-items-center gap-1"><div class="status-dot status-good"></div> Ideal</div>
-                <div class="d-flex align-items-center gap-1"><div class="status-dot status-fair"></div> Regular</div>
-                <div class="d-flex align-items-center gap-1"><div class="status-dot status-bad"></div> Malo</div>
-            </div>
-        </div>
-
-        <div class="glass-card" style="padding:0; overflow:hidden; height:350px; position:relative;">
-            <div class="skeleton" style="width:100%; height:100%; position:absolute; top:0; left:0; border-radius:0" id="radar-skeleton"></div>
-            <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0" style="border:none; position:relative; z-index:2" onload="document.getElementById('radar-skeleton').style.display='none'"></iframe>
-            <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.5); color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; pointer-events:none; backdrop-filter:blur(4px); z-index:3">RADAR EN VIVO</div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="notificationModal" tabindex="-1" aria-hidden="true" style="z-index: 10000;">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content glass-card border-0" style="background: var(--glass); color: var(--text);">
-                <div class="modal-body text-center p-4">
-                    <div class="mb-3 p-3 rounded-circle d-inline-flex align-items-center justify-content-center" style="background: rgba(2, 132, 199, 0.1);">
-                        <i class="bi bi-cloud-lightning-rain-fill" style="font-size: 2.5rem; color: var(--accent);"></i>
-                    </div>
-                    <h5 class="fw-bold mb-2">¿Quieres alertas de lluvia?</h5>
-                    <p class="opacity-75 small mb-4">Aeris puede avisarte si va a llover o nevar en tu ubicación en la próxima hora, incluso con la app cerrada.</p>
-                    <div class="d-flex gap-2 justify-content-center">
-                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Ahora no</button>
-                        <button type="button" class="btn btn-primary btn-sm rounded-pill px-4" id="enableNotifBtn">Sí, activar</button>
-                    </div>
-                </div>
+            <div class="ai-container" id="ai-toggle" style="opacity:0.9;" role="button" aria-label="Cambiar personalidad IA" tabindex="0">
+                <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size:0.8rem;line-height:1.2;width:180px;min-height:2em;display:block"></span>
+                <span id="tip-icon" class="fs-4" aria-hidden="true">🤖</span>
             </div>
         </div>
     </div>
 
-    <script>
-        // Si es iOS y NO está instalada, mostramos botón que abre instrucciones
-        if (isIos && !isInStandaloneMode) {
-            installBtn.style.display = 'flex';
-            installBtn.onclick = () => {
-                iosModal.style.display = 'flex';
-            };
-        }
+    <!-- OUTFIT -->
+    <div class="glass-card">
+        <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
+            <i class="bi bi-bag-heart-fill"></i> OUTFIT RECOMENDADO <span style="font-weight:400;opacity:0.7">(Toca para comprar)</span>
+        </h6>
+        <div id="clothing-advice">
+            <div class="d-flex flex-wrap gap-2">
+                <div class="skeleton" style="width:80px;height:30px;border-radius:50px;"></div>
+                <div class="skeleton" style="width:100px;height:30px;border-radius:50px;"></div>
+            </div>
+        </div>
+    </div>
 
-        // Si es Android/PC, usamos el evento estándar
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            installBtn.style.display = 'flex';
-            
-            installBtn.onclick = async () => {
-                if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    if (outcome === 'accepted') {
-                        installBtn.style.display = 'none';
-                    }
-                    deferredPrompt = null;
-                }
-            };
-        });
+    <!-- LLUVIA -->
+    <div class="glass-card" id="rain-card" style="display:none;transition:opacity 0.5s ease;">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)"><i class="bi bi-cloud-drizzle-fill"></i> TENDENCIA LLUVIA</h6>
+            <small class="fw-bold" style="color:var(--accent);font-size:0.75rem" id="rain-summary">--</small>
+        </div>
+        <div class="rain-chart-wrapper"><canvas id="rainChart" aria-label="Gráfico de precipitación"></canvas></div>
+    </div>
 
-        window.addEventListener('appinstalled', () => {
-            installBtn.style.display = 'none';
-        });
+    <!-- PRÓXIMAS 24H -->
+    <div class="glass-card">
+        <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
+        <div class="hourly-scroll" id="hourly" role="list" aria-label="Pronóstico por hora">
+            <div class="hourly-item">
+                <div class="skeleton" style="width:40px;height:15px;margin-bottom:5px"></div>
+                <div class="skeleton skeleton-circle" style="width:30px;height:30px;margin:0 auto 5px"></div>
+                <div class="skeleton" style="width:30px;height:20px;"></div>
+            </div>
+        </div>
+    </div>
 
-        window.addEventListener('load', () => {
-            setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 2000); 
-            const savedTheme = localStorage.getItem('aeris_theme_pref');
-            if (savedTheme) {
-                document.body.setAttribute('data-theme', savedTheme);
-                document.documentElement.setAttribute('data-bs-theme', savedTheme);
-            }
+    <!-- PRÓXIMOS DÍAS -->
+    <div class="glass-card">
+        <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS <small class="fw-normal opacity-50 ms-1">(Toca para ver horas)</small></h6>
+        <div id="daily" role="list" aria-label="Pronóstico diario">
+            <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border)!important">
+                <div style="width:35%"><div class="skeleton" style="width:80%;height:1.2em;margin-bottom:5px"></div><div class="skeleton" style="width:50%;height:0.8em"></div></div>
+                <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px;height:30px;margin:0 auto"></div></div>
+                <div style="width:30%"><div class="skeleton" style="width:100%;height:1.2em"></div></div>
+            </div>
+        </div>
+    </div>
 
-            if (Notification.permission === 'default') {
-                setTimeout(() => {
-                    const modalEl = document.getElementById('notificationModal');
-                    if (modalEl && window.bootstrap) {
-                        const modal = new bootstrap.Modal(modalEl);
-                        modal.show();
-                        document.getElementById('enableNotifBtn').onclick = () => { modal.hide(); registerPush(false); };
-                    }
-                }, 3500); 
-            }
-            
-            // CARGAR FAVORITOS AL INICIO
-            renderFavorites();
-        });
+    <!-- CALIDAD DEL AIRE -->
+    <div class="glass-card" aria-label="Calidad del aire">
+        <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
+        <div class="d-flex align-items-end justify-content-between mt-2">
+            <div class="fw-bold fs-2 skeleton" id="aqi-val" style="width:40px;height:40px"></div>
+            <div class="small opacity-75 text-end fw-bold skeleton" id="aqi-text" style="width:80px;height:1em"></div>
+        </div>
+        <div class="aqi-bar" aria-hidden="true"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
+        <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
+            <span>PM2.5: <span id="pm25">--</span></span>
+            <span>PM10: <span id="pm10">--</span></span>
+        </div>
+    </div>
 
-        async function registerPush(silent = false) {
-            if (!('serviceWorker' in navigator)) return;
-            if (silent && Notification.permission !== 'granted') return;
+    <!-- POLEN -->
+    <div class="glass-card" id="pollen-card" style="display:none" aria-label="Información de alergias y polen">
+        <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-flower1"></i> ALERGIAS Y POLEN</h6>
+        <div id="pollen-list"></div>
+    </div>
 
-            const register = await navigator.serviceWorker.ready;
-            
-            let subscription = await register.pushManager.getSubscription();
-            if (!subscription) {
-                const response = await fetch('/api/vapid-key');
-                const { key } = await response.json();
-                const urlBase64ToUint8Array = (base64String) => {
-                    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-                    const rawData = window.atob(base64);
-                    const outputArray = new Uint8Array(rawData.length);
-                    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-                    return outputArray;
-                }
-                subscription = await register.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(key)
-                });
-            }
+    <!-- ESTILO DE VIDA -->
+    <div class="glass-card">
+        <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-activity"></i> ESTILO DE VIDA</h6>
+        <div class="activity-scroll" id="lifestyle-list" role="list" aria-label="Actividades recomendadas">
+            <div class="skeleton" style="width:80px;height:80px;border-radius:16px"></div>
+            <div class="skeleton" style="width:80px;height:80px;border-radius:16px"></div>
+            <div class="skeleton" style="width:80px;height:80px;border-radius:16px"></div>
+        </div>
+        <div class="d-flex justify-content-center gap-3 mt-2 small opacity-75 fw-bold" style="font-size:0.65rem;color:var(--text)">
+            <div class="d-flex align-items-center gap-1"><div class="status-dot status-good"></div> Ideal</div>
+            <div class="d-flex align-items-center gap-1"><div class="status-dot status-fair"></div> Regular</div>
+            <div class="d-flex align-items-center gap-1"><div class="status-dot status-bad"></div> Malo</div>
+        </div>
+    </div>
 
-            const lat = currentCityInfo.lat || parseFloat(currentCityInfo.id.split(',')[0]);
-            const lon = currentCityInfo.lon || parseFloat(currentCityInfo.id.split(',')[1]);
+    <!-- RADAR -->
+    <div class="glass-card" style="padding:0;overflow:hidden;height:350px;position:relative;" aria-label="Radar meteorológico en vivo">
+        <div class="skeleton" style="width:100%;height:100%;position:absolute;top:0;left:0;border-radius:0" id="radar-skeleton"></div>
+        <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0"
+                title="Radar meteorológico en vivo"
+                style="border:none;position:relative;z-index:2"
+                onload="document.getElementById('radar-skeleton').style.display='none'"></iframe>
+        <div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.5);color:white;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:bold;pointer-events:none;backdrop-filter:blur(4px);z-index:3">
+            RADAR EN VIVO
+        </div>
+    </div>
 
-            if (!lat || !lon) return;
+</div><!-- /container -->
 
-            await fetch('/api/subscribe', {
-                method: 'POST',
-                body: JSON.stringify({
-                    subscription: subscription,
-                    lat: lat,
-                    lon: lon,
-                    city: currentCityInfo.name
-                }),
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!silent) {
-                alert(`🔔 ¡Activado! Te avisaremos si llueve o neva en ${currentCityInfo.name}.`);
-            }
-        }
-
-        let currentId = localStorage.getItem('lastId') || 'Madrid';
-        let currentCityName = localStorage.getItem('lastName') || 'Madrid';
-        let currentCityRegion = localStorage.getItem('lastRegion') || '';
-        let currentCityInfo = { id: currentId, name: currentCityName, region: currentCityRegion, lat: null, lon: null };
-        let favorites = JSON.parse(localStorage.getItem('aeris_favs')) || [];
-        let rainChartInstance = null;
-        let lastWeatherData = null;
-        let currentPersona = localStorage.getItem('aeris_persona') || 'normal';
-
-        // --- LÓGICA DE PERSONALIDADES COMPLETA Y MEJORADA ---
-        const aiLogic = {
-            normal: { icon: "🤖", name: "Normal", tips: { 
-                hot: ["Hidrátate bien, hace calor.", "Evita el sol directo ahora.", "Ropa ligera recomendada.", "Busca la sombra.", "El asfalto quema, cuidado.", "Usa protector solar.", "Día de altas temperaturas."], 
-                cold: ["Abrígate, hace fresco.", "No olvides la chaqueta.", "Protege tu garganta.", "Mantén el calor corporal.", "Buen momento para un café caliente.", "Cierra bien las ventanas.", "El aire está frío."], 
-                rain: ["Lleva paraguas sí o sí.", "Suelo mojado, precaución.", "Día de lluvia.", "Impermeable recomendado.", "Calzado resistente al agua.", "Posibles charcos.", "Conduce con suavidad."], 
-                snow: ["Nieve detectada.", "Cuidado con el hielo.", "Abrígate al máximo.", "Calzado antideslizante.", "Visibilidad reducida.", "Revisa el coche antes de salir.", "Disfruta el paisaje blanco."],
-                wind: ["Viento fuerte, cuidado.", "Asegura puertas y ventanas.", "Cuidado con las ramas.", "Sujeta bien el sombrero.", "Sensación térmica baja por viento.", "Evita zonas arboladas.", "Precaución al conducir."],
-                cloudy: ["Cielo cubierto.", "Día gris, pero tranquilo.", "Luz suave, buena para fotos.", "Ni frío ni calor, pero nublado.", "Quizás no necesites gafas de sol.", "Ambiente melancólico.", "Nubes altas."],
-                nice: ["Día espectacular.", "Aprovecha para salir.", "Condiciones perfectas.", "Ni una nube.", "Tiempo muy agradable.", "Ideal para pasear.", "Ventila la casa."],
-                allergy: ["Niveles altos de polen.", "Toma tus antihistamínicos.", "Usa gafas de sol.", "Evita abrir ventanas mucho tiempo.", "Lávate la cara al volver.", "Día duro para alérgicos."]
-            }},
-            zen: { icon: "🧘", name: "Zen", tips: { 
-                hot: ["El sol es energía pura.", "Siente el calor como un abrazo.", "Fluye como el verano.", "Respira el fuego del sol.", "Calma interior ante el calor.", "Sé como el desierto: sereno.", "Acepta la temperatura."], 
-                cold: ["El frío aclara la mente.", "Abraza la quietud del invierno.", "Medita con el frescor.", "Paz helada.", "Respira el aire puro y fresco.", "Conserva tu calor interior.", "La quietud del frío."], 
-                rain: ["El agua limpia el alma.", "Escucha el ritmo de la lluvia.", "La naturaleza bebe hoy.", "Deja que fluya.", "Gotas de consciencia.", "Somos agua, fluye.", "Limpia tu aura con la lluvia."], 
-                snow: ["Silencio blanco.", "Pureza cristalina.", "El mundo descansa bajo el manto.", "Contempla la blancura.", "Paz invernal.", "Cada copo es único, como tú.", "El mundo medita en silencio."],
-                wind: ["Deja que el viento se lleve lo malo.", "Cambios en el aire.", "Sé flexible como el bambú.", "El aire renueva la energía.", "Susurros del viento.", "Fluye sin resistencia.", "El viento trae nuevos comienzos."],
-                cloudy: ["Las nubes son pensamientos pasajeros.", "Luz difusa, mente tranquila.", "La belleza de lo gris.", "Calma bajo el cielo cubierto.", "Un día para mirar hacia dentro.", "Paz en la sombra.", "Sin sol también hay luz."],
-                nice: ["Armonía perfecta.", "El universo sonríe hoy.", "Equilibrio natural.", "Gratitud por este cielo azul.", "Presente perfecto.", "Conecta con la tierra.", "Respira la belleza del día."],
-                allergy: ["La naturaleza es intensa.", "Acepta la primavera.", "Purifica tu aire interior.", "Paz a tus ojos.", "La vida florece, respira con calma."]
-            }},
-            villano: { icon: "😈", name: "Villano", tips: { 
-                hot: ["¡Que arda todo!", "Espero que sudes mucho.", "El asfalto se derrite, excelente.", "Un horno perfecto para ti.", "Sufre, mortal acalorado.", "El sol es mi aliado hoy.", "Ojalá se te rompa el aire acondicionado."], 
-                cold: ["Congélate hasta los huesos.", "Tiembla, insignificante.", "El frío conserva mi maldad.", "Se te van a caer los dedos.", "Perfecto para mis planes oscuros.", "Espero que no tengas calefacción.", "Hielo en tu corazón."], 
-                rain: ["¡Diluvio universal!", "Mójate, miserable.", "Espero que tengas goteras.", "El cielo llora por tu desgracia.", "Caos acuático.", "Pisa un charco profundo.", "Rayos, truenos y destrucción."], 
-                snow: ["Sepultados en blanco.", "Resbala y cae.", "La era de hielo comienza.", "Quedarás atrapado.", "Blanco como el miedo.", "Congelación inminente.", "El frío absoluto me fortalece."],
-                wind: ["¡Volad, necios!", "El viento aullará mi nombre.", "Adiós a tu peinado.", "Arrancaré los árboles.", "Volarán los tejados.", "El caos aéreo me divierte.", "Agárrate o saldrás volando."],
-                cloudy: ["Gris y triste, como tu vida.", "El sol te ha abandonado.", "Oscuridad a mediodía, perfecto.", "Deprimente... me encanta.", "Sin sol no hay esperanza.", "Un día feo para gente fea.", "El cielo está enfadado."],
-                nice: ["Qué asco de día bonito.", "Demasiada luz, me quema.", "Odio ver a la gente feliz.", "La calma antes de mi tormenta.", "Aburrido... quiero caos.", "Voy a intentar nublar este día.", "La felicidad me da alergia."],
-                allergy: ["¡Sufre con tus estornudos!", "El polen es mi arma biológica.", "Llora, tus ojos rojos me divierten.", "Ni las pastillas te salvarán.", "Mocos infinitos para ti."]
-            }},
-            madre: { icon: "👵", name: "Madre", tips: { 
-                hot: ["Ponte crema factor 50.", "Bebe agua, no refrescos.", "No salgas a las horas malas.", "¿Llevas gorra?", "Come fruta, que refresca.", "Por la sombra, hijo mío.", "No andes descalzo que quema."], 
-                cold: ["Ponte la camiseta interior.", "¿Llevas los riñones tapados?", "Cierra la boca que entra aire.", "Tómate un caldito caliente.", "No andes descalzo por casa.", "Coge la rebeca por si acaso.", "Te vas a constipar."], 
-                rain: ["¡No salgas sin paraguas!", "Ponte las botas de agua.", "No te mojes los pies.", "Cuidado que resbala el suelo.", "Llámame cuando llegues.", "No pises los charcos.", "Sécate bien el pelo si te mojas."], 
-                snow: ["¡Ni se te ocurra coger el coche!", "Abrígate como una cebolla.", "Cómete el potaje ardiendo.", "Guantes, gorro y bufanda, eh.", "Quédate en casa mejor.", "Cuidado con el hielo.", "Ponte doble calcetín."],
-                wind: ["Cuidado con las macetas del balcón.", "Cierra bien las ventanas.", "No te pongas falda hoy.", "Se te va a enredar el pelo.", "Ten cuidado con los ojos.", "Cierra el portón que da golpe.", "Abróchate el abrigo."],
-                cloudy: ["Parece que quiere llover.", "Llévate el paraguas por si acaso.", "Día tristón, arréglate la habitación.", "No te fíes del tiempo.", "Está el día tonto.", "Ponte una chaquetita fina.", "No tiendas la ropa fuera."],
-                nice: ["Sal a que te dé el aire.", "Qué día más bueno para lavar ropa.", "Abre las ventanas que ventile.", "Disfruta hijo, que hace bueno.", "Come bien.", "Ponte guapo y sal.", "Qué sol más rico."],
-                allergy: ["¿Te has tomado la pastilla?", "No abras las ventanas.", "Lávate la cara al llegar.", "Ay mi niño, qué ojos traes.", "No te frotes, que es peor."]
-            }},
-            gym: { icon: "💪", name: "Gym", tips: { 
-                hot: ["Suda esa grasa.", "Hidratación y electrolitos a tope.", "Entrena sin camiseta.", "El calor quema más calorías.", "No pain no gain.", "Sauna gratis en la calle.", "El sol te da energía."], 
-                cold: ["El frío endurece el carácter.", "Entrena para entrar en calor.", "No hay excusas.", "Corre más rápido para no congelarte.", "Músculos calientes, mente fría.", "El frío mejora la recuperación.", "Entrenamiento espartano."], 
-                rain: ["¿Lluvia? Más épico.", "Correr bajo la lluvia es de pros.", "El agua no encoge.", "Si tienes miedo, entrena en casa.", "Modo bestia activado.", "La lluvia te refresca.", "Rocky no usaba paraguas."], 
-                snow: ["Rocky entrenaba en la nieve.", "Cardio extremo en hielo.", "Sentadillas en la nieve.", "Fuerza mental al máximo.", "Hielo gratis para los músculos.", "Sube esas escaleras congeladas.", "Sin dolor no hay gloria."],
-                wind: ["Resistencia aerodinámica gratis.", "Corre contra el viento.", "Entrenamiento de fuerza puro.", "Mantén el equilibrio.", "El viento te hace más fuerte.", "Más resistencia, más pierna.", "No dejes que te empuje."],
-                cloudy: ["Día perfecto, sin sol que moleste.", "Focaliza en el entreno.", "Nada te distrae.", "El clima ideal para correr.", "Ni frío ni calor, a romperla.", "Cielo gris, pesas de hierro.", "Día de gimnasio."],
-                nice: ["Día de Récord Personal.", "Vitamina D para la testosterona.", "Sal a correr fuera.", "El clima perfecto para crecer.", "A tope hoy.", "Día de pierna al aire libre.", "El sol anabólico."],
-                allergy: ["La alergia es debilidad.", "Entrena indoor hoy.", "No dejes que el polen te pare.", "Respira fuerte y sigue.", "Tómate algo y al gym."]
-            }},
-            cientifico: { icon: "🧪", name: "Ciencia", tips: { 
-                hot: ["Alta radiación UV detectada.", "Termodinámica elevada.", "Evaporación acelerada.", "Riesgo de insolación.", "Moléculas excitadas.", "Incremento de entropía térmica.", "Deshidratación celular probable."], 
-                cold: ["Descenso térmico significativo.", "Baja energía cinética.", "Cristalización posible.", "Hipotermia teórica.", "Conservación de energía.", "Termorregulación requerida.", "Punto de rocío bajo."], 
-                rain: ["Precipitación líquida en curso.", "Ciclo del agua activo.", "Humedad relativa 100%.", "Cumulonimbus presentes.", "Hidrodinámica aplicada.", "Coeficiente de fricción reducido.", "Saturación atmosférica."], 
-                snow: ["Precipitación sólida.", "Estructuras cristalinas hexagonales.", "Albedo elevado.", "Punto de congelación alcanzado.", "Física de fluidos.", "Termodinámica de fases.", "Acumulación nival."],
-                wind: ["Flujo de aire turbulento.", "Diferencial de presión.", "Velocidad eólica alta.", "Aerodinámica inestable.", "Fuerza de arrastre.", "Efecto Venturi probable.", "Turbulencias detectadas."],
-                cloudy: ["Estratos y cúmulos bloquean la radiación.", "Disminución de luxes.", "Evaporación reducida.", "Presión barométrica variable.", "Cobertura nubosa total.", "Radiación difusa.", "Sin sombras proyectadas."],
-                nice: ["Condiciones atmosféricas óptimas.", "Homeostasis ambiental.", "Visibilidad máxima.", "Presión estable.", "Variables ideales.", "Radiación solar nominal.", "Índices biometeorológicos perfectos."],
-                allergy: ["Concentración de partículas biológicas alta.", "Respuesta inmunitaria probable.", "Polinización anemófila detectada.", "Recomiendo filtración de aire.", "Histamina elevada."]
-            }},
-            gato: { icon: "🐱", name: "Gato", tips: { 
-                hot: ["Siesta al sol.", "El suelo está calentito.", "Demasiado calor para cazar.", "Me derrito miau.", "Búscame en la sombra.", "Panza arriba.", "Dame agua fresca, humano."], 
-                cold: ["Manta y estufa humana.", "No pienso salir de aquí.", "Hazme hueco en la cama.", "Mis patas están heladas.", "Odio el invierno.", "Me convierto en una bola.", "Enciende el radiador ya."], 
-                rain: ["Agua no, gracias.", "Miro por la ventana con desprecio.", "Qué asco de mojado.", "Me quedo en el sofá.", "Ruido molesto de lluvia.", "No me toques mojado.", "Día de dormir 20 horas."], 
-                snow: ["¿Qué es esta cosa blanca?", "Frío en las almohadillas.", "Cazar copos mola.", "Me hundo en esto.", "Quiero entrar YA.", "Dejas huellas mojadas.", "La ventana está muy fría."],
-                wind: ["El viento me despeina los bigotes.", "Cosas volando... ¡presas!", "No me gusta este ruido.", "Orejas hacia atrás.", "Peligro invisible.", "Cierren la puerta.", "Me escondo bajo la cama."],
-                cloudy: ["Día aburrido para mirar fuera.", "Dormiré todo el día.", "Luz perfecta para mis ojos.", "Ni fu ni fa.", "Acaríciame.", "Cielo gris, gato gris.", "Bostezo infinito."],
-                nice: ["A cazar pájaros.", "Revolcarse en la hierba.", "Día de aventuras.", "Miau de felicidad.", "El sol es mío.", "Abre la ventana que cotillee.", "Día de correr como loco."],
-                allergy: ["Estornudo... miau.", "Me pica la nariz.", "No me saques al jardín.", "Odio las plantas hoy.", "Achís."]
-            }},
-            pirata: { icon: "🏴‍☠️", name: "Pirata", tips: { 
-                hot: ["¡Sol abrasador, marineros!", "El ron se calienta.", "Calma chicha.", "Sudad como cerdos.", "Ni una nube a la vista.", "El sol quema la cubierta.", "Bebed agua dulce, ratas."], 
-                cold: ["Viento gélido del norte.", "Se me congelan los garfios.", "Mar de hielo.", "Abrigaos, ratas.", "Frío como la tumba.", "El loro está tiritando.", "Necesito ron para entrar en calor."], 
-                rain: ["¡Tormenta a la vista!", "Baldear la cubierta.", "Agua dulce para beber.", "El mar se pica.", "Rayos y centellas.", "¡Asegurad la carga!", "Maldita humedad en mi pata de palo."], 
-                snow: ["Nieve en las velas.", "El kraken se congela.", "Blanco como un hueso.", "Resbaladizo como anguila.", "Invierno en alta mar.", "Rompehielos a proa.", "El mar está blanco."],
-                wind: ["¡Izad las velas!", "Viento en popa.", "Sujetad el sombrero.", "El mar ruge.", "A toda vela.", "¡Sujetaos al mástil!", "La mar está brava."],
-                cloudy: ["Niebla en el horizonte.", "No veo las estrellas para navegar.", "Día gris como la bodega.", "Malos presagios.", "El vigía no ve nada.", "Mar revuelto.", "Sin sol no hay rumbo."],
-                nice: ["Buen viento y buena mar.", "Rumbo al tesoro.", "Día para navegar.", "El horizonte brilla.", "Fortuna sonríe.", "Cantad una de piratas.", "Día de saqueo."],
-                allergy: ["¡Maldito polvo de flores!", "Me llora el ojo del parche.", "El polen es peor que el escorbuto.", "¡Ron para la garganta!", "Estornudo como un cañón."]
-            }},
-            poeta: { icon: "📜", name: "Poeta", tips: { 
-                hot: ["El sol besa la tierra con ardor.", "Luz dorada que ciega.", "Verano eterno en el alma.", "Calor que abraza.", "Danza de fuego.", "El aire vibra de pasión.", "Sombras que huyen."], 
-                cold: ["El invierno susurra en los cristales.", "Manto de silencio helado.", "Aliento de vapor.", "La naturaleza duerme.", "Frío melancólico.", "El abrazo gélido del viento.", "Cristal de hielo en el corazón."], 
-                rain: ["Llanto del cielo gris.", "Melodía de gotas.", "La tierra respira humedad.", "Cristales empañados.", "Tristeza líquida.", "El cielo se deshace en versos.", "Nostalgia mojada."], 
-                snow: ["Danza de estrellas blancas.", "Silencio algodonoso.", "El mundo se viste de novia.", "Pureza efímera.", "Cristal frío.", "Lienzo blanco infinito.", "El susurro de la nieve."],
-                wind: ["Susurros de antiguos dioses.", "El aire cuenta historias.", "Danza invisible.", "Fuerza etérea.", "Canción de tormenta.", "El viento peina los árboles.", "Invisible gigante."],
-                cloudy: ["Cielo de plomo y nostalgia.", "La luz se esconde tímida.", "Grisura que inspira versos tristes.", "Nubes como algodón sucio.", "El sol duerme tras el velo.", "Melancolía atmosférica.", "Suspiros grises."],
-                nice: ["Luz que acaricia.", "Azul infinito.", "La brisa promete.", "Día de versos alegres.", "Paz en el horizonte.", "El sol ríe.", "Poesía visual."],
-                allergy: ["La primavera hiere mis sentidos.", "Lágrimas de flores.", "El aire cargado de vida invisible.", "Suspiros y estornudos.", "La belleza que duele."]
-            }},
-            gamer: { icon: "🎮", name: "Gamer", tips: { 
-                hot: ["Overheating detectado.", "Baja el brillo.", "Los fans de la CPU a tope.", "Lag por calor.", "Gráficos demasiado brillantes.", "Necesito refrigeración líquida.", "El sol está OP, nerfeadlo."], 
-                cold: ["Refrigeración líquida natural.", "Mis manos están congeladas, no puedo aim.", "Ponte skin de invierno.", "Mapa de hielo.", "Baja temperatura de la GPU.", "Overclocking permitido.", "Dedos entumecidos, baja skill."], 
-                rain: ["Efectos de partículas al máximo.", "Renderizando lluvia.", "Baja visibilidad.", "Suelo resbaladizo activado.", "Ambiente Silent Hill.", "Buen día para viciar.", "Físicas de agua realistas."], 
-                snow: ["Evento de Navidad activado.", "Texturas blancas.", "Físicas de nieve.", "Cuidado con el respawn.", "Mapa de invierno.", "El nivel de hielo es difícil.", "Baja el framerate con tanta partícula."],
-                wind: ["Físicas de viento realistas.", "Proyectiles desviados.", "Ruido ambiental alto.", "Vuela con el glider.", "Resistencia al movimiento.", "Lag por viento.", "Cuidado con el loot volando."],
-                cloudy: ["Skybox gris cargado.", "Iluminación plana.", "Ambiente de terror.", "Buen día para grindear en casa.", "Sin reflejos en la pantalla.", "Modo niebla activado.", "Texturas del cielo en baja resolución."],
-                nice: ["FPS estables.", "Ping bajo.", "Gráficos Ultra.", "Buen día para grindear.", "Sin lag.", "Iluminación Ray Tracing on.", "Mapa despejado."],
-                allergy: ["Debuff de veneno activo.", "Stamina baja por estornudos.", "Usa una poción de salud.", "Visibilidad reducida por ojos llorosos.", "Daño por segundo (DPS) de polen."]
-            }},
-            abuela: { icon: "🧶", name: "Abuela", tips: { 
-                hot: ["Baja la persiana hijo.", "Tómate una horchata.", "No andes al sol.", "Qué calor hace.", "Abanícate.", "Ponte a la fresca.", "Come gazpacho."], 
-                cold: ["Ponte la rebequita.", "Te he hecho un jersey.", "Come caliente.", "No cojas frío.", "Arrímate al brasero.", "Ponte las zapatillas.", "Cierra que se va el gato."], 
-                rain: ["Se me va a mojar la ropa tendida.", "Día de migas.", "No salgas que te pones malo.", "Qué manera de llover.", "Reza a Santa Bárbara.", "Coge el paraguas bueno.", "Día de brasero y mesa camilla."], 
-                snow: ["Qué bonito pero qué frío.", "Cuidado no te caigas.", "Chocolate con churros.", "Manta y ganchillo.", "No vayas lejos.", "Llama cuando llegues.", "Ay Jesús qué frío."],
-                wind: ["Cierra el portón.", "Qué aire hace.", "Se vuelan las macetas.", "Ponte pañuelo.", "Mal tiempo.", "Se va a ir la luz.", "Cuidado con las tejas."],
-                cloudy: ["Qué día más feo.", "Va a llover, me duelen las rodillas.", "Está el cielo encapotado.", "No tiendas nada.", "Día triste.", "Ponte algo encima que refresca.", "Parece que quiere agua."],
-                nice: ["Qué día más hermoso.", "Sal a pasear.", "Estás muy pálido, toma el sol.", "Bendito sea Dios.", "Disfruta de la juventud.", "Mira qué flores más bonitas.", "Da gusto salir."],
-                allergy: ["¿Te has tomado la medicina?", "Ay que ver la primavera.", "No salgas al campo.", "Pobrecito mi niño con los mocos.", "Tómate miel con limón."]
-            }},
-            comediante: { icon: "🤡", name: "Risitas", tips: { 
-                hot: ["Hace tanto calor que las gallinas ponen huevos fritos.", "Estoy sudando como testigo falso.", "Más calor que en una comunión en agosto.", "Me derrito bombón.", "El sol paga impuestos hoy.", "Sudo más que un pollo en el horno.", "Hace calor, o soy yo que estoy bueno."], 
-                cold: ["Hace un frío que se congelan las ideas.", "Más frío que el abrazo de una suegra.", "Pingüinos con bufanda.", "Se me han caído los dedos.", "Frío polar.", "Tengo los pezones como diamantes.", "Más frío que un beso de tu ex."], 
-                rain: ["Llueve más que cuando enterraron a Zafra.", "Día de sofá y peli... mentira, a trabajar.", "Se ha roto el cielo.", "Operación Arca de Noé.", "Me encojo con el agua.", "Llueve sobre mojado.", "He visto pasar un pez."], 
-                snow: ["Nieve... o caspa de gigante.", "A hacer ángeles... o demonios.", "Resbalón y vídeo viral.", "Muñeco de nieve deforme.", "Blanca Navidad... en marzo.", "Cuidado con la nieve amarilla.", "A esquiar con bolsas de basura."],
-                wind: ["Se me vuela el peluquín.", "Viento que te peina.", "Agárrate a una farola.", "Volando voy.", "Aire acondicionado natural.", "Me ha adelantado una vaca volando.", "Péinate con gomina hoy."],
-                cloudy: ["El sol está tímido hoy.", "50 sombras de gris... en el cielo.", "Ni chicha ni limoná.", "El cielo tiene depresión.", "Día perfecto para no hacer nada.", "Está más nublado que mi futuro.", "El sol se ha pedido el día libre."],
-                nice: ["Día sospechosamente bueno.", "El sol ha salido, milagro.", "A vivir la vida.", "Sonríe que es gratis.", "Ni frío ni calor, 0 grados.", "Hoy no hay excusa para no salir.", "Disfruta antes de que se estropee."],
-                allergy: ["Soy alérgico al trabajo, no al polen.", "Estornudo en estéreo.", "Mocos radioactivos.", "La primavera la sangre altera... y la nariz.", "Salud... y dinero."]
-            }},
-            astrologo: { icon: "🔮", name: "Astro", tips: { 
-                hot: ["El Sol está en su cénit.", "Energía de fuego intensa.", "Carga tus cristales.", "Aura dorada.", "Mercurio está caliente.", "Leo está vibrando alto.", "Conecta con tu fuego interior."], 
-                cold: ["Saturno trae frío.", "Energía de contracción.", "Medita en la oscuridad.", "Hielo cósmico.", "Alineación gélida.", "Capricornio rige el clima.", "Protege tu energía vital."], 
-                rain: ["Neptuno rige las aguas.", "Limpieza emocional.", "Fluye con las mareas.", "Lluvia de estrellas... líquida.", "Conexión profunda.", "Cáncer está sensible hoy.", "Lava tus penas."], 
-                snow: ["Silencio espiritual.", "Cristalización de intenciones.", "Pureza blanca.", "Energía estancada.", "Manto astral.", "Refracción de luz pura.", "Medita en blanco."],
-                wind: ["Urano trae cambios.", "Vientos de transformación.", "Limpia tu aura.", "Mensajes del aire.", "Movimiento etéreo.", "Géminis está revuelto.", "Escucha los mensajes del viento."],
-                cloudy: ["Velo místico.", "La luna está oculta.", "Energía difusa.", "Momentos de introspección.", "El universo guarda secretos hoy.", "Niebla en el tercer ojo.", "Sombras astrales."],
-                nice: ["Júpiter bendice el día.", "Vibración alta.", "Armonía cósmica.", "El universo conspira a favor.", "Luz estelar.", "Venus sonríe.", "Alineación planetaria favorable."],
-                allergy: ["Energía de aire desequilibrada.", "Marte irrita tus mucosas.", "Bloqueo en el chakra garganta.", "La naturaleza te pone a prueba.", "Mercurio retrógrado en tu nariz."]
-            }},
-            padre: { icon: "👨🏻", name: "Padre", tips: { 
-                hot: ["Ni se te ocurra tocar el termostato.", "Buen día para una barbacoa.", "¿Ves? Te dije que haría calor.", "Ahorra agua.", "Esto no es calor, calor hacía en la mili.", "Cierra la puerta que se escapa el fresco."], 
-                cold: ["Ponte un jersey y no toques la calefacción.", "Cierra la puerta, ¿naciste en un establo?", "Esto templa el carácter.", "Revisa el anticongelante del coche.", "Ahorra luz, apaga eso.", "¿Tienes frío? Corta leña."], 
-                rain: ["Bueno para el campo.", "Ya hacía falta que lloviera.", "Revisa los limpiaparabrisas.", "No corras con el coche.", "Día de bricolaje en casa.", "Se va a limpiar la atmósfera.", "Mira como cae."], 
-                snow: ["Tengo que echar sal en la entrada.", "Ni se te ocurra coger el coche si no sabes.", "Cadenas o nada.", "Esto cuaja seguro.", "Mañana habrá hielo.", "Qué bonito, pero qué engorro."],
-                wind: ["Sujeta bien el toldo.", "Se va a volar la antena.", "Cuidado al abrir la puerta del coche.", "Esto seca la ropa rápido.", "Vaya ventolera.", "Revisa las tejas."],
-                cloudy: ["Buen día para lavar el coche, no se seca rápido.", "Ni frío ni calor.", "Está el cielo feo.", "A ver si escampa.", "Día gris.", "Aprovecha para podar.", "No hace falta regar."],
-                nice: ["Día perfecto para lavar el coche.", "Vamos a dar una vuelta al campo.", "Apaga las luces, hay luz natural.", "Ni una nube.", "Así da gusto.", "Buen día para cortar el césped."],
-                allergy: ["Eso no es nada, es psicológico.", "Anda, toma un pañuelo.", "Estornudas muy fuerte.", "A mí el polen no me hace nada.", "Sal al aire libre, te despejará."]
-            }},
-            novia: { icon: "👩‍❤️‍💋‍👨", name: "Novia", tips: { 
-                hot: ["Vamos a la playa, porfi.", "Hace demasiado calor para abrazarnos.", "¿Me compras un helado?", "Ponte guapo pero fresco.", "Quiero ir a una terraza.", "Mis pelos con esta humedad...", "Llévame a ver el atardecer."], 
-                cold: ["Tengo las manos heladas, caliéntamelas.", "Dame tu sudadera, tengo frío.", "Día de peli y manta.", "No siento los pies.", "Abrázame fuerte.", "Quiero un chocolate caliente.", "No salgamos, hace frío."], 
-                rain: ["Se me va a encrespar el pelo.", "Plan romántico en casa.", "Qué lluvia más triste... abrázame.", "Recógeme en coche.", "Día de spa en casa.", "Parece una peli romántica.", "No me quiero mojar."], 
-                snow: ["¡Qué romántico! Hazme una foto.", "Vamos a hacer un muñeco de nieve.", "Tengo frío, caliéntame.", "Todo está precioso.", "Quiero ir a esquiar contigo.", "Parece de cuento.", "Dame tu abrigo."],
-                wind: ["Se me enreda el pelo, qué horror.", "No puedo llevar falda hoy.", "Vámonos, qué viento más molesto.", "Sujétame que me vuelo.", "Mis labios se cortan.", "Qué tiempo más loco.", "No me gusta el viento."],
-                cloudy: ["Qué día más tonto.", "Vamos de compras.", "No hay buena luz para fotos.", "Me aburro, entretenme.", "Día de mimos.", "Está feo fuera, quedémonos dentro.", "No sé qué ponerme."],
-                nice: ["Hacemos un picnic?", "Sácame una foto con este sol.", "Vamos a pasear de la mano.", "Estás muy guapo hoy.", "Qué día más bonito, como tú.", "Vamos de compras.", "Día de cita."],
-                allergy: ["Tengo la nariz roja, no me mires.", "Tráeme pañuelos, porfi.", "Me pican los ojos.", "Cierra la ventana, que me pongo mala.", "¿Me cuidas?"]
-            }}
-        };
-
-        const modal = document.getElementById('personaModal');
-        const modalContent = document.getElementById('personaGrid');
-        const openPersonaModal = () => { modalContent.innerHTML = ''; Object.keys(aiLogic).forEach(key => { const p = aiLogic[key]; const isActive = key === currentPersona ? 'active' : ''; const div = document.createElement('div'); div.className = `persona-option ${isActive}`; div.onclick = () => selectPersona(key); div.innerHTML = `<span class="persona-icon">${p.icon}</span><span class="persona-name">${p.name}</span>`; modalContent.appendChild(div); }); modal.classList.add('show'); };
-        const selectPersona = (key) => { currentPersona = key; localStorage.setItem('aeris_persona', key); modal.classList.remove('show'); if(lastWeatherData) updateAIText(lastWeatherData); };
-        document.getElementById('ai-toggle').addEventListener('click', openPersonaModal);
-        document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
-        modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
-
-        // --- FUNCIÓN DE ROPA OPTIMIZADA PARA VENTAS (ESTRATEGIA COOKIE) ---
-        const getClothingList = (temp, desc, wind, uv) => {
-            const tag = "&tag=cristianort01-21";
-            const base = "https://www.amazon.es/s?k=";
-            
-            // Helper para crear botones de ropa
-            const item = (icon, text, search) => ({
-                icon: icon,
-                text: text,
-                url: `${base}${search.replace(/ /g, '+')}${tag}`
-            });
-
-            let boys = [], girls = [];
-            let shopLink = null; 
-            
-            desc = desc.toLowerCase();
-            const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
-            const isSnow = desc.includes('nieve') || desc.includes('nevada');
-            const isClear = desc.includes('despejado') || desc.includes('sol');
-            
-            if (temp >= 30) {
-                boys.push(item('bi-brightness-high', 'Tirantes', 'camiseta tirantes hombre'));
-                girls.push(item('bi-brightness-high', 'Top/Vestido', 'vestido verano mujer fresco'));
-                boys.push(item('bi-emoji-sunglasses', 'Shorts', 'pantalones cortos hombre deporte'));
-                girls.push(item('bi-emoji-sunglasses', 'Shorts', 'shorts mujer verano'));
-                boys.push(item('bi-fan', 'Abanico', 'abanico mano'));
-                girls.push(item('bi-fan', 'Abanico', 'abanico moderno'));
-            } else if (temp >= 25) {
-                boys.push(item('bi-tshirt', 'Camiseta', 'camiseta algodon hombre'));
-                girls.push(item('bi-tshirt', 'Blusa', 'blusa fresca mujer'));
-                boys.push(item('bi-emoji-smile', 'Chino corto', 'pantalon chino corto hombre'));
-                girls.push(item('bi-emoji-smile', 'Falda', 'falda verano mujer'));
-            } else if (temp >= 20) {
-                boys.push(item('bi-tshirt', 'Polo', 'polo manga corta hombre'));
-                girls.push(item('bi-tshirt', 'Camiseta', 'camiseta moda mujer'));
-                boys.push(item('bi-person', 'Jeans', 'vaqueros hombre levis'));
-                girls.push(item('bi-person', 'Culotte', 'pantalon culotte mujer'));
-            } else if (temp >= 15) {
-                boys.push(item('bi-person', 'Camisa', 'camisa casual hombre'));
-                girls.push(item('bi-person', 'Cardigan', 'cardigan mujer fino'));
-                boys.push(item('bi-person', 'Chinos', 'pantalones chinos hombre'));
-                girls.push(item('bi-person', 'Jeans', 'jeans mujer'));
-                boys.push(item('bi-layers', 'Chaleco', 'chaleco ligero hombre'));
-                girls.push(item('bi-layers', 'Blazer', 'blazer mujer casual'));
-            } else if (temp >= 10) {
-                boys.push(item('bi-person-hoodie', 'Sudadera', 'sudadera con capucha hombre'));
-                girls.push(item('bi-person-hoodie', 'Jersey', 'jersey punto mujer'));
-                boys.push(item('bi-layers', 'Cazadora', 'cazadora bomber hombre'));
-                girls.push(item('bi-layers', 'Trench', 'gabardina mujer'));
-            } else if (temp >= 5) {
-                boys.push(item('bi-person-fill', 'Jersey Lana', 'jersey lana hombre'));
-                girls.push(item('bi-person-fill', 'Jersey Grueso', 'jersey grueso mujer invierno'));
-                boys.push(item('bi-bricks', 'Abrigo', 'abrigo paño hombre'));
-                girls.push(item('bi-bricks', 'Abrigo', 'abrigo lana mujer'));
-            } else {
-                boys.push(item('bi-snow2', 'Térmica', 'camiseta termica hombre'));
-                girls.push(item('bi-snow2', 'Térmica', 'camiseta termica mujer'));
-                boys.push(item('bi-person-fill', 'Plumífero', 'chaqueta plumas hombre'));
-                girls.push(item('bi-person-fill', 'Plumífero', 'abrigo acolchado mujer'));
-            }
-
-            if (temp < 10 || (wind > 20 && temp < 15)) {
-                boys.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda hombre invierno'));
-                girls.push(item('bi-emoji-dizzy', 'Bufanda', 'bufanda mujer suave'));
-            }
-            if (temp < 5) {
-                boys.push(item('fas fa-hat-winter', 'Gorro', 'gorro lana hombre'));
-                girls.push(item('fas fa-hat-winter', 'Gorro', 'gorro invierno mujer pompon'));
-            }
-            
-            if (isRain) {
-                boys.push(item('bi-umbrella', 'Paraguas', 'paraguas resistente viento'));
-                girls.push(item('bi-umbrella', 'Paraguas', 'paraguas plegable mujer'));
-                boys.push(item('bi-cloud-rain', 'Impermeable', 'chubasquero hombre'));
-                girls.push(item('bi-cloud-rain', 'Gabardina', 'chubasquero mujer impermeable'));
-                if (temp < 15) {
-                    boys.push(item('bi-boot', 'Botas Agua', 'botas de agua hombre'));
-                    girls.push(item('bi-boot', 'Botas Agua', 'botas de agua mujer hunter'));
-                }
-            }
-            
-            if (isSnow) {
-                boys.push(item('bi-snow', 'Botas Nieve', 'botas nieve hombre impermeables'));
-                girls.push(item('bi-snow', 'Botas Nieve', 'botas nieve mujer pelo'));
-                boys.push(item('bi-hand-index-thumb', 'Guantes', 'guantes nieve hombre tactiles'));
-                girls.push(item('bi-hand-index-thumb', 'Guantes', 'guantes invierno mujer'));
-            }
-
-            if (uv > 5 && isClear) {
-                boys.push(item('bi-sunglasses', 'Gafas Sol', 'gafas de sol polarizadas hombre'));
-                girls.push(item('bi-sunglasses', 'Gafas Sol', 'gafas de sol mujer tendencia'));
-                boys.push(item('bi-capslock', 'Gorra', 'gorra beisbol hombre'));
-                girls.push(item('bi-capslock', 'Sombrero', 'sombrero paja mujer'));
-            }
-            
-            if (isRain) {
-                shopLink = { text: "¡Ojo! Paraguas anti-viento", url: `${base}paraguas+antiviento+fuerte${tag}`, icon: "bi-umbrella-fill" };
-            } else if (isSnow) {
-                shopLink = { text: "Cadenas para el coche", url: `${base}cadenas+nieve+coche+textil${tag}`, icon: "bi-snow2" };
-            } else if (uv > 7) { // Solo si el UV es muy alto
-                shopLink = { text: "Crema Solar Facial 50+", url: `${base}crema+solar+facial+50+isdin${tag}`, icon: "bi-sun-fill" };
-            } else if (temp > 32) { // Solo si hace mucho calor
-                shopLink = { text: "Ventilador de Cuello", url: `${base}ventilador+cuello+portatil${tag}`, icon: "bi-fan" };
-            } else if (temp < 4) { // Solo si hace mucho frío
-                shopLink = { text: "Calentadores de Manos USB", url: `${base}calentador+manos+usb${tag}`, icon: "bi-fire" };
-            } else {
-                shopLink = { 
-                    text: "🔥 Ofertas Flash (Hasta -50%)", 
-                    url: `${base}ofertas+amazon+hoy${tag}`, 
-                    icon: "bi-lightning-charge-fill" 
-                };
-            }
-
-            return { boys: boys.slice(0, 5), girls: girls.slice(0, 5), shopLink: shopLink };
-        };
-        
-        const setDynamicBackground = (cur) => {
-            const body = document.body;
-            body.className = ''; 
-            
-            const isDay = cur.isDay;
-            const code = cur.desc.toLowerCase();
-            const temp = cur.temp;
-
-            if (temp > 35) { body.classList.add('bg-hot'); return; }
-            if (code.includes('lluvia') || code.includes('llovizna') || code.includes('tormenta') || code.includes('chubascos')) { body.classList.add('bg-rain'); return; }
-            if (code.includes('nieve')) { body.classList.add('bg-snow'); return; }
-            if (code.includes('nublado') || code.includes('nubes') || code.includes('cubierto') || code.includes('niebla')) { body.classList.add(isDay ? 'bg-cloudy-day' : 'bg-cloudy-night'); return; }
-
-            body.classList.add(isDay ? 'bg-clear-day' : 'bg-clear-night');
-        };
-
-        const updateAIText = (cur, highPollen = false) => { 
-            if (!cur) return; 
-            const p = aiLogic[currentPersona]; 
-            document.getElementById('tip-icon').innerText = p.icon; 
-            
-            // --- NUEVA LÓGICA DE DETECCIÓN INTELIGENTE ---
-            let key = 'nice'; 
-            const d = cur.desc.toLowerCase();
-            const t = cur.temp;
-            const w = cur.windSpeed;
-
-            // Prioridad de condiciones (de más peligroso a más tranquilo)
-            if (highPollen) {
-                key = 'allergy';
-            } else if (d.includes('nieve') || d.includes('nevada') || d.includes('granizo') || d.includes('aguanieve')) {
-                key = 'snow';
-            } else if (d.includes('tormenta') || d.includes('trueno')) {
-                key = 'rain'; 
-            } else if (d.includes('lluvia') || d.includes('llovizna') || d.includes('chubasco')) {
-                key = 'rain'; 
-            } else if (w > 25) { // Viento notable
-                key = 'wind';
-            } else if (t > 28) { // Calor real
-                key = 'hot'; 
-            } else if (t < 12) { // Frío real
-                key = 'cold'; 
-            } else if (d.includes('nublado') || d.includes('cubierto') || d.includes('nubes') || d.includes('niebla') || d.includes('bruma') || d.includes('gris')) {
-                key = 'cloudy'; // Detecta días feos
-            } else {
-                key = 'nice'; // Si no es nada de lo anterior, es un día despejado/bonito
-            }
-            
-            const frases = p.tips[key] || p.tips['nice']; 
-            document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)]; 
-            
-            const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, cur.uv); 
-            const clothingContainer = document.getElementById('clothing-advice'); 
-            if(clothingContainer) { 
-                let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` + clothes.boys.map(i => `<a href="${i.url}" target="_blank" class="clothing-tag boy" style="text-decoration:none; cursor:pointer;"><i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em; opacity:0.6; margin-left:2px"></i></a>`).join('') + `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` + clothes.girls.map(i => `<a href="${i.url}" target="_blank" class="clothing-tag girl" style="text-decoration:none; cursor:pointer;"><i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em; opacity:0.6; margin-left:2px"></i></a>`).join('') + `</div></div>`; 
-                if (clothes.shopLink) {
-                    html += `<div class="mt-2 w-100"><a href="${clothes.shopLink.url}" target="_blank" class="shop-btn w-100 justify-content-center"><i class="bi ${clothes.shopLink.icon}"></i> ${clothes.shopLink.text}</a></div>`;
-                }
-                clothingContainer.innerHTML = html; 
-            } 
-        };
-
-        // --- HELPER PARA RENDERIZAR ICONOS PERSONALIZADOS ---
-        const renderIcon = (iconName, size = "fs-4") => {
-            // 1. TU IMAGEN PROPIA (Solo para "Intervalos Nubosos" de día)
-            // Se activa cuando la API pide 'bi-cloud-sun' y NO es de noche
-            if (iconName.includes('bi-cloud-sun') && !iconName.includes('moon')) {
-                
-                // Determinar tamaño
-                let imgWidth = "48px"; // Tamaño para LISTAS (ajustado para que se vea igual que fs-4/5)
-                let animation = "";
-                
-                // Si el size es grande (el de arriba del todo)
-                if (size.includes("5.5rem") || size.includes("fs-1")) {
-                    imgWidth = "160px"; // Más grande para el principal
-                    animation = "animation: float 3s infinite ease-in-out;";
-                }
-
-                // Renderizamos la etiqueta IMG apuntando a tu archivo
-                return `<img src="icono-clima.png" alt="Sol y Nube" style="width: ${imgWidth}; height: auto; vertical-align: middle; ${animation}">`;
-            }
-            
-            // 2. CASO ESPECIAL: LUNA (Noche)
-            // Mantenemos la luna gris/azulada para que se vea bien en fondo blanco
-            if (iconName.includes('moon')) {
-                return `<i class="bi ${iconName} ${size}" style="color: #64748b !important; filter: drop-shadow(0 0 5px rgba(100, 116, 139, 0.3));"></i>`;
-            }
-
-            // 3. RESTO DE ICONOS (Lluvia, Nieve, Sol solo, etc.)
-            // Usan los colores definidos en el CSS (Amarillo, Azul, etc.)
-            return `<i class="bi ${iconName} ${size}"></i>`;
-        };
-
-        document.getElementById('shareBtn').addEventListener('click', () => { const element = document.getElementById('capture-card'); const btn = document.getElementById('shareBtn'); btn.style.display = 'none'; html2canvas(element, { backgroundColor: null, scale: 2 }).then(canvas => { btn.style.display = 'flex'; const link = document.createElement('a'); link.download = `aeris.png`; link.href = canvas.toDataURL(); link.click(); }).catch(() => { btn.style.display = 'flex'; }); });
-        
-        const updateHeartUI = () => { 
-            const heart = document.getElementById('favHeart'); 
-            if(!heart) return; 
-            const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id)); 
-            heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3'; 
-        };
-
-        const toggleFavorite = () => { 
-            const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id)); 
-            if (index > -1) { favorites.splice(index, 1); } else { favorites.push({ ...currentCityInfo }); } 
-            localStorage.setItem('aeris_favs', JSON.stringify(favorites)); 
-            updateHeartUI(); 
-            renderFavorites(); 
-        };
-
-        const renderFavorites = () => { 
-            const list = document.getElementById('favList'); 
-            if(!list) return; 
-            list.innerHTML = ''; 
-            favorites.forEach(city => { 
-                const li = document.createElement('li'); 
-                li.className = 'fav-item'; 
-                li.innerHTML = `<div class="fav-item-info"><span class="fav-name">${city.name}</span><span class="fav-region">${city.region}</span></div><div class="fav-delete"><i class="bi bi-trash3-fill"></i></div>`; 
-                li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); }; 
-                li.querySelector('.fav-delete').onclick = (e) => { 
-                    e.stopPropagation(); 
-                    favorites = favorites.filter(f => String(f.id) !== String(city.id)); 
-                    localStorage.setItem('aeris_favs', JSON.stringify(favorites)); 
-                    renderFavorites(); 
-                    updateHeartUI(); 
-                }; 
-                list.appendChild(li); 
-            }); 
-        };
-
-        const openSidebar = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); };
-        const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
-        
-        document.getElementById('favMenuBtn').addEventListener('click', openSidebar); 
-        document.getElementById('closeSidebar').addEventListener('click', closeSidebar); 
-        document.getElementById('overlay').addEventListener('click', closeSidebar);
-        document.getElementById('favHeart').addEventListener('click', toggleFavorite);
-        
-        const normalizeInput = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const searchInput = document.getElementById('citySearch'); const suggestionsList = document.getElementById('suggestions'); let searchTimeout;
-        if(searchInput) { searchInput.addEventListener('input', (e) => { clearTimeout(searchTimeout); if (e.target.value.length < 3) return suggestionsList.classList.remove('show'); searchTimeout = setTimeout(async () => { try { const cleanQuery = normalizeInput(e.target.value); const res = await fetch(`/api/search/${encodeURIComponent(cleanQuery)}`); const cities = await res.json(); suggestionsList.innerHTML = ''; cities.forEach(c => { const li = document.createElement('li'); li.className = 'suggestion-item'; li.innerHTML = `<span>${c.name}</span><small>${c.region}</small>`; li.onclick = () => selectCity(c); suggestionsList.appendChild(li); }); if(cities.length) suggestionsList.classList.add('show'); } catch(e) {} }, 300); }); }
-        
-        const selectCity = (city) => { if(searchInput) searchInput.value = ''; if(suggestionsList) suggestionsList.classList.remove('show'); const id = city.id || city.name; localStorage.setItem('lastId', id); localStorage.setItem('lastName', city.name); localStorage.setItem('lastRegion', city.region || ''); currentId = id; currentCityInfo = { id: id, name: city.name, region: city.region || '' }; document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); }); getWeather(id); };
-
-        const renderRainChart = (nowcast, hourlyData, currentTime) => {
-            const card = document.getElementById('rain-card');
-            const summary = document.getElementById('rain-summary');
-            let timeLabels = [], precipData = [];
-
-            if (nowcast && nowcast.time && nowcast.time.length > 0) {
-                let startIndex = 0;
-                if (currentTime) {
-                    const targetTime = new Date(currentTime).getTime();
-                    startIndex = nowcast.time.findIndex(t => new Date(t).getTime() >= targetTime);
-                }
-                
-                if (startIndex === -1 || startIndex >= nowcast.time.length) startIndex = 0;
-
-                for(let i=0; i<6; i++) {
-                    if (startIndex + i < nowcast.precipitation.length) {
-                        precipData.push(nowcast.precipitation[startIndex + i]);
-                        timeLabels.push(nowcast.time[startIndex + i].split('T')[1]);
-                    }
-                }
-            }
-
-            const totalRadar = precipData.reduce((a,b)=>a+b,0);
-            if (totalRadar === 0 && hourlyData) {
-                precipData = []; timeLabels = [];
-                for(let i=0; i<5; i++) {
-                    if (hourlyData[i]) {
-                        precipData.push(hourlyData[i].precip || 0);
-                        timeLabels.push(hourlyData[i].displayTime);
-                    }
-                }
-            }
-
-            const total = precipData.reduce((a,b)=>a+b,0);
-            if (total < 0.1) { card.style.display = 'none'; return; }
-
-            card.style.display = 'block';
-            summary.innerText = total > 5 ? "Lluvia Fuerte" : (total > 1 ? "Lluvia Moderada" : "Lluvia Ligera");
-
-            const ctx = document.getElementById('rainChart').getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 0, 0, 150);
-            gradient.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
-            gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
-            if(rainChartInstance) rainChartInstance.destroy();
-            rainChartInstance = new Chart(ctx, { type: 'line', data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { display: false, min: 0 } }, animation: { duration: 1000 }, layout: { padding: { top: 10, left: 5, right: 5, bottom: 0 } } } });
-        };
-
-        const themeBtn = document.getElementById('themeBtn');
-        if(themeBtn) themeBtn.addEventListener('click', () => {
-            const current = document.body.getAttribute('data-theme');
-            const newTheme = current === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('aeris_theme_pref', newTheme);
-            document.body.setAttribute('data-theme', newTheme);
-            document.documentElement.setAttribute('data-bs-theme', newTheme);
-            themeBtn.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>';
-            document.documentElement.style.setProperty('--invert-close', newTheme === 'dark' ? '1' : '0');
-        });
-
-        window.toggleDay = (index) => {
-            const el = document.getElementById(`day-detail-${index}`);
-            if (el) {
-                if (el.style.display === 'none') {
-                    el.style.display = 'block';
-                    el.style.opacity = '0';
-                    setTimeout(() => el.style.opacity = '1', 10);
-                } else {
-                    el.style.opacity = '0';
-                    setTimeout(() => el.style.display = 'none', 300);
-                }
-            }
-        };
-        
-        const renderPollen = (pollen) => {
-            const card = document.getElementById('pollen-card');
-            const list = document.getElementById('pollen-list');
-            
-            if (!pollen || Object.values(pollen).every(v => v === 0)) {
-                card.style.display = 'none';
-                return false; 
-            }
-            
-            card.style.display = 'block';
-            
-            const types = [
-                { k: 'grass', n: 'Gramíneas', color: '#84cc16' },
-                { k: 'olive', n: 'Olivo', color: '#eab308' },
-                { k: 'birch', n: 'Abedul', color: '#f97316' },
-                { k: 'ragweed', n: 'Ambrosía', color: '#ef4444' },
-                { k: 'alder', n: 'Aliso', color: '#a855f7' },
-                { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' },
-                { k: 'oak', n: 'Roble', color: '#854d0e' },
-                { k: 'pine', n: 'Pino', color: '#166534' },
-                { k: 'cypress', n: 'Ciprés', color: '#14b8a6' },
-                { k: 'hazel', n: 'Avellano', color: '#d97706' },
-                { k: 'plane', n: 'P. Sombra', color: '#86efac' },
-                { k: 'poplar', n: 'Chopo', color: '#cbd5e1' },
-                { k: 'ash', n: 'Fresno', color: '#64748b' }
-            ];
-            
-            types.sort((a, b) => (pollen[b.k] || 0) - (pollen[a.k] || 0));
-            
-            const activeTypes = types.filter(t => pollen[t.k] > 5).slice(0, 4);
-            
-            if (activeTypes.length === 0) {
-                 card.style.display = 'none';
-                 return false;
-            }
-            
-            let isHigh = false;
-
-            list.innerHTML = activeTypes.map(t => {
-                const val = pollen[t.k] || 0;
-                let percent = (val / 100) * 100;
-                if (percent > 100) percent = 100;
-                
-                if (val > 50) isHigh = true; 
-                
-                return `
-                <div class="pollen-item">
-                    <span class="pollen-name text-capitalize opacity-75">${t.n}</span>
-                    <div class="pollen-bar-bg">
-                        <div class="pollen-bar-fill" style="width: ${percent}%; background-color: ${t.color}"></div>
-                    </div>
-                    <span class="pollen-val opacity-50">${val}</span>
-                </div>`;
-            }).join('');
-            
-            return isHigh;
-        };
-
-        const renderAlerts = (alerts) => {
-            const container = document.getElementById('alerts-container');
-            if(!alerts || alerts.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-            container.innerHTML = alerts.map(a => `
-                <div class="alert-card ${a.level}">
-                    <i class="bi bi-exclamation-triangle-fill alert-icon"></i>
-                    <div>
-                        <div class="fw-bold">${a.title}</div>
-                        <div class="small opacity-75">${a.msg}</div>
-                    </div>
+<!-- MODAL NOTIFICACIONES -->
+<div class="modal fade" id="notificationModal" tabindex="-1" aria-hidden="true" style="z-index:10000;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card border-0" style="background:var(--glass);color:var(--text);">
+            <div class="modal-body text-center p-4">
+                <div class="mb-3 p-3 rounded-circle d-inline-flex align-items-center justify-content-center" style="background:rgba(2,132,199,0.1);">
+                    <i class="bi bi-cloud-lightning-rain-fill" style="font-size:2.5rem;color:var(--accent);"></i>
                 </div>
-            `).join('');
-        };
+                <h5 class="fw-bold mb-2">¿Quieres alertas del tiempo?</h5>
+                <p class="opacity-75 small mb-4">Aeris puede avisarte si va a llover, nevar o si hay calor extremo en tu zona, incluso con la app cerrada.</p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Ahora no</button>
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-4" id="enableNotifBtn">Sí, activar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-        const renderLifestyle = (cur, daily) => {
-            const list = document.getElementById('lifestyle-list');
-            if (!list || !daily) return;
+<!-- APP JS -->
+<script src="app.js"></script>
 
-            // --- VARIABLES GLOBALES PARA LAS CONDICIONES ---
-            const desc = cur.desc.toLowerCase();
-            
-            // Detectamos condiciones específicas
-            const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubasco') || desc.includes('aguacero');
-            const isSnow = desc.includes('nieve') || desc.includes('aguanieve') || desc.includes('granizo');
-            const isFog = desc.includes('niebla') || desc.includes('bruma') || desc.includes('neblina');
-            const isStorm = desc.includes('tormenta') || desc.includes('trueno') || desc.includes('rayos');
-
-            // Probabilidades numéricas exactas (0 a 100)
-            const probToday = daily[0] ? (daily[0].rainProbMax || 0) : 0;
-            const probTomorrow = daily[1] ? (daily[1].rainProbMax || 0) : 0;
-
-            const activities = [
-                {
-                    id: 'run', name: 'Running', icon: 'fa-solid fa-person-running',
-                    check: () => {
-                        // MALO: Lluvia fuerte/nieve, calor extremo (>32), frío extremo (<-5), viento fuerte (>35)
-                        if (isRain || isSnow || cur.temp > 32 || cur.temp < -5 || cur.windSpeed > 35) return 'bad';
-                        
-                        // REGULAR: Llovizna ligera, calor considerable (>26), frío (<5), viento molesto (>20)
-                        // Nota: probToday > 50 implica riesgo alto de mojarse aunque no llueva ahora
-                        if (probToday > 50 || cur.temp > 26 || cur.temp < 5 || cur.windSpeed > 20) return 'fair';
-                        
-                        // IDEAL
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'cycle', name: 'Ciclismo', icon: 'fa-solid fa-bicycle',
-                    check: () => {
-                        // El viento es el peor enemigo del ciclista, más que la temperatura.
-                        // MALO: Lluvia/Nieve (peligro resbalones), Viento > 30, Calor > 35
-                        if (isRain || isSnow || cur.windSpeed > 30 || cur.temp > 35) return 'bad';
-                        
-                        // REGULAR: Viento > 15 (ya molesta), Frío < 5, Calor > 28
-                        if (cur.windSpeed > 15 || cur.temp < 5 || cur.temp > 28) return 'fair';
-                        
-                        // IDEAL
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'bbq', name: 'Barbacoa', icon: 'fa-solid fa-burger',
-                    check: () => {
-                        // MALO: Si llueve o hay ALTA probabilidad hoy (>30%), o mucho viento (aviva fuego/humo)
-                        if (isRain || isSnow || probToday > 30 || cur.windSpeed > 25) return 'bad';
-                        
-                        // REGULAR: Si hace frío (<15) o hay riesgo ligero de lluvia (>10%) o viento medio
-                        if (cur.temp < 15 || probToday > 10 || cur.windSpeed > 15) return 'fair';
-                        
-                        // IDEAL
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'car', name: 'Lavar Coche', icon: 'fa-solid fa-car-side',
-                    check: () => {
-                        // LÓGICA FINAL Y ROBUSTA
-                        // MALO: Llueve ahora, o probabilidad >= 10% HOY, o probabilidad >= 10% MAÑANA
-                        if (isRain || isSnow || probToday >= 10 || probTomorrow >= 10) return 'bad';
-                        
-                        // REGULAR: Hace mucho frío (<4, se congela el agua) o hay riesgo mínimo (1-9%)
-                        if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair';
-                        
-                        // IDEAL: Probabilidad 0% hoy y mañana
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'star', name: 'Ver Estrellas', icon: 'fa-solid fa-star',
-                    check: () => {
-                        // MALO: Es de día, o hay muchas nubes (>50%), o llueve
-                        if (cur.isDay || cur.cloudCover > 50 || isRain || isSnow) return 'bad';
-                        
-                        // REGULAR: Algunas nubes (>20%) o luna muy brillante (opcional, difícil de medir aquí)
-                        if (cur.cloudCover > 20) return 'fair';
-                        
-                        // IDEAL: Noche despejada
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'dog', name: 'Paseo Perro', icon: 'fa-solid fa-dog',
-                    check: () => {
-                        // MALO: Tormenta (miedo), Lluvia fuerte, Asfalto quemando (>30°C ambiente suele ser suelo muy caliente)
-                        if (isStorm || isRain || cur.temp > 30 || cur.temp < -10) return 'bad';
-                        
-                        // REGULAR: Llovizna, Suelo mojado (prob > 50), Frío/Calor moderado
-                        if (probToday > 50 || cur.temp > 25 || cur.temp < 5) return 'fair';
-                        
-                        // IDEAL
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'beach', name: 'Playa', icon: 'fa-solid fa-umbrella-beach',
-                    check: () => {
-                        // MALO: Lluvia, Frío (<22), Viento fuerte (arena vuela > 25)
-                        if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad';
-                        
-                        // REGULAR: Nublado (>60%), Viento medio, Calor "normal" (22-25)
-                        if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair';
-                        
-                        // IDEAL: Calor (>25), poco viento, sol
-                        return 'good';
-                    }
-                },
-                {
-                    id: 'drive', name: 'Conducir', icon: 'fa-solid fa-road',
-                    check: () => {
-                        // MALO: Niebla, Nieve/Hielo, Tormenta, Viento extremo
-                        if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad';
-                        
-                        // REGULAR: Lluvia, Viento fuerte (>30), Probabilidad alta de precipitación
-                        if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair';
-                        
-                        // IDEAL
-                        return 'good';
-                    }
-                }
-            ];
-
-            list.innerHTML = activities.map(act => {
-                const status = act.check();
-                return `
-                <div class="activity-item">
-                    <i class="${act.icon} activity-icon"></i>
-                    <div class="status-dot status-${status}"></div>
-                    <span class="activity-name">${act.name}</span>
-                </div>`;
-            }).join('');
-        };
-
-        async function getWeather(id) {
-            try {
-                let storedName = localStorage.getItem('lastName');
-                if (storedName === 'Ubicación' || storedName === 'Ubicación detectada' || storedName === 'Ubicación Detectada') storedName = null;
-                
-                const storedRegion = localStorage.getItem('lastRegion') || '';
-                
-                let url = `/api/weather/${id}?region=${encodeURIComponent(storedRegion)}`;
-                if (storedName) url += `&name=${encodeURIComponent(storedName)}`;
-                
-                const res = await fetch(url);
-                const data = await res.json();
-                if(data.error) throw new Error(data.error);
-
-                const cur = data.current;
-                const loc = data.location;
-                currentCityInfo = { id: id, name: loc.name, region: loc.region };
-                lastWeatherData = cur;
-                updateHeartUI();
-
-                document.querySelectorAll('.skeleton').forEach(el => { el.classList.remove('skeleton'); el.style.width = ''; el.style.height = ''; el.style.minHeight = ''; });
-                
-                let displayCity = loc.name;
-                
-                // Si viene de la API como "Tu ubicación (XXXX)"
-                if (displayCity.startsWith("Tu ubicación (")) {
-                    displayCity = displayCity; // Se deja tal cual porque ya tiene el formato
-                } 
-                // Si es solo "Tu ubicación", intentamos mejorarlo
-                else if (displayCity === "Tu ubicación") {
-                    if (loc.region) {
-                       displayCity = `Tu ubicación (${loc.region.split(',')[0].trim()})`;
-                    }
-                }
-
-                // Renderizado final
-                const cityEl = document.getElementById('city');
-                if (displayCity.startsWith("Tu ubicación")) {
-                    // Extraemos lo que hay entre paréntesis si existe
-                    const match = displayCity.match(/\(([^)]+)\)/);
-                    const subText = match ? match[1] : "";
-                          
-                    cityEl.innerHTML = `TU UBICACIÓN ${subText ? `<small style="display:block; opacity:0.6; font-size:1em; text-transform:none; margin-top:5px">(${subText})</small>` : ''}`;
-                } else {
-                    cityEl.innerText = displayCity;
-                }
-
-                document.getElementById('temp').innerText = cur.temp + '°';
-                document.getElementById('desc').innerText = cur.desc;
-                
-                // --- ICONO GRANDE CON COLORES ---
-                // Usamos renderIcon. Si es la imagen, le pasamos "5.5rem" para que sepa que es la grande.
-                // Si es un icono normal, renderIcon lo devuelve como <i>, pero necesitamos los estilos extra de animación/tamaño.
-                
-                const renderedIcon = renderIcon(cur.icon, "5.5rem");
-                
-                if (renderedIcon.includes('<img')) {
-                    // Es nuestra imagen personalizada (ya lleva el estilo dentro de renderIcon)
-                    document.getElementById('weather-icon-container').innerHTML = renderedIcon;
-                } else {
-                    // Es un icono normal (fuente), le aplicamos el estilo inline manual para asegurar tamaño y animación
-                     document.getElementById('weather-icon-container').innerHTML = `<i class="bi ${cur.icon}" style="font-size: 5.5rem; animation: float 3s infinite ease-in-out;"></i>`;
-                }
-
-                document.getElementById('hum').innerText = cur.humidity;
-                document.getElementById('wind').innerText = cur.windSpeed;
-                document.getElementById('uv').innerText = cur.uv;
-                document.getElementById('feels-like').innerText = cur.feelsLike;
-                
-                document.getElementById('compare-txt').innerText = cur.comparison || "";
-
-                const aqi = (cur.aqi !== undefined) ? cur.aqi : 0; 
-                const pm25 = (cur.pm25 !== undefined) ? cur.pm25 : '--';
-                const pm10 = (cur.pm10 !== undefined) ? cur.pm10 : '--';
-                let aqiText = "Buena"; let aqiColor = "#4ade80"; 
-                if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; } else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; } else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; } else if (aqi > 100) { aqiText = "Sensible"; aqiColor = "#f97316"; } else if (aqi > 50) { aqiText = "Moderada"; aqiColor = "#eab308"; } 
-                let aqiPercent = (aqi / 300) * 100; if (aqiPercent > 100) aqiPercent = 100;
-                document.getElementById('aqi-val').innerText = aqi;
-                document.getElementById('aqi-text').innerText = aqiText;
-                document.getElementById('aqi-text').style.color = aqiColor;
-                document.getElementById('pm25').innerText = pm25 + (typeof pm25 === 'number' ? ' µg/m³' : '');
-                document.getElementById('pm10').innerText = pm10 + (typeof pm10 === 'number' ? ' µg/m³' : '');
-                document.getElementById('aqi-dot').style.left = `${aqiPercent}%`;
-
-                renderRainChart(data.nowcast, data.hourly, cur.time);
-                
-                const isHighPollen = renderPollen(data.pollen);
-                
-                renderLifestyle(cur, data.daily);
-                
-                renderAlerts(data.alerts);
-                
-                updateAIText(cur, isHighPollen);
-                
-                setDynamicBackground(cur);
-
-                if (data.daily && data.daily.length > 0) {
-                    document.getElementById('max-temp').innerText = data.daily[0].tempMax;
-                    document.getElementById('min-temp').innerText = data.daily[0].tempMin;
-                    document.getElementById('max-temp').classList.remove('skeleton');
-                    document.getElementById('min-temp').classList.remove('skeleton');
-                }
-
-                if (Notification.permission === 'granted') {
-                    registerPush(true);
-                }
-
-                if(loc.lat && loc.lon) {
-                    const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
-                    const iframe = document.getElementById('radar-frame');
-                    if(iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
-                }
-
-                const hCont = document.getElementById('hourly');
-                if(hCont) hCont.innerHTML = data.hourly.map(h => 
-                    `<div class="hourly-item">
-                        <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-                        ${renderIcon(h.icon, "fs-4")}
-                        <div class="fw-bold fs-5">${h.temp}°</div>
-                        <div class="small fw-bold" style="font-size:0.7rem; color:var(--accent)">
-                            ${h.rainProb>0?h.rainProb+'%':''}
-                        </div>
-                    </div>`
-                ).join('');
-                
-                const dCont = document.getElementById('daily');
-                if(dCont) dCont.innerHTML = data.daily.map((d, index) => {
-                    const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES',{weekday:'long', day:'numeric'});
-                    
-                    let hourlyHtml = '';
-                    if (d.dayHours && d.dayHours.length > 0) {
-                        hourlyHtml = d.dayHours.map(h => {
-                            // --- SOLUCIÓN NOCHE ---
-                            const hour = parseInt(h.time.split(':')[0]);
-                            const sunriseHour = parseInt(d.sunrise.split(':')[0]);
-                            const sunsetHour = parseInt(d.sunset.split(':')[0]);
-                            
-                            let iconClass = h.icon;
-                            // Si es antes del amanecer o después del atardecer, forzar iconos de noche
-                            if (hour < sunriseHour || hour > sunsetHour) {
-                                iconClass = iconClass.replace('bi-sun', 'bi-moon').replace('bi-cloud-sun', 'bi-cloud-moon');
-                            }
-
-                            return `<div class="day-hourly-item">
-                                <span class="opacity-50 fw-bold">${h.time}</span>
-                                ${renderIcon(iconClass, "fs-5 text-primary")}
-                                <span class="fw-bold">${h.temp}°</span>
-                                <small style="color:#3b82f6; font-weight:800; font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small>
-                            </div>`
-                        }).join('');
-                    } else {
-                        hourlyHtml = '<div class="text-center w-100 opacity-50 small">No hay datos horarios disponibles</div>';
-                    }
-
-                    return `
-                    <div style="cursor:pointer" onclick="toggleDay(${index})">
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border) !important">
-                            <div style="width:35%" class="fw-bold text-capitalize">
-                                <div>${formattedDate}</div>
-                                <div class="small opacity-50 d-flex gap-2">
-                                    <span><i class="bi bi-sunrise"></i> ${d.sunrise}</span>
-                                    <span><i class="bi bi-sunset"></i> ${d.sunset}</span>
-                                </div>
-                            </div>
-                            <div class="d-flex flex-column align-items-center" style="width:25%">
-                                ${renderIcon(d.icon, "fs-5")}
-                                <small class="text-primary fw-bold">${d.rainProbMax>0?d.rainProbMax+'%':''}</small>
-                            </div>
-                            <div class="text-end fw-bold" style="width:30%">
-                                <span style="color:#ef4444">${d.tempMax}°</span> / <span style="color:#3b82f6">${d.tempMin}°</span>
-                                <i class="bi bi-chevron-down ms-2 opacity-50 small"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="day-detail-${index}" class="day-detail" style="display:none; opacity:0">
-                        <div class="day-detail-content">
-                            ${hourlyHtml}
-                        </div>
-                    </div>
-                    `;
-                }).join('');
-
-            } catch (e) { console.error(e); }
-        }
-
-        const geoBtn = document.getElementById('geoBtn');
-        if(geoBtn) geoBtn.addEventListener('click', () => {
-             if(!navigator.geolocation) return;
-             document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
-             navigator.geolocation.getCurrentPosition(async (pos) => {
-                 const id = `${pos.coords.latitude},${pos.coords.longitude}`;
-                 
-                 // --- NUEVO: OBTENER NOMBRE EXACTO DEL NAVEGADOR ---
-                 let exactName = "";
-                 try {
-                     const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=14`);
-                     const data = await resp.json();
-                     // Prioridad: Barrio > Pueblo > Ciudad
-                     exactName = data.address.suburb || data.address.neighbourhood || data.address.village || data.address.town || data.address.city || data.address.municipality;
-                 } catch(e) {}
-
-                 // Guardamos el nombre exacto para que el Backend lo use
-                 if(exactName) {
-                     localStorage.setItem('lastName', `Tu ubicación (${exactName})`);
-                 } else {
-                     localStorage.setItem('lastName', '');
-                 }
-                 
-                 getWeather(id);
-             });
-        });
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                    const id = `${pos.coords.latitude},${pos.coords.longitude}`;
-                    
-                    // --- NUEVO: OBTENER NOMBRE EXACTO AL INICIO ---
-                    let exactName = "";
-                    try {
-                        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=14`);
-                        const data = await resp.json();
-                        exactName = data.address.suburb || data.address.neighbourhood || data.address.village || data.address.town || data.address.city || data.address.municipality;
-                    } catch(e) {}
-
-                    if(exactName) {
-                        localStorage.setItem('lastName', `Tu ubicación (${exactName})`);
-                    } else {
-                        // Si falla, borramos para que no salga uno viejo
-                        localStorage.setItem('lastName', '');
-                    }
-
-                    getWeather(id); 
-                },
-                (err) => { getWeather(localStorage.getItem('lastId') || 'Madrid'); },
-                { timeout: 4000, enableHighAccuracy: false }
-            );
-        } else { getWeather(localStorage.getItem('lastId') || 'Madrid'); }
-    </script>
-    <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js');
-        });
-    }
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
