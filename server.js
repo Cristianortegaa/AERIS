@@ -464,6 +464,60 @@ app.get('/api/cron/check-rain', async (req, res) => {
     }
 });
 
+// --- CRON: RESUMEN MATUTINO (llámalo cada mañana a las 8h) ---
+app.get('/api/cron/morning-summary', async (req, res) => {
+    const secret = process.env.CRON_SECRET;
+    if (secret && req.headers['x-cron-secret'] !== secret) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+    if (!publicVapidKey || !privateVapidKey) {
+        return res.status(503).json({ error: 'VAPID no configurado.' });
+    }
+    try {
+        const users = await Subscription.findAll();
+        let sentCount = 0;
+        for (const user of users) {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&current=temperature_2m&timezone=auto&forecast_days=1`;
+                const response = await axios.get(url);
+                const d = response.data.daily;
+                if (!d) continue;
+                const wmo = decodeWMO(d.weather_code[0], 1);
+                const max = Math.round(d.temperature_2m_max[0]);
+                const min = Math.round(d.temperature_2m_min[0]);
+                const rain = d.precipitation_probability_max[0] || 0;
+                const uv = d.uv_index_max[0] || 0;
+
+                // Emoji según condición
+                const emojis = { 'Despejado': '☀️', 'Parcialmente': '⛅', 'Nublado': '☁️', 'Lluvia': '🌧️', 'Nieve': '❄️', 'Tormenta': '⛈️', 'Niebla': '🌫️' };
+                let emoji = '🌤️';
+                for (const [k, v] of Object.entries(emojis)) { if (wmo.text.includes(k)) { emoji = v; break; } }
+
+                // ¿Buen día? (comfort > 70 && sin lluvia && temp 18-28)
+                const isNiceDay = rain < 20 && max >= 18 && max <= 28 && d.weather_code[0] <= 3;
+                const niceExtra = isNiceDay ? ' ¡Buen día para salir! 🏃' : '';
+
+                const notif = {
+                    title: `${emoji} Buenos días en ${user.city}`,
+                    body: `${wmo.text} · ${min}°–${max}° · Lluvia: ${rain}% · UV: ${uv}${niceExtra}`
+                };
+                await webpush.sendNotification(
+                    { endpoint: user.endpoint, keys: user.keys },
+                    JSON.stringify({ title: notif.title, body: notif.body, icon: '/logo.png', badge: '/logo.png' })
+                );
+                sentCount++;
+            } catch (err) {
+                if (err.statusCode === 410) await user.destroy();
+                else log('error', `morning usuario ${user.city}:`, err.message);
+            }
+        }
+        res.json({ success: true, message: `Resumen matutino enviado a ${sentCount} usuarios.` });
+    } catch (error) {
+        log('error', 'Morning cron:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => log('info', `Aeris LIVE en puerto ${PORT}`));
 

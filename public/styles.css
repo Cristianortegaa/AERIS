@@ -372,3 +372,108 @@ body.bg-clear-night .pollen-bar-bg { background: rgba(255,255,255,0.2); }
     100% { transform: translateY(0px); opacity: 1; }
 }
 .fade-down { animation: float 2s infinite; }
+
+/* --- 23. CANVAS ANIMACIONES DE CLIMA --- */
+#weather-canvas {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0; opacity: 0.6;
+}
+.container { position: relative; z-index: 1; }
+
+/* --- 24. ONBOARDING --- */
+#onboarding-overlay {
+    position: fixed; inset: 0; z-index: 20000;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(20px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+}
+.onboarding-card {
+    background: var(--bg-1); border-radius: 28px; padding: 32px 24px;
+    max-width: 360px; width: 100%; text-align: center;
+    border: 1px solid var(--glass-border); box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+    color: var(--text);
+}
+.onboarding-emoji { font-size: 4rem; margin-bottom: 16px; display: block; animation: breathe 3s infinite; }
+#onboarding-slides { min-height: 150px; position: relative; }
+.onboarding-slide { display: none; animation: fadeInUp 0.4s ease; }
+.onboarding-slide.active { display: block; }
+@keyframes fadeInUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+.onboarding-dots { display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
+.ob-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(0,0,0,0.2); transition: all 0.3s; }
+.ob-dot.active { width: 24px; border-radius: 4px; background: var(--accent); }
+
+/* --- 25. SOLAR CLOCK --- */
+#solar-card { overflow: visible; }
+.solar-clock-wrapper { width: 100%; overflow: hidden; }
+#solar-clock-canvas { width: 100%; height: auto; display: block; }
+#sunset-time { color: #f97316; }
+
+/* --- 26. COMFORT BAR --- */
+#comfort-row { display: flex !important; }
+.comfort-bar-bg {
+    height: 6px; border-radius: 10px;
+    background: rgba(0,0,0,0.1); overflow: hidden;
+}
+[data-theme="dark"] .comfort-bar-bg { background: rgba(255,255,255,0.1); }
+.comfort-bar-fill {
+    height: 100%; border-radius: 10px;
+    background: linear-gradient(to right, #ef4444, #facc15, #4ade80);
+    transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* --- 27. VOZ Y UNIDADES --- */
+.voice-btn {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    width: 32px; height: 32px; background: none; border: none;
+    color: var(--text-sec); cursor: pointer; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; z-index: 10;
+}
+.voice-btn:hover { color: var(--accent); background: rgba(255,255,255,0.3); }
+.voice-btn.listening { color: #ef4444; animation: pulse-red 1s infinite; }
+@keyframes pulse-red { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4);} 50%{box-shadow:0 0 0 8px rgba(239,68,68,0);} }
+.search-input { padding-right: 48px !important; }
+#unitsBtn { font-family: 'Outfit', sans-serif; font-size: 0.8rem; }
+
+/* --- 28. SHARE CARD REDISEÑADA --- */
+.share-card-design {
+    border-radius: 24px; overflow: hidden;
+    position: relative; min-height: 380px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+}
+.share-card-bg {
+    position: absolute; inset: 0; z-index: 0;
+    background: linear-gradient(-45deg, #38bdf8, #0284c7, #0c4a6e, #1e3a5f);
+    background-size: 400% 400%; animation: gradientBG 8s ease infinite;
+}
+.share-card-content {
+    position: relative; z-index: 1;
+    padding: 28px 24px; color: white;
+    display: flex; flex-direction: column; gap: 8px; height: 100%;
+}
+.share-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.share-logo { width: 36px; height: 36px; border-radius: 10px; }
+.share-brand { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; letter-spacing: 2px; opacity: 0.9; }
+.share-city-name { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; }
+.share-temp-big { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 5rem; line-height: 1; letter-spacing: -3px; text-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.share-desc { font-size: 1.2rem; font-weight: 600; opacity: 0.9; text-transform: capitalize; }
+.share-stats { display: flex; gap: 16px; margin-top: auto; font-size: 0.85rem; font-weight: 700; opacity: 0.85; flex-wrap: wrap; }
+.share-footer { font-size: 0.65rem; opacity: 0.5; letter-spacing: 1px; text-align: right; margin-top: 12px; }
+
+/* --- 29. GRÁFICO 7 DÍAS --- */
+#temp-chart-card canvas { width: 100% !important; }
+
+/* --- 30. HORA LOCAL --- */
+#local-time { color: var(--accent); }
+
+/* --- 31. PRESIÓN TREND --- */
+#pressure-trend { font-weight: 900; }
+.trend-up { color: #ef4444; }
+.trend-down { color: #3b82f6; }
+.trend-stable { color: #94a3b8; }
+
+/* --- 32. TEMA AUTOMÁTICO TRANSICIÓN SUAVE --- */
+body, .glass-card, .fav-sidebar, .persona-content, .onboarding-card {
+    transition: background 1.5s ease, color 0.5s ease, border-color 0.5s ease;
+}

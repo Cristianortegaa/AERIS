@@ -28,16 +28,19 @@
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- html2canvas (CDN estable vía jsDelivr) -->
+    <!-- html2canvas -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <!-- Bootstrap JS — cargado en head para que el modal funcione sin race condition -->
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Aplicar tema antes de render para evitar flash -->
     <script>
         (function () {
             var t = localStorage.getItem('aeris_theme_pref');
-            if (t) document.documentElement.setAttribute('data-bs-theme', t);
+            if (t === 'dark' || t === 'light') {
+                document.documentElement.setAttribute('data-bs-theme', t);
+                document.documentElement.setAttribute('data-theme', t);
+            }
         })();
     </script>
 
@@ -50,6 +53,9 @@
 </head>
 <body data-theme="light">
 
+<!-- CANVAS ANIMACIONES CLIMA -->
+<canvas id="weather-canvas" aria-hidden="true"></canvas>
+
 <!-- SPLASH SCREEN -->
 <div id="splash-screen">
     <div class="splash-logo-container">
@@ -58,6 +64,44 @@
         <i class="bi bi-cloud-sun-fill" style="font-size:3rem;color:#0284c7;display:none;"></i>
     </div>
     <div class="splash-title">AERIS</div>
+</div>
+
+<!-- ONBOARDING (primera vez) -->
+<div id="onboarding-overlay" style="display:none;">
+    <div class="onboarding-card">
+        <div id="onboarding-slides">
+            <div class="onboarding-slide active" data-slide="0">
+                <div class="onboarding-emoji">🤖</div>
+                <h3 class="fw-bold mb-2">Bienvenido a AERIS</h3>
+                <p class="opacity-75 small">Tu app del tiempo con personalidad. No solo el tiempo — también te dice qué ponerte y qué plan hacer hoy.</p>
+            </div>
+            <div class="onboarding-slide" data-slide="1">
+                <div class="onboarding-emoji">🎭</div>
+                <h3 class="fw-bold mb-2">14 Personalidades</h3>
+                <p class="opacity-75 small">Toca el robot 🤖 para cambiar la IA que te comenta el tiempo. Desde Zen hasta Villano — elige tu favorita.</p>
+            </div>
+            <div class="onboarding-slide" data-slide="2">
+                <div class="onboarding-emoji">🔔</div>
+                <h3 class="fw-bold mb-2">Alertas Inteligentes</h3>
+                <p class="opacity-75 small">Activa las notificaciones y AERIS te avisa de lluvia, calor extremo y tormentas. También recibe el resumen del tiempo cada mañana.</p>
+            </div>
+            <div class="onboarding-slide" data-slide="3">
+                <div class="onboarding-emoji">⭐</div>
+                <h3 class="fw-bold mb-2">Guarda tus Lugares</h3>
+                <p class="opacity-75 small">Toca el corazón ❤️ para guardar una ciudad. Accede a todos tus favoritos desde el menú lateral.</p>
+            </div>
+        </div>
+        <div class="onboarding-dots" id="onboarding-dots">
+            <div class="ob-dot active"></div>
+            <div class="ob-dot"></div>
+            <div class="ob-dot"></div>
+            <div class="ob-dot"></div>
+        </div>
+        <div class="d-flex gap-2 justify-content-center mt-3">
+            <button class="btn btn-outline-secondary btn-sm rounded-pill px-4" id="ob-skip">Saltar</button>
+            <button class="btn btn-primary btn-sm rounded-pill px-4 fw-bold" id="ob-next">Siguiente →</button>
+        </div>
+    </div>
 </div>
 
 <!-- BOTÓN INSTALAR PWA -->
@@ -71,7 +115,6 @@
         <div class="mb-3">
             <img src="logo.png" style="width:64px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,0.2);" alt="Aeris">
         </div>
-
         <div id="tiktok-instructions" style="display:none;">
             <h4 class="fw-bold text-danger mb-2">⚠️ Estás en TikTok</h4>
             <p class="small opacity-75 mb-3">Desde aquí <b>NO</b> se puede instalar. Tienes que salir al navegador real.</p>
@@ -87,7 +130,6 @@
             </div>
             <p class="small fw-bold opacity-50">Cuando se abra Safari/Chrome, podrás instalarla.</p>
         </div>
-
         <div id="safari-instructions">
             <h4 class="fw-bold mb-1">Instalar AERIS</h4>
             <p class="small opacity-75 mb-4">Sigue estos pasos para que funcione al 100%:</p>
@@ -136,6 +178,34 @@
     </div>
 </div>
 
+<!-- MODAL SHARE CARD (rediseñado) -->
+<div id="share-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;padding:20px;">
+    <div style="max-width:360px;width:100%;position:relative;">
+        <button onclick="closeShareModal()" style="position:absolute;top:-40px;right:0;background:none;border:none;color:white;font-size:1.5rem;cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+        <div id="share-card-render" class="share-card-design">
+            <div class="share-card-bg" id="share-bg"></div>
+            <div class="share-card-content">
+                <div class="share-card-header">
+                    <img src="logo.png" class="share-logo" alt="Aeris">
+                    <span class="share-brand">AERIS</span>
+                </div>
+                <div class="share-city-name" id="share-city-name">—</div>
+                <div class="share-temp-big" id="share-temp-big">—</div>
+                <div class="share-desc" id="share-desc">—</div>
+                <div class="share-stats">
+                    <span id="share-feels">💧 —</span>
+                    <span id="share-wind">💨 —</span>
+                    <span id="share-uv">☀️ UV: —</span>
+                </div>
+                <div class="share-footer">aeris-ghg8.onrender.com</div>
+            </div>
+        </div>
+        <button onclick="downloadShareCard()" class="btn btn-primary w-100 mt-3 fw-bold rounded-pill">
+            <i class="bi bi-download me-2"></i>Guardar imagen
+        </button>
+    </div>
+</div>
+
 <!-- OVERLAY SIDEBAR -->
 <div class="overlay" id="overlay"></div>
 
@@ -170,13 +240,19 @@
                 <i class="bi bi-list-stars fs-5"></i>
             </button>
         </div>
-        <div class="search-group ms-2">
+        <div class="search-group ms-2" style="position:relative;">
             <input type="text" class="search-input" id="citySearch"
                    placeholder="Buscar ciudad..." autocomplete="off"
                    aria-label="Buscar ciudad" aria-autocomplete="list" aria-controls="suggestions">
+            <button class="btn-icon voice-btn" id="voiceBtn" aria-label="Buscar por voz" title="Búsqueda por voz">
+                <i class="bi bi-mic-fill" style="font-size:0.9rem;"></i>
+            </button>
             <ul class="suggestions-list" id="suggestions" role="listbox" aria-label="Sugerencias de ciudades"></ul>
         </div>
         <div class="d-flex gap-2 ms-2">
+            <button class="btn-icon" id="unitsBtn" aria-label="Cambiar unidades de temperatura" title="°C / °F">
+                <span id="units-label" style="font-size:0.75rem;font-weight:800;">°C</span>
+            </button>
             <button class="btn-icon" id="themeBtn" aria-label="Cambiar tema claro/oscuro">
                 <i class="bi bi-moon-stars-fill fs-5"></i>
             </button>
@@ -208,14 +284,16 @@
 
     <!-- TARJETA PRINCIPAL -->
     <div class="glass-card" id="capture-card">
-        <button class="share-btn" id="shareBtn" aria-label="Compartir captura del tiempo">
-            <i class="bi bi-camera-fill"></i>
+        <button class="share-btn" id="shareBtn" aria-label="Compartir tiempo">
+            <i class="bi bi-share-fill"></i>
         </button>
 
+        <!-- Ciudad + hora local -->
         <div class="d-flex justify-content-between align-items-start">
             <div style="flex-grow:1;max-width:70%;display:flex;flex-direction:column;">
                 <h4 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton"
                     style="color:var(--accent);letter-spacing:1px;width:100px;min-height:1em;"></h4>
+                <div id="local-time" class="small fw-bold opacity-50 mb-1" style="font-size:0.7rem;letter-spacing:0.5px;display:none;"></div>
                 <div id="desc" class="h4 text-capitalize fw-bold skeleton"
                      style="width:180px;min-height:1.2em;line-height:1.2;"></div>
             </div>
@@ -230,27 +308,40 @@
             <div class="d-flex flex-column">
                 <div id="temp" class="temp-big skeleton" style="line-height:0.9;width:140px;min-height:0.8em;margin-bottom:10px;"></div>
                 <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec);font-size:0.9rem">
-                    Sensación: <span id="feels-like" class="skeleton" style="width:30px;display:inline-block">--</span>°
+                    Sensación: <span id="feels-like" class="skeleton" style="width:30px;display:inline-block">--</span><span class="unit-temp">°</span>
                 </div>
                 <div id="compare-txt" class="small opacity-50 fw-bold" style="font-size:0.8rem;margin-top:-2px;"></div>
             </div>
             <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
-                <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width:25px;display:inline-block"></span>°</span>
-                <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width:25px;display:inline-block"></span>°</span>
+                <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width:25px;display:inline-block"></span><span class="unit-temp">°</span></span>
+                <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width:25px;display:inline-block"></span><span class="unit-temp">°</span></span>
             </div>
         </div>
 
-        <!-- STATS ROW: humedad, viento+dirección, presión, UV -->
+        <!-- STATS ROW -->
         <div class="d-flex flex-wrap gap-3 mt-3 small fw-bold opacity-75 border-bottom border-secondary border-opacity-10 pb-3" style="color:var(--text-sec)">
             <span><i class="bi bi-droplet-fill text-primary"></i> <span id="hum" class="skeleton" style="width:30px;display:inline-block"></span>%</span>
             <span>
                 <i class="bi bi-wind text-info"></i>
-                <span id="wind" class="skeleton" style="width:30px;display:inline-block"></span> km/h
+                <span id="wind" class="skeleton" style="width:30px;display:inline-block"></span> <span class="unit-wind">km/h</span>
                 <span id="wind-dir" class="ms-1" style="font-size:0.8em;opacity:0.7;"></span>
             </span>
-            <span><i class="bi bi-speedometer2 text-secondary"></i> <span id="pressure" class="skeleton" style="width:35px;display:inline-block"></span> hPa</span>
-            <span id="outfit-display" style="display:none;margin-left:5px"><i class="bi bi-person-standing-dress outfit-icon"></i> <span id="outfit-text">--</span></span>
+            <span>
+                <i class="bi bi-speedometer2 text-secondary"></i>
+                <span id="pressure" class="skeleton" style="width:35px;display:inline-block"></span> hPa
+                <span id="pressure-trend" class="ms-1" style="font-size:0.9em;"></span>
+            </span>
             <span><i class="bi bi-sun-fill text-warning"></i> UV: <span id="uv" class="skeleton" style="width:20px;display:inline-block"></span></span>
+        </div>
+
+        <!-- ÍNDICE DE CONFORT -->
+        <div id="comfort-row" class="align-items-center gap-2 py-2 border-bottom border-secondary border-opacity-10" style="display:none;">
+            <span class="small fw-bold opacity-60" style="color:var(--text-sec);font-size:0.75rem;">CONFORT</span>
+            <div class="comfort-bar-bg flex-grow-1">
+                <div class="comfort-bar-fill" id="comfort-bar" style="width:0%"></div>
+            </div>
+            <span id="comfort-score" class="fw-bold" style="font-size:0.85rem;min-width:30px;text-align:right;">—</span>
+            <span id="comfort-label" class="small fw-bold" style="font-size:0.7rem;min-width:50px;">—</span>
         </div>
 
         <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
@@ -261,6 +352,22 @@
                 <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size:0.8rem;line-height:1.2;width:180px;min-height:2em;display:block"></span>
                 <span id="tip-icon" class="fs-4" aria-hidden="true">🤖</span>
             </div>
+        </div>
+    </div>
+
+    <!-- RELOJ SOLAR + FASE LUNAR -->
+    <div class="glass-card" id="solar-card" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)"><i class="bi bi-brightness-high-fill text-warning"></i> SOL Y LUNA</h6>
+            <span id="lunar-display" class="fw-bold" style="font-size:1.2rem;" title="Fase lunar"></span>
+        </div>
+        <div class="solar-clock-wrapper">
+            <canvas id="solar-clock-canvas" width="320" height="80" aria-label="Reloj solar"></canvas>
+        </div>
+        <div class="d-flex justify-content-between mt-2 small fw-bold opacity-60" style="font-size:0.7rem;color:var(--text-sec)">
+            <span><i class="bi bi-sunrise text-warning"></i> <span id="sunrise-time">—</span></span>
+            <span id="solar-pct" class="opacity-50" style="font-size:0.65rem;"></span>
+            <span><i class="bi bi-sunset text-orange"></i> <span id="sunset-time">—</span></span>
         </div>
     </div>
 
@@ -307,6 +414,14 @@
                 <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px;height:30px;margin:0 auto"></div></div>
                 <div style="width:30%"><div class="skeleton" style="width:100%;height:1.2em"></div></div>
             </div>
+        </div>
+    </div>
+
+    <!-- GRÁFICO TEMPERATURA 7 DÍAS -->
+    <div class="glass-card" id="temp-chart-card" style="display:none;">
+        <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-graph-up-arrow text-danger"></i> TEMPERATURA 7 DÍAS</h6>
+        <div style="height:140px;position:relative;">
+            <canvas id="tempChart" aria-label="Gráfico de temperatura semanal"></canvas>
         </div>
     </div>
 
@@ -368,7 +483,7 @@
                     <i class="bi bi-cloud-lightning-rain-fill" style="font-size:2.5rem;color:var(--accent);"></i>
                 </div>
                 <h5 class="fw-bold mb-2">¿Quieres alertas del tiempo?</h5>
-                <p class="opacity-75 small mb-4">Aeris puede avisarte si va a llover, nevar o si hay calor extremo en tu zona, incluso con la app cerrada.</p>
+                <p class="opacity-75 small mb-4">Aeris puede avisarte si va a llover, nevar o si hay calor extremo en tu zona, incluso con la app cerrada. También recibirás el resumen del tiempo cada mañana.</p>
                 <div class="d-flex gap-2 justify-content-center">
                     <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Ahora no</button>
                     <button type="button" class="btn btn-primary btn-sm rounded-pill px-4" id="enableNotifBtn">Sí, activar</button>
