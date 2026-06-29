@@ -1183,3 +1183,46 @@ window.addEventListener('load', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js'));
 }
+
+// ============================================================
+// 32. BOTTOM NAVIGATION
+// ============================================================
+(function initBottomNav() {
+    const items    = Array.from(document.querySelectorAll('.bottom-nav-item'));
+    const sections = ['capture-card', 'section-semana', 'section-ambiente', 'section-mapa'];
+
+    // Tap → scroll suave a la sección
+    items.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const el = document.getElementById(btn.dataset.target);
+            if (!el) return;
+            const y = el.getBoundingClientRect().top + window.pageYOffset - 10;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+            setActive(btn.dataset.target);
+            if (navigator.vibrate) navigator.vibrate(8);
+        });
+    });
+
+    // Scroll → actualizar tab activo según sección visible
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+            const pivot = window.pageYOffset + window.innerHeight * 0.35;
+            let activeId = sections[0];
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && el.getBoundingClientRect().top + window.pageYOffset - 20 <= pivot) {
+                    activeId = id;
+                }
+            });
+            setActive(activeId);
+            ticking = false;
+        });
+    }, { passive: true });
+
+    function setActive(id) {
+        items.forEach(b => b.classList.toggle('active', b.dataset.target === id));
+    }
+})();

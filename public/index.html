@@ -363,7 +363,7 @@
     </div>
 
     <!-- 4. PRÓXIMOS DÍAS -->
-    <div class="glass-card">
+    <div class="glass-card" id="section-semana">
         <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS <small class="fw-normal opacity-50 ms-1">(Toca para ver horas)</small></h6>
         <div id="daily" role="list" aria-label="Pronóstico diario">
             <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border)!important">
@@ -399,7 +399,7 @@
     </div>
 
     <!-- 7. CALIDAD DEL AIRE -->
-    <div class="glass-card" aria-label="Calidad del aire">
+    <div class="glass-card" id="section-ambiente" aria-label="Calidad del aire">
         <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
         <div class="d-flex align-items-end justify-content-between mt-2">
             <div class="fw-bold fs-2 skeleton" id="aqi-val" style="width:40px;height:40px"></div>
@@ -447,7 +447,7 @@
     </div>
 
     <!-- 11. RADAR EN VIVO -->
-    <div class="glass-card" style="padding:0;overflow:hidden;height:350px;position:relative;" aria-label="Radar meteorológico en vivo">
+    <div class="glass-card" id="section-mapa" style="padding:0;overflow:hidden;height:350px;position:relative;" aria-label="Radar meteorológico en vivo">
         <div class="skeleton" style="width:100%;height:100%;position:absolute;top:0;left:0;border-radius:0" id="radar-skeleton"></div>
         <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0"
                 title="Radar meteorológico en vivo"
@@ -478,6 +478,26 @@
         </div>
     </div>
 </div>
+
+<!-- BOTTOM NAVIGATION -->
+<nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Navegación principal">
+    <button class="bottom-nav-item active" data-target="capture-card" aria-label="Tiempo ahora">
+        <div class="bnav-icon"><i class="bi bi-house-fill"></i></div>
+        <span>Ahora</span>
+    </button>
+    <button class="bottom-nav-item" data-target="section-semana" aria-label="Previsión semanal">
+        <div class="bnav-icon"><i class="bi bi-calendar-week-fill"></i></div>
+        <span>Semana</span>
+    </button>
+    <button class="bottom-nav-item" data-target="section-ambiente" aria-label="Calidad del aire y vida">
+        <div class="bnav-icon"><i class="bi bi-leaf-fill"></i></div>
+        <span>Ambiente</span>
+    </button>
+    <button class="bottom-nav-item" data-target="section-mapa" aria-label="Radar meteorológico">
+        <div class="bnav-icon"><i class="bi bi-map-fill"></i></div>
+        <span>Mapa</span>
+    </button>
+</nav>
 
 <!-- APP JS -->
 <script src="app.js"></script>
