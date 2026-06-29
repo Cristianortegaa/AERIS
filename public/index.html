@@ -244,17 +244,11 @@
             <input type="text" class="search-input" id="citySearch"
                    placeholder="Buscar ciudad..." autocomplete="off"
                    aria-label="Buscar ciudad" aria-autocomplete="list" aria-controls="suggestions">
-            <button class="voice-btn" id="voiceBtn" aria-label="Buscar por voz" title="Búsqueda por voz">
-                <i class="bi bi-mic-fill"></i>
-            </button>
             <ul class="suggestions-list" id="suggestions" role="listbox" aria-label="Sugerencias de ciudades"></ul>
         </div>
         <div class="d-flex gap-2 ms-2">
             <button class="btn-icon" id="unitsBtn" aria-label="Cambiar unidades de temperatura" title="°C / °F">
                 <span id="units-label" style="font-size:0.75rem;font-weight:800;">°C</span>
-            </button>
-            <button class="btn-icon" id="themeBtn" aria-label="Cambiar tema claro/oscuro">
-                <i class="bi bi-moon-stars-fill fs-5"></i>
             </button>
             <button class="btn-icon" id="geoBtn" aria-label="Usar mi ubicación actual">
                 <i class="bi bi-geo-alt-fill fs-5"></i>
@@ -318,36 +312,12 @@
             </div>
         </div>
 
-        <!-- STATS GRID -->
-        <div class="stats-grid mt-3 pb-3 border-bottom border-secondary border-opacity-10">
-            <div class="stat-chip">
-                <i class="bi bi-droplet-fill" style="color:#38bdf8"></i>
-                <div class="stat-data">
-                    <span class="stat-value"><span id="hum" class="skeleton" style="display:inline-block;width:22px">—</span><span class="stat-unit">%</span></span>
-                    <span class="stat-lbl">Humedad</span>
-                </div>
-            </div>
-            <div class="stat-chip">
-                <i class="bi bi-wind" style="color:#67e8f9"></i>
-                <div class="stat-data">
-                    <span class="stat-value"><span id="wind" class="skeleton" style="display:inline-block;width:22px">—</span><span class="unit-wind stat-unit">km/h</span></span>
-                    <span class="stat-lbl"><span id="wind-dir">Viento</span></span>
-                </div>
-            </div>
-            <div class="stat-chip">
-                <i class="bi bi-speedometer2" style="color:#94a3b8"></i>
-                <div class="stat-data">
-                    <span class="stat-value"><span id="pressure" class="skeleton" style="display:inline-block;width:26px">—</span><span id="pressure-trend" class="ms-1"></span></span>
-                    <span class="stat-lbl">hPa</span>
-                </div>
-            </div>
-            <div class="stat-chip">
-                <i class="bi bi-sun-fill" style="color:#facc15"></i>
-                <div class="stat-data">
-                    <span class="stat-value">UV <span id="uv" class="skeleton" style="display:inline-block;width:18px">—</span></span>
-                    <span class="stat-lbl">Índice</span>
-                </div>
-            </div>
+        <!-- STATS ROW -->
+        <div class="stats-row mt-3 pb-3 border-bottom border-secondary border-opacity-10">
+            <span class="stat-pill"><i class="bi bi-droplet-fill" style="color:#38bdf8"></i> <span id="hum" class="skeleton" style="width:28px;display:inline-block">--</span>%</span>
+            <span class="stat-pill"><i class="bi bi-wind" style="color:#67e8f9"></i> <span id="wind" class="skeleton" style="width:28px;display:inline-block">--</span> <span class="unit-wind">km/h</span> <span id="wind-dir" style="opacity:0.6;font-size:0.8em"></span></span>
+            <span class="stat-pill"><i class="bi bi-speedometer2" style="color:#94a3b8"></i> <span id="pressure" class="skeleton" style="width:34px;display:inline-block">--</span> hPa<span id="pressure-trend" class="ms-1"></span></span>
+            <span class="stat-pill"><i class="bi bi-sun-fill" style="color:#facc15"></i> UV <span id="uv" class="skeleton" style="width:22px;display:inline-block">--</span></span>
         </div>
 
         <!-- ÍNDICE DE CONFORT -->

@@ -138,36 +138,7 @@ const showSearchHistory = () => {
     sl.classList.add('show');
 };
 
-// ============================================================
-// 6. BÚSQUEDA POR VOZ
-// ============================================================
-const voiceBtn = document.getElementById('voiceBtn');
-if (voiceBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SR();
-    recognition.lang = 'es-ES';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    // Mostrar botón y ajustar padding del input
-    voiceBtn.classList.add('active-voice');
-    const sg = voiceBtn.closest('.search-group');
-    if (sg) sg.classList.add('has-voice');
-
-    voiceBtn.addEventListener('click', () => {
-        voiceBtn.classList.add('listening');
-        recognition.start();
-    });
-    recognition.onresult = (e) => {
-        const phrase = e.results[0][0].transcript;
-        const searchInput = document.getElementById('citySearch');
-        if (searchInput) { searchInput.value = phrase; searchInput.dispatchEvent(new Event('input')); }
-        voiceBtn.classList.remove('listening');
-    };
-    recognition.onerror = () => voiceBtn.classList.remove('listening');
-    recognition.onend   = () => voiceBtn.classList.remove('listening');
-}
-// Si no hay soporte, voiceBtn permanece hidden via CSS (display:none por defecto)
+// (Micrófono eliminado — búsqueda por texto)
 
 // ============================================================
 // 7. URL COMPARTIBLE (?ciudad=nombre o ?lat=,lon=)
@@ -633,28 +604,15 @@ document.getElementById('closePersonaModal').addEventListener('click', () => mod
 modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
 
 // ============================================================
-// 19. TEMA (claro/oscuro + automático por hora)
+// 19. TEMA (automático por hora de sol — sin botón manual)
 // ============================================================
-const themeBtn = document.getElementById('themeBtn');
 const applyTheme = (theme) => {
     document.body.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-bs-theme', theme);
-    if (themeBtn) themeBtn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun-fill fs-5"></i>' : '<i class="bi bi-moon-stars-fill fs-5"></i>';
     document.documentElement.style.setProperty('--invert-close', theme === 'dark' ? '1' : '0');
 };
 
-if (themeBtn) {
-    themeBtn.addEventListener('click', () => {
-        const current = document.body.getAttribute('data-theme') || 'light';
-        const newTheme = current === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('aeris_theme_pref', newTheme);
-        localStorage.setItem('aeris_theme_manual', '1'); // usuario eligió manualmente
-        applyTheme(newTheme);
-    });
-}
-
 function autoThemeByTime(sunrise, sunset) {
-    if (localStorage.getItem('aeris_theme_manual')) return; // respeta elección del usuario
     if (!sunrise || !sunset) return;
     const now = new Date();
     const [srH, srM] = sunrise.split(':').map(Number);
@@ -1132,10 +1090,6 @@ function initOnboarding() {
 window.addEventListener('load', () => {
     // Splash
     setTimeout(() => { const splash = document.getElementById('splash-screen'); if (splash) splash.classList.add('hidden'); }, 2000);
-
-    // Tema guardado
-    const savedTheme = localStorage.getItem('aeris_theme_pref');
-    if (savedTheme) applyTheme(savedTheme);
 
     // Onboarding
     setTimeout(initOnboarding, 2200);
