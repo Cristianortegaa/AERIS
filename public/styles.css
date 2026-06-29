@@ -106,7 +106,7 @@ body.bg-hot         { background-image: linear-gradient(-45deg, #f59e0b, #fbbf24
 /* --- 6. NAVEGACIÓN --- */
 .nav-bar {
     display: flex; align-items: center; justify-content: space-between;
-    gap: 10px; margin-bottom: 20px; position: relative; z-index: 100;
+    gap: 10px; margin-bottom: 14px; position: relative; z-index: 100;
 }
 .search-group { flex-grow: 1; position: relative; }
 .search-input {
@@ -148,16 +148,28 @@ body.bg-hot         { background-image: linear-gradient(-45deg, #f59e0b, #fbbf24
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
     color: var(--text-sec);
     white-space: nowrap;
-    padding: 0 10px;
-    border-right: 1px solid var(--glass-border);
+    padding: 0 11px;
+    position: relative;
     flex-shrink: 0;
 }
 .stat-pill:first-child { padding-left: 0; }
-.stat-pill:last-child  { border-right: none; }
+/* Separador visible entre cada stat */
+.stat-pill + .stat-pill::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 15%; height: 70%; width: 1px;
+    background: rgba(0, 0, 0, 0.18);
+}
+[data-theme="dark"] .stat-pill + .stat-pill::before,
+body.bg-rain .stat-pill + .stat-pill::before,
+body.bg-clear-night .stat-pill + .stat-pill::before,
+body.bg-cloudy-night .stat-pill + .stat-pill::before {
+    background: rgba(255, 255, 255, 0.22);
+}
 
 /* --- 8. BÚSQUEDA Y SUGERENCIAS --- */
 .suggestions-list {
@@ -401,7 +413,10 @@ body.bg-clear-night .pollen-bar-bg { background: rgba(255,255,255,0.2); }
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none; z-index: 0; opacity: 0.6;
 }
-.container { position: relative; z-index: 1; padding-top: 8px !important; }
+.container {
+    position: relative; z-index: 1;
+    padding-top: max(6px, env(safe-area-inset-top)) !important;
+}
 
 /* --- 24. ONBOARDING --- */
 #onboarding-overlay {
