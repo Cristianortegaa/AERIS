@@ -750,6 +750,47 @@ const renderRainChart = (nowcast, hourlyData, currentTime) => {
 // ============================================================
 // 24. POLLEN, ALERTAS, LIFESTYLE
 // ============================================================
+
+// Calcula la mejor ventana horaria para una actividad dado el forecast horario
+function getBestWindows(activityId, hourly) {
+    if (!hourly || hourly.length === 0) return null;
+    const getHour = (t) => {
+        if (!t || t === 'Ahora') return new Date().getHours();
+        return parseInt(t.split(':')[0]) || 0;
+    };
+    const isRainyIcon = (icon) => icon && (icon.includes('rain') || icon.includes('drizzle') || icon.includes('thunder') || icon.includes('lightning'));
+    const criteria = {
+        run:   (h) => h.rainProb < 30 && h.temp >= 5  && h.temp <= 28 && !isRainyIcon(h.icon),
+        cycle: (h) => h.rainProb < 20 && h.temp >= 8  && h.temp <= 30 && !isRainyIcon(h.icon),
+        bbq:   (h) => h.rainProb < 15 && h.temp >= 15 && !isRainyIcon(h.icon),
+        car:   (h) => h.rainProb < 5  && h.temp >= 4  && !isRainyIcon(h.icon),
+        star:  (h) => { const hr = getHour(h.displayTime); return (hr >= 21 || hr <= 6) && h.rainProb < 15; },
+        dog:   (h) => h.rainProb < 40 && h.temp >= 2  && h.temp <= 28,
+        beach: (h) => h.rainProb < 20 && h.temp >= 24 && !isRainyIcon(h.icon),
+        drive: (h) => h.rainProb < 50 && !isRainyIcon(h.icon),
+    };
+    const check = criteria[activityId];
+    if (!check) return null;
+    // Índices de horas válidas
+    const goodIdx = hourly.reduce((acc, h, i) => { if (check(h)) acc.push(i); return acc; }, []);
+    if (goodIdx.length === 0) return null;
+    // Agrupar índices consecutivos en ventanas
+    const windows = [];
+    let ws = goodIdx[0], wp = goodIdx[0];
+    for (let i = 1; i < goodIdx.length; i++) {
+        if (goodIdx[i] - wp > 1) { windows.push([ws, wp]); ws = goodIdx[i]; }
+        wp = goodIdx[i];
+    }
+    windows.push([ws, wp]);
+    // Elegir la ventana más larga
+    windows.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]));
+    const [si, ei] = windows[0];
+    const fmt  = (h) => `${h.toString().padStart(2, '0')}:00`;
+    const sH   = getHour(hourly[si].displayTime);
+    const eH   = getHour(hourly[ei].displayTime) + 1;
+    return si === ei ? fmt(sH) : `${fmt(sH)}–${fmt(eH)}`;
+}
+
 const renderPollen = (pollen) => {
     const card = document.getElementById('pollen-card'), list = document.getElementById('pollen-list');
     if (!pollen || Object.values(pollen).every(v => v === 0)) { card.style.display = 'none'; return false; }
@@ -781,29 +822,40 @@ const renderAlerts = (alerts) => {
     container.innerHTML = alerts.map(a => `<div class="alert-card ${a.level}"><i class="bi bi-exclamation-triangle-fill alert-icon"></i><div><div class="fw-bold">${a.title}</div><div class="small opacity-75">${a.msg}</div></div></div>`).join('');
 };
 
-const renderLifestyle = (cur, daily) => {
+const renderLifestyle = (cur, daily, hourly) => {
     const list = document.getElementById('lifestyle-list');
     if (!list || !daily) return;
     const desc = cur.desc.toLowerCase();
-    const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubasco');
-    const isSnow = desc.includes('nieve') || desc.includes('aguanieve') || desc.includes('granizo');
-    const isFog  = desc.includes('niebla') || desc.includes('bruma');
+    const isRain  = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta') || desc.includes('chubasco');
+    const isSnow  = desc.includes('nieve')  || desc.includes('aguanieve') || desc.includes('granizo');
+    const isFog   = desc.includes('niebla') || desc.includes('bruma');
     const isStorm = desc.includes('tormenta') || desc.includes('trueno');
-    const probToday = daily[0] ? (daily[0].rainProbMax || 0) : 0;
+    const probToday    = daily[0] ? (daily[0].rainProbMax || 0) : 0;
     const probTomorrow = daily[1] ? (daily[1].rainProbMax || 0) : 0;
     const activities = [
-        { id: 'run',   name: 'Running',      icon: 'fa-solid fa-person-running',  check: () => { if (isRain || isSnow || cur.temp > 32 || cur.temp < -5 || cur.windSpeed > 35) return 'bad'; if (probToday > 50 || cur.temp > 26 || cur.temp < 5 || cur.windSpeed > 20) return 'fair'; return 'good'; } },
-        { id: 'cycle', name: 'Ciclismo',     icon: 'fa-solid fa-bicycle',         check: () => { if (isRain || isSnow || cur.windSpeed > 30 || cur.temp > 35) return 'bad'; if (cur.windSpeed > 15 || cur.temp < 5 || cur.temp > 28) return 'fair'; return 'good'; } },
-        { id: 'bbq',   name: 'Barbacoa',     icon: 'fa-solid fa-burger',          check: () => { if (isRain || isSnow || probToday > 30 || cur.windSpeed > 25) return 'bad'; if (cur.temp < 15 || probToday > 10 || cur.windSpeed > 15) return 'fair'; return 'good'; } },
-        { id: 'car',   name: 'Lavar Coche',  icon: 'fa-solid fa-car-side',        check: () => { if (isRain || isSnow || probToday >= 10 || probTomorrow >= 10) return 'bad'; if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair'; return 'good'; } },
-        { id: 'star',  name: 'Ver Estrellas',icon: 'fa-solid fa-star',            check: () => { if (cur.isDay || cur.cloudCover > 50 || isRain || isSnow) return 'bad'; if (cur.cloudCover > 20) return 'fair'; return 'good'; } },
-        { id: 'dog',   name: 'Paseo Perro',  icon: 'fa-solid fa-dog',             check: () => { if (isStorm || isRain || cur.temp > 30 || cur.temp < -10) return 'bad'; if (probToday > 50 || cur.temp > 25 || cur.temp < 5) return 'fair'; return 'good'; } },
-        { id: 'beach', name: 'Playa',        icon: 'fa-solid fa-umbrella-beach',  check: () => { if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad'; if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair'; return 'good'; } },
-        { id: 'drive', name: 'Conducir',     icon: 'fa-solid fa-road',            check: () => { if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad'; if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair'; return 'good'; } }
+        { id: 'run',   name: 'Running',       icon: 'fa-solid fa-person-running', check: () => { if (isRain || isSnow || cur.temp > 32 || cur.temp < -5 || cur.windSpeed > 35) return 'bad'; if (probToday > 50 || cur.temp > 26 || cur.temp < 5 || cur.windSpeed > 20) return 'fair'; return 'good'; } },
+        { id: 'cycle', name: 'Ciclismo',      icon: 'fa-solid fa-bicycle',        check: () => { if (isRain || isSnow || cur.windSpeed > 30 || cur.temp > 35) return 'bad'; if (cur.windSpeed > 15 || cur.temp < 5 || cur.temp > 28) return 'fair'; return 'good'; } },
+        { id: 'bbq',   name: 'Barbacoa',      icon: 'fa-solid fa-burger',         check: () => { if (isRain || isSnow || probToday > 30 || cur.windSpeed > 25) return 'bad'; if (cur.temp < 15 || probToday > 10 || cur.windSpeed > 15) return 'fair'; return 'good'; } },
+        { id: 'car',   name: 'Lavar Coche',   icon: 'fa-solid fa-car-side',       check: () => { if (isRain || isSnow || probToday >= 10 || probTomorrow >= 10) return 'bad'; if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair'; return 'good'; } },
+        { id: 'star',  name: 'Estrellas',     icon: 'fa-solid fa-star',           check: () => { if (cur.isDay || cur.cloudCover > 50 || isRain || isSnow) return 'bad'; if (cur.cloudCover > 20) return 'fair'; return 'good'; } },
+        { id: 'dog',   name: 'Paseo Perro',   icon: 'fa-solid fa-dog',            check: () => { if (isStorm || isRain || cur.temp > 30 || cur.temp < -10) return 'bad'; if (probToday > 50 || cur.temp > 25 || cur.temp < 5) return 'fair'; return 'good'; } },
+        { id: 'beach', name: 'Playa',         icon: 'fa-solid fa-umbrella-beach', check: () => { if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad'; if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair'; return 'good'; } },
+        { id: 'drive', name: 'Conducir',      icon: 'fa-solid fa-road',           check: () => { if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad'; if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair'; return 'good'; } }
     ];
     list.innerHTML = activities.map(act => {
-        const status = act.check();
-        return `<div class="activity-item" role="img" aria-label="${act.name}: ${status === 'good' ? 'Ideal' : status === 'fair' ? 'Regular' : 'Malo'}"><i class="${act.icon} activity-icon"></i><div class="status-dot status-${status}"></div><span class="activity-name">${act.name}</span></div>`;
+        const status  = act.check();
+        const window  = getBestWindows(act.id, hourly);
+        // Si el estado actual es malo pero hay ventana, mostrarla como "rescue window"
+        const timeLabel = window
+            ? (status === 'bad' ? `↗ ${window}` : window)
+            : (status === 'bad' ? 'Hoy no' : '');
+        const ariaLabel = `${act.name}: ${status === 'good' ? 'Ideal' : status === 'fair' ? 'Regular' : 'Malo'}${timeLabel ? '. ' + timeLabel : ''}`;
+        return `<div class="activity-item" role="img" aria-label="${ariaLabel}">
+            <i class="${act.icon} activity-icon"></i>
+            <div class="status-dot status-${status}"></div>
+            <span class="activity-name">${act.name}</span>
+            <span class="activity-time${status === 'bad' && window ? ' activity-time--rescue' : ''}">${timeLabel}</span>
+        </div>`;
     }).join('');
 };
 
@@ -921,7 +973,7 @@ const renderWeather = (data, isOffline = false) => {
 
     renderRainChart(data.nowcast, data.hourly, cur.time);
     const isHighPollen = renderPollen(data.pollen);
-    renderLifestyle(cur, data.daily);
+    renderLifestyle(cur, data.daily, data.hourly);
     renderAlerts(data.alerts);
     updateAIText(cur, isHighPollen);
     setDynamicBackground(cur);

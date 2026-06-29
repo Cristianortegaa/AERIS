@@ -311,14 +311,23 @@ body.bg-clear-night .pollen-bar-bg { background: rgba(255,255,255,0.2); }
 .pollen-val { font-size: 0.75rem; font-weight: 700; width: 40px; text-align: right; color: var(--text); }
 
 /* --- 16. LIFESTYLE --- */
-.activity-scroll { display: flex; overflow-x: auto; gap: 15px; padding: 5px 0; scrollbar-width: none; }
-.activity-item { min-width: 80px; text-align: center; padding: 12px 8px; background: rgba(255,255,255,0.2); border-radius: 16px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.activity-icon { font-size: 1.8rem; color: var(--text); margin-bottom: 4px; }
-.status-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+.activity-scroll { display: flex; overflow-x: auto; gap: 12px; padding: 5px 0; scrollbar-width: none; }
+.activity-item { min-width: 82px; text-align: center; padding: 12px 8px; background: rgba(255,255,255,0.2); border-radius: 16px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.activity-icon { font-size: 1.8rem; color: var(--text); margin-bottom: 2px; }
+.status-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2); flex-shrink: 0; }
 .status-good  { background-color: #4ade80; box-shadow: 0 0 10px #4ade80; }
 .status-fair  { background-color: #facc15; box-shadow: 0 0 10px #facc15; }
 .status-bad   { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
-.activity-name { font-size: 0.75rem; font-weight: 700; opacity: 0.9; color: var(--text); }
+.activity-name { font-size: 0.72rem; font-weight: 700; opacity: 0.9; color: var(--text); line-height: 1.2; }
+.activity-time {
+    font-size: 0.6rem; font-weight: 800;
+    color: var(--accent); letter-spacing: -0.3px;
+    line-height: 1.2; min-height: 0.72rem;
+    text-align: center; white-space: nowrap;
+}
+.activity-time--rescue {
+    color: #f97316;  /* naranja para "↗ 16:00–18:00" */
+}
 
 /* --- 17. ALERTAS --- */
 .alert-card { background: #ef4444; color: white; padding: 15px 20px; border-radius: 20px; margin-bottom: 20px; display: flex; align-items: start; gap: 15px; box-shadow: 0 10px 30px rgba(239,68,68,0.4); animation: slideDown 0.5s ease; }
