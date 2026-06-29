@@ -136,6 +136,29 @@ body.bg-hot         { background-image: linear-gradient(-45deg, #f59e0b, #fbbf24
 .hourly-item { min-width: 60px; text-align: center; }
 .rain-chart-wrapper { height: 120px; width: 100%; margin-top: 10px; position: relative; }
 
+/* --- 7b. STATS GRID (4 columnas, nunca desborda) --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 7px;
+}
+.stat-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 14px;
+    padding: 8px 6px;
+    min-width: 0;
+}
+[data-theme="dark"] .stat-chip { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.1); }
+.stat-chip > i { font-size: 1rem; flex-shrink: 0; }
+.stat-data { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.stat-value { font-size: 0.82rem; font-weight: 800; color: var(--text); white-space: nowrap; line-height: 1.2; }
+.stat-unit  { font-size: 0.62rem; font-weight: 600; opacity: 0.65; margin-left: 1px; }
+.stat-lbl   { font-size: 0.58rem; opacity: 0.5; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+
 /* --- 8. BÚSQUEDA Y SUGERENCIAS --- */
 .suggestions-list {
     position: absolute; top: 120%; left: 0; width: 100%;
@@ -409,7 +432,6 @@ body.bg-clear-night .pollen-bar-bg { background: rgba(255,255,255,0.2); }
 #sunset-time { color: #f97316; }
 
 /* --- 26. COMFORT BAR --- */
-#comfort-row { display: flex !important; }
 .comfort-bar-bg {
     height: 6px; border-radius: 10px;
     background: rgba(0,0,0,0.1); overflow: hidden;
@@ -423,16 +445,25 @@ body.bg-clear-night .pollen-bar-bg { background: rgba(255,255,255,0.2); }
 
 /* --- 27. VOZ Y UNIDADES --- */
 .voice-btn {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    width: 32px; height: 32px; background: none; border: none;
-    color: var(--text-sec); cursor: pointer; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
+    position: absolute !important;
+    right: 8px !important; top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 34px !important; height: 34px !important;
+    background: rgba(255,255,255,0.2) !important;
+    border: none !important;
+    color: var(--text-sec) !important;
+    cursor: pointer; border-radius: 50% !important;
+    display: none; /* JS lo muestra si hay soporte */
+    align-items: center; justify-content: center;
     transition: all 0.2s; z-index: 10;
+    flex-shrink: 0;
+    font-size: 0.85rem;
 }
-.voice-btn:hover { color: var(--accent); background: rgba(255,255,255,0.3); }
-.voice-btn.listening { color: #ef4444; animation: pulse-red 1s infinite; }
+.voice-btn.active-voice { display: flex !important; }
+.voice-btn:hover { color: var(--accent) !important; background: rgba(255,255,255,0.4) !important; }
+.voice-btn.listening { color: #ef4444 !important; animation: pulse-red 1s infinite; }
 @keyframes pulse-red { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4);} 50%{box-shadow:0 0 0 8px rgba(239,68,68,0);} }
-.search-input { padding-right: 48px !important; }
+.has-voice .search-input { padding-right: 52px; }
 #unitsBtn { font-family: 'Outfit', sans-serif; font-size: 0.8rem; }
 
 /* --- 28. SHARE CARD REDISEÑADA --- */
@@ -476,4 +507,75 @@ body.bg-clear-night .pollen-bar-bg { background: rgba(255,255,255,0.2); }
 /* --- 32. TEMA AUTOMÁTICO TRANSICIÓN SUAVE --- */
 body, .glass-card, .fav-sidebar, .persona-content, .onboarding-card {
     transition: background 1.5s ease, color 0.5s ease, border-color 0.5s ease;
+}
+
+/* --- 33. RESPONSIVE MOBILE (<400px) --- */
+@media (max-width: 400px) {
+    .container { padding-left: 12px !important; padding-right: 12px !important; }
+    .glass-card { padding: 16px; border-radius: 20px; }
+    .temp-big { font-size: clamp(3rem, 16vw, 5rem); }
+    .stat-chip { padding: 6px 4px; gap: 4px; border-radius: 10px; }
+    .stat-chip > i { font-size: 0.85rem; }
+    .stat-value { font-size: 0.75rem; }
+    .stat-lbl { font-size: 0.52rem; }
+    .btn-icon { width: 40px; height: 40px; }
+    .nav-bar { gap: 6px; }
+    .search-input { padding: 10px 16px; font-size: 0.9rem; }
+    #weather-icon-container { width: 90px; height: 90px; }
+}
+
+/* --- 34. RESPONSIVE TABLET (>768px) --- */
+@media (min-width: 768px) {
+    .container { max-width: 520px; }
+    .glass-card { padding: 24px; }
+    .temp-big { font-size: 5.5rem; }
+    .stats-grid { gap: 10px; }
+    .stat-chip { padding: 10px 8px; }
+    .stat-value { font-size: 0.9rem; }
+}
+
+/* --- 35. GLASS CARD HOVER (desktop) --- */
+@media (hover: hover) {
+    .glass-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .glass-card:hover { transform: translateY(-2px); box-shadow: 0 16px 48px rgba(0,0,0,0.15); }
+}
+
+/* --- 36. SCROLLBAR GLOBAL --- */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.4); border-radius: 10px; }
+
+/* --- 37. SOLAR CLOCK MEJORADO --- */
+#solar-card .glass-card-inner { padding: 0; }
+.solar-clock-wrapper { width: 100%; padding: 4px 0; }
+#solar-clock-canvas { width: 100% !important; height: 80px; display: block; }
+
+/* --- 38. COMFORT ROW MEJORADO --- */
+#comfort-row {
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.1);
+    margin-top: 8px;
+}
+[data-theme="dark"] #comfort-row { background: rgba(255,255,255,0.05); }
+#comfort-score { font-family: 'Outfit', sans-serif; font-size: 1.1rem; }
+
+/* --- 39. TEMPERATURA MAX/MIN MEJORADO --- */
+#max-temp, #min-temp { font-family: 'Outfit', sans-serif; }
+
+/* --- 40. LOCAL TIME --- */
+#local-time {
+    font-family: 'Outfit', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+}
+
+/* --- 41. TEMP CHART CARD --- */
+#temp-chart-card {
+    padding-bottom: 8px;
+}
+#temp-chart-card canvas {
+    width: 100% !important;
+    height: 140px !important;
 }

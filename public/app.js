@@ -149,7 +149,11 @@ if (voiceBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in w
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    voiceBtn.style.display = 'flex';
+    // Mostrar botón y ajustar padding del input
+    voiceBtn.classList.add('active-voice');
+    const sg = voiceBtn.closest('.search-group');
+    if (sg) sg.classList.add('has-voice');
+
     voiceBtn.addEventListener('click', () => {
         voiceBtn.classList.add('listening');
         recognition.start();
@@ -162,9 +166,8 @@ if (voiceBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in w
     };
     recognition.onerror = () => voiceBtn.classList.remove('listening');
     recognition.onend   = () => voiceBtn.classList.remove('listening');
-} else if (voiceBtn) {
-    voiceBtn.style.display = 'none';
 }
+// Si no hay soporte, voiceBtn permanece hidden via CSS (display:none por defecto)
 
 // ============================================================
 // 7. URL COMPARTIBLE (?ciudad=nombre o ?lat=,lon=)
@@ -316,53 +319,56 @@ function renderSolarClock(sunrise, sunset, timezone) {
     if (pctEl) pctEl.textContent = now < new Date().setHours(srH, srM) ? 'Antes del amanecer' :
         nowMin > ssMin ? 'Sol bajo el horizonte' : `${Math.round(pct * 100)}% del día transcurrido`;
 
-    const sCtx = sCanvas.getContext('2d');
-    const W = sCanvas.offsetWidth || 320;
-    sCanvas.width  = W;
-    sCanvas.height = 80;
-    const H = 80, pad = 24;
+    // Dibujar después de que el DOM actualice las dimensiones
+    requestAnimationFrame(() => {
+        const W = sCanvas.offsetWidth || sCanvas.parentElement?.offsetWidth || 300;
+        if (W < 10) return; // card aún no tiene dimensiones
+        sCanvas.width  = W;
+        sCanvas.height = 80;
+        const sCtx = sCanvas.getContext('2d');
+        const H = 80, pad = 20;
 
-    sCtx.clearRect(0, 0, W, H);
+        sCtx.clearRect(0, 0, W, H);
 
-    // Arco del cielo
-    const cx = W / 2, cy = H + 10, rx = (W - pad * 2) / 2, ry = H - 10;
-    const startAngle = Math.PI, endAngle = 0;
+        const cx = W / 2, cy = H + 8, rx = (W - pad * 2) / 2, ry = H - 10;
+        const startAngle = Math.PI, endAngle = 0;
 
-    // Fondo arco gris
-    sCtx.beginPath();
-    sCtx.ellipse(cx, cy, rx, ry, 0, startAngle, endAngle);
-    sCtx.strokeStyle = 'rgba(148,163,184,0.3)';
-    sCtx.lineWidth = 4;
-    sCtx.stroke();
+        // Arco fondo
+        sCtx.beginPath();
+        sCtx.ellipse(cx, cy, rx, ry, 0, startAngle, endAngle);
+        sCtx.strokeStyle = 'rgba(148,163,184,0.25)';
+        sCtx.lineWidth = 5;
+        sCtx.stroke();
 
-    // Arco iluminado
-    const progressAngle = Math.PI + pct * Math.PI;
-    sCtx.beginPath();
-    sCtx.ellipse(cx, cy, rx, ry, 0, startAngle, progressAngle);
-    const grad = sCtx.createLinearGradient(pad, 0, W - pad, 0);
-    grad.addColorStop(0, '#f97316');
-    grad.addColorStop(0.5, '#facc15');
-    grad.addColorStop(1, '#f97316');
-    sCtx.strokeStyle = grad;
-    sCtx.lineWidth = 4;
-    sCtx.stroke();
+        // Arco iluminado
+        const progressAngle = Math.PI + pct * Math.PI;
+        const grad = sCtx.createLinearGradient(pad, 0, W - pad, 0);
+        grad.addColorStop(0, '#f97316');
+        grad.addColorStop(0.5, '#facc15');
+        grad.addColorStop(1, '#f97316');
+        sCtx.beginPath();
+        sCtx.ellipse(cx, cy, rx, ry, 0, startAngle, progressAngle);
+        sCtx.strokeStyle = grad;
+        sCtx.lineWidth = 5;
+        sCtx.stroke();
 
-    // Sol
-    const sunX = cx + rx * Math.cos(Math.PI + pct * Math.PI);
-    const sunY = cy + ry * Math.sin(Math.PI + pct * Math.PI);
-    const sunR = 10;
-    sCtx.beginPath();
-    sCtx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
-    const sunGrad = sCtx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunR * 2);
-    sunGrad.addColorStop(0, '#fef9c3');
-    sunGrad.addColorStop(0.5, '#facc15');
-    sunGrad.addColorStop(1, 'rgba(250,204,21,0)');
-    sCtx.fillStyle = sunGrad;
-    sCtx.fill();
-    sCtx.beginPath();
-    sCtx.arc(sunX, sunY, sunR * 0.6, 0, Math.PI * 2);
-    sCtx.fillStyle = '#fbbf24';
-    sCtx.fill();
+        // Disco solar con halo
+        const sunX = cx + rx * Math.cos(Math.PI + pct * Math.PI);
+        const sunY = cy + ry * Math.sin(Math.PI + pct * Math.PI);
+        const sunR = 10;
+        const sunGrad = sCtx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunR * 2.5);
+        sunGrad.addColorStop(0, 'rgba(254,249,195,1)');
+        sunGrad.addColorStop(0.4, 'rgba(251,191,36,0.9)');
+        sunGrad.addColorStop(1, 'rgba(251,191,36,0)');
+        sCtx.beginPath();
+        sCtx.arc(sunX, sunY, sunR * 2.5, 0, Math.PI * 2);
+        sCtx.fillStyle = sunGrad;
+        sCtx.fill();
+        sCtx.beginPath();
+        sCtx.arc(sunX, sunY, sunR * 0.7, 0, Math.PI * 2);
+        sCtx.fillStyle = '#fef08a';
+        sCtx.fill();
+    });
 }
 
 // ============================================================
@@ -447,8 +453,8 @@ function renderComfort(temp, humidity, windSpeed, uv, desc) {
     const labelEl = document.getElementById('comfort-label');
     if (!row) return;
     const { score, label, color } = calcComfort(temp, humidity, windSpeed, uv, desc);
-    row.style.display = 'flex';
-    setTimeout(() => { if (bar) bar.style.width = score + '%'; }, 100);
+    row.style.setProperty('display', 'flex', 'important');
+    setTimeout(() => { if (bar) bar.style.width = score + '%'; }, 200);
     if (scoreEl) { scoreEl.textContent = score; scoreEl.style.color = color; }
     if (labelEl) { labelEl.textContent = label; labelEl.style.color = color; }
 }
@@ -916,7 +922,7 @@ const renderWeather = (data, isOffline = false) => {
     document.getElementById('desc').innerText      = cur.desc;
     document.getElementById('hum').innerText       = cur.humidity;
     document.getElementById('wind').innerText      = fmtWind(cur.windSpeed);
-    document.getElementById('wind-dir').innerText  = cur.windDir || '';
+    document.getElementById('wind-dir').innerText  = cur.windDir || 'Viento';
     document.getElementById('uv').innerText        = cur.uv;
     document.getElementById('compare-txt').innerText = cur.comparison || '';
     updateUnitsUI();
