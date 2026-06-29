@@ -142,33 +142,28 @@ body.bg-hot         { background-image: linear-gradient(-45deg, #f59e0b, #fbbf24
     flex-wrap: nowrap;
     align-items: center;
     gap: 0;
-    overflow: hidden;
 }
 .stat-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     font-size: 0.72rem;
     font-weight: 700;
     color: var(--text-sec);
     white-space: nowrap;
-    padding: 0 11px;
-    position: relative;
+    padding: 4px 13px;
     flex-shrink: 0;
 }
 .stat-pill:first-child { padding-left: 0; }
-/* Separador visible entre cada stat */
-.stat-pill + .stat-pill::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 15%; height: 70%; width: 1px;
-    background: rgba(0, 0, 0, 0.18);
+/* Separador: border-left directo, sin pseudo-elementos */
+.stat-pill + .stat-pill {
+    border-left: 1.5px solid rgba(0, 0, 0, 0.18);
 }
-[data-theme="dark"] .stat-pill + .stat-pill::before,
-body.bg-rain .stat-pill + .stat-pill::before,
-body.bg-clear-night .stat-pill + .stat-pill::before,
-body.bg-cloudy-night .stat-pill + .stat-pill::before {
-    background: rgba(255, 255, 255, 0.22);
+body.bg-rain .stat-pill + .stat-pill,
+body.bg-clear-night .stat-pill + .stat-pill,
+body.bg-cloudy-night .stat-pill + .stat-pill,
+[data-theme="dark"] .stat-pill + .stat-pill {
+    border-left-color: rgba(255, 255, 255, 0.25);
 }
 
 /* --- 8. BÚSQUEDA Y SUGERENCIAS --- */
