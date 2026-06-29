@@ -599,19 +599,39 @@ body, .glass-card, .fav-sidebar, .persona-content, .onboarding-card {
     height: 140px !important;
 }
 
-/* --- 42. BOTTOM NAVIGATION --- */
+/* --- 42. BOTTOM NAVIGATION (iOS glass style) --- */
 .bottom-nav {
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    background: var(--glass);
-    backdrop-filter: blur(30px) saturate(180%);
-    -webkit-backdrop-filter: blur(30px) saturate(180%);
-    border-top: 1px solid var(--glass-border);
+    height: calc(64px + env(safe-area-inset-bottom));
+    /* Glass claro por defecto */
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: saturate(200%) blur(40px);
+    -webkit-backdrop-filter: saturate(200%) blur(40px);
+    border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -1px 0 rgba(0,0,0,0.04), 0 -12px 40px rgba(0,0,0,0.07);
     display: flex;
-    z-index: 500;
+    align-items: flex-start;
+    padding-top: 8px;
     padding-bottom: env(safe-area-inset-bottom);
-    box-shadow: 0 -4px 30px rgba(0,0,0,0.12);
-    transition: background 1.5s ease, border-color 0.5s ease;
+    z-index: 500;
+    transition: background 1.2s ease, border-color 0.5s ease;
+}
+
+/* Fondo oscuro/lluvia → glass oscuro */
+body.bg-clear-night .bottom-nav,
+body.bg-cloudy-night .bottom-nav,
+body.bg-rain .bottom-nav {
+    background: rgba(8, 12, 28, 0.88);
+    border-top: 0.5px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 -1px 0 rgba(255,255,255,0.04), 0 -12px 40px rgba(0,0,0,0.3);
+}
+body.bg-hot .bottom-nav {
+    background: rgba(254, 243, 199, 0.82);
+    border-top: 0.5px solid rgba(217, 119, 6, 0.2);
+}
+body.bg-snow .bottom-nav {
+    background: rgba(241, 245, 249, 0.88);
 }
 
 .bottom-nav-item {
@@ -619,52 +639,70 @@ body, .glass-card, .fav-sidebar, .persona-content, .onboarding-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 2px;
+    justify-content: flex-start;
+    gap: 3px;
     background: none;
     border: none;
-    color: var(--text-sec);
-    font-size: 0.58rem;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
+    /* Color inactivo exacto de iOS (light) */
+    color: rgba(60, 60, 67, 0.55);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.1px;
     cursor: pointer;
-    padding: 8px 4px 10px;
+    padding: 3px 4px 0;
     transition: color 0.2s ease;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+    outline: none;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Inactivo en fondos oscuros */
+body.bg-clear-night .bottom-nav-item,
+body.bg-cloudy-night .bottom-nav-item,
+body.bg-rain .bottom-nav-item {
+    color: rgba(235, 235, 245, 0.42);
+}
+body.bg-hot .bottom-nav-item {
+    color: rgba(120, 53, 15, 0.55);
 }
 
 .bnav-icon {
-    width: 44px; height: 28px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 14px;
-    font-size: 1.15rem;
-    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: 50px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    font-size: 1.3rem;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Estado activo */
-.bottom-nav-item.active {
-    color: var(--accent);
-}
-.bottom-nav-item.active .bnav-icon {
-    background: rgba(2, 132, 199, 0.13);
-    transform: translateY(-2px) scale(1.08);
-}
+/* ── ACTIVO ─────────────────────────────── */
+/* Light day */
+.bottom-nav-item.active                    { color: #0284c7; }
+.bottom-nav-item.active .bnav-icon         { background: rgba(2, 132, 199, 0.12); transform: translateY(-3px) scale(1.08); }
 
-/* Adaptar píldora al fondo nocturno/lluvia */
+/* Noches / lluvia */
+body.bg-clear-night .bottom-nav-item.active,
+body.bg-cloudy-night .bottom-nav-item.active { color: #818cf8; }
 body.bg-clear-night .bottom-nav-item.active .bnav-icon,
-body.bg-cloudy-night .bottom-nav-item.active .bnav-icon,
-body.bg-rain .bottom-nav-item.active .bnav-icon {
-    background: rgba(129, 140, 248, 0.18);
-}
-body.bg-hot .bottom-nav-item.active .bnav-icon {
-    background: rgba(217, 119, 6, 0.15);
-}
+body.bg-cloudy-night .bottom-nav-item.active .bnav-icon { background: rgba(129, 140, 248, 0.18); transform: translateY(-3px) scale(1.08); }
 
-/* Feedback táctil visual */
+body.bg-rain .bottom-nav-item.active         { color: #38bdf8; }
+body.bg-rain .bottom-nav-item.active .bnav-icon { background: rgba(56, 189, 248, 0.16); transform: translateY(-3px) scale(1.08); }
+
+/* Calor */
+body.bg-hot .bottom-nav-item.active           { color: #d97706; }
+body.bg-hot .bottom-nav-item.active .bnav-icon { background: rgba(217, 119, 6, 0.13); transform: translateY(-3px) scale(1.08); }
+
+/* Nieve */
+body.bg-snow .bottom-nav-item.active          { color: #0ea5e9; }
+body.bg-snow .bottom-nav-item.active .bnav-icon { background: rgba(14, 165, 233, 0.12); transform: translateY(-3px) scale(1.08); }
+
+/* Press feedback */
 .bottom-nav-item:active .bnav-icon {
-    transform: scale(0.88) !important;
-    opacity: 0.7;
-    transition: all 0.1s ease;
+    transform: scale(0.82) !important;
+    opacity: 0.55;
+    transition: transform 0.08s ease, opacity 0.08s ease !important;
 }
