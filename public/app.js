@@ -1191,7 +1191,11 @@ if ('serviceWorker' in navigator) {
     const items    = Array.from(document.querySelectorAll('.bottom-nav-item'));
     const sections = ['capture-card', 'section-semana', 'section-ambiente', 'section-mapa'];
 
-    // Tap → scroll suave a la sección
+    // Flag para evitar que el scroll sobreescriba el tab recién pulsado
+    let suppressScroll = false;
+    let suppressTimer  = null;
+
+    // Tap → scroll suave + fijar tab activo
     items.forEach(btn => {
         btn.addEventListener('click', () => {
             const el = document.getElementById(btn.dataset.target);
@@ -1200,13 +1204,18 @@ if ('serviceWorker' in navigator) {
             window.scrollTo({ top: y, behavior: 'smooth' });
             setActive(btn.dataset.target);
             if (navigator.vibrate) navigator.vibrate(8);
+
+            // Bloquear scroll handler mientras dura la animación suave (~600ms)
+            suppressScroll = true;
+            clearTimeout(suppressTimer);
+            suppressTimer = setTimeout(() => { suppressScroll = false; }, 650);
         });
     });
 
-    // Scroll → actualizar tab activo según sección visible
+    // Scroll manual → actualizar tab activo (solo si no hay click reciente)
     let ticking = false;
     window.addEventListener('scroll', () => {
-        if (ticking) return;
+        if (suppressScroll || ticking) return;
         ticking = true;
         requestAnimationFrame(() => {
             const pivot = window.pageYOffset + window.innerHeight * 0.35;
