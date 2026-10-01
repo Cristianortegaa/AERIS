@@ -1317,6 +1317,13 @@ let vapidKeyPromise = null;
 const getVapidKey = () => vapidKeyPromise || (vapidKeyPromise = fetch('/api/vapid-key')
     .then(r => r.ok ? r.json() : null).then(j => j && j.key).catch(() => null));
 
+// navigator.serviceWorker.ready no falla nunca: si el worker no se instala,
+// se queda esperando para siempre. Con límite, el usuario al menos sabe qué pasa.
+const swReady = (ms = 10000) => Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('sw-timeout')), ms))
+]);
+
 const urlBase64ToUint8Array = (base64String) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -1344,7 +1351,7 @@ async function registerPush(silent = false) {
         }
         const key = await getVapidKey();
         if (!key) return say('Las notificaciones no están disponibles ahora mismo. Inténtalo más tarde.', 'warn');
-        const register = await navigator.serviceWorker.ready;
+        const register = await swReady();
         const serverKey = urlBase64ToUint8Array(key);
         let subscription = await register.pushManager.getSubscription();
         // Una suscripción hecha con otras claves VAPID (p. ej. de antes de
@@ -1387,7 +1394,9 @@ async function registerPush(silent = false) {
         }
     } catch (e) {
         console.error('push:', e);
-        say('No se pudieron activar los avisos. Inténtalo de nuevo.', 'warn');
+        say(e && e.message === 'sw-timeout'
+            ? 'La app aún se está preparando. Ciérrala del todo, vuelve a abrirla y toca la campana otra vez.'
+            : 'No se pudieron activar los avisos. Inténtalo de nuevo.', 'warn');
     }
 }
 
@@ -1402,7 +1411,7 @@ async function updateBellUI() {
     let on = false;
     if (pushSupported() && notifPermission() === 'granted') {
         try {
-            const reg = await navigator.serviceWorker.ready;
+            const reg = await swReady();
             on = !!(await reg.pushManager.getSubscription());
         } catch (e) { on = false; }
     }

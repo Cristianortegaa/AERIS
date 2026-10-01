@@ -1,23 +1,31 @@
-const CACHE_NAME = 'aeris-v18';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'aeris-v19';
+// Lo propio es imprescindible: si falla, la instalación debe fallar.
+const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=9',
-    '/app.js?v=9',
+    '/styles.css?v=10',
+    '/app.js?v=10',
     '/logo.png',
-    '/icono-clima.png',
+    '/icono-clima.png'
+];
+// Lo de CDNs es un extra para el modo sin conexión: si alguno no se puede
+// guardar, se ignora. (Antes un solo fallo aquí tumbaba la instalación entera
+// y el service worker nunca se activaba: sin él no hay notificaciones.)
+const EXTRA_ASSETS = [
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
     'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
-    'https://cdn.jsdelivr.net/npm/chart.js',
-    'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
     'https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400..600&display=swap'
 ];
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+        caches.open(CACHE_NAME).then(async (cache) => {
+            await cache.addAll(CORE_ASSETS);
+            await Promise.all(EXTRA_ASSETS.map(url => cache.add(url).catch(() => {})));
+        })
     );
 });
 
@@ -27,25 +35,32 @@ self.addEventListener('activate', (event) => {
             Promise.all(keyList.map((key) => {
                 if (key !== CACHE_NAME) return caches.delete(key);
             }))
-        )
+        ).then(() => self.clients.claim())
     );
-    self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-    // Red primero para navegación y API; fallback a caché
-    if (event.request.mode === 'navigate' || event.request.url.includes('/api/')) {
+    const req = event.request;
+    if (req.method !== 'GET') return; // POST (suscripción) va directo a la red
+
+    const url = new URL(req.url);
+    // De otros dominios solo servimos lo que ya esté en caché; si no, el
+    // navegador lo pide él mismo (así no dependemos de la CSP del worker).
+    if (url.origin !== self.location.origin) {
+        event.respondWith(caches.match(req).then(r => r || fetch(req)));
+        return;
+    }
+    // Red primero para navegación y API; si no hay red, lo guardado
+    if (req.mode === 'navigate' || url.pathname.startsWith('/api/')) {
         event.respondWith(
-            fetch(event.request).catch(() =>
-                caches.match(event.request) || caches.match('/index.html')
+            fetch(req).catch(() =>
+                caches.match(req).then(r => r || (req.mode === 'navigate' ? caches.match('/index.html') : undefined))
             )
         );
         return;
     }
-    // Caché primero para assets estáticos
-    event.respondWith(
-        caches.match(event.request).then((response) => response || fetch(event.request))
-    );
+    // Caché primero para los assets estáticos propios
+    event.respondWith(caches.match(req).then(r => r || fetch(req)));
 });
 
 // --- NOTIFICACIONES PUSH ---

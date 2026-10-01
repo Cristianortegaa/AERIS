@@ -34,7 +34,10 @@ app.use(helmet({
             "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
             "font-src": ["'self'", "data:", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
             "img-src": ["'self'", "data:", "https:"],
-            "connect-src": ["'self'"],
+            // El service worker hereda esta CSP: necesita poder pedir a los CDNs
+            // que cachea para el modo sin conexión (con solo 'self' fallaba su
+            // instalación y, sin service worker, no hay notificaciones).
+            "connect-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
             "frame-src": ["https://embed.windy.com"],
             "object-src": ["'none'"],
             "upgrade-insecure-requests": null
