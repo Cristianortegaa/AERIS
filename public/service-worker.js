@@ -1,9 +1,9 @@
-const CACHE_NAME = 'aeris-v11';
+const CACHE_NAME = 'aeris-v12';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
-    '/styles.css',
-    '/app.js',
+    '/styles.css?v=3',
+    '/app.js?v=3',
     '/logo.png',
     '/icono-clima.png',
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
@@ -11,7 +11,7 @@ const ASSETS_TO_CACHE = [
     'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
     'https://cdn.jsdelivr.net/npm/chart.js',
     'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
-    'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap'
+    'https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400..600&display=swap'
 ];
 
 self.addEventListener('install', (event) => {

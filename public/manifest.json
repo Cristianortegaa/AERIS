@@ -4,8 +4,8 @@
   "description": "Tu app del tiempo con personalidad. Pronóstico, alertas, calidad del aire y más.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#bae6fd",
-  "theme_color": "#bae6fd",
+  "background_color": "#1554c0",
+  "theme_color": "#1554c0",
   "orientation": "portrait",
   "lang": "es",
   "icons": [

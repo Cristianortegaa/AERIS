@@ -71,6 +71,7 @@ const aiLogic = {
 // 3. ESTADO GLOBAL
 // ============================================================
 let currentId         = localStorage.getItem('lastId') || 'Madrid';
+const hadStoredCity   = !!localStorage.getItem('lastId'); // true si ya se había abierto la app antes
 let currentCityName   = localStorage.getItem('lastName') || 'Madrid';
 let currentCityRegion = localStorage.getItem('lastRegion') || '';
 let currentCityInfo   = { id: currentId, name: currentCityName, region: currentCityRegion, lat: null, lon: null };
@@ -84,6 +85,23 @@ let lastPressure      = null;
 let weatherAnimFrame  = null;
 let weatherParticles  = [];
 let currentWeatherType = 'clear';
+let lastHeroKey       = null; // para animar el hero solo cuando cambia de verdad
+
+// El splash se va en cuanto hay datos pintados (o tras un máximo), no tras
+// una espera fija: la app se siente tan rápida como realmente es.
+let splashHidden = false;
+function hideSplash() {
+    if (splashHidden) return;
+    splashHidden = true;
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+        splash.classList.add('hidden');
+        // Fuera del árbol de render al terminar el fundido: su animación de carga deja de correr
+        setTimeout(() => { splash.style.display = 'none'; }, 500);
+    }
+    document.body.classList.add('is-ready');
+    setTimeout(initOnboarding, 500);
+}
 
 window.retryWeather = () => {
     document.getElementById('error-banner').style.display = 'none';
@@ -132,9 +150,16 @@ const showSearchHistory = () => {
     const history = JSON.parse(localStorage.getItem('aeris_history') || '[]');
     if (history.length === 0) return;
     const sl = document.getElementById('suggestions');
-    sl.innerHTML = '<li class="history-header text-uppercase fw-bold">Recientes</li>' +
-        history.map(c => `<li class="suggestion-item" data-city='${JSON.stringify(c)}'><span><i class="bi bi-clock-history me-2 opacity-50" style="font-size:0.8rem"></i>${c.name}</span><small>${c.region}</small></li>`).join('');
-    sl.querySelectorAll('.suggestion-item').forEach(li => li.addEventListener('click', () => selectCity(JSON.parse(li.dataset.city))));
+    sl.innerHTML = '<li class="history-header text-uppercase fw-bold">Recientes</li>';
+    history.forEach(c => {
+        const li = document.createElement('li');
+        li.className = 'suggestion-item';
+        li.innerHTML = '<span><i class="bi bi-clock-history me-2 opacity-50" style="font-size:0.8rem"></i></span><small></small>';
+        li.querySelector('span').append(c.name);
+        li.querySelector('small').textContent = c.region;
+        li.addEventListener('click', () => selectCity(c));
+        sl.appendChild(li);
+    });
     sl.classList.add('show');
 };
 
@@ -143,6 +168,7 @@ const showSearchHistory = () => {
 // ============================================================
 // 7. URL COMPARTIBLE (?ciudad=nombre o ?lat=,lon=)
 // ============================================================
+let cameFromSharedLink = false;
 (function handleURLParams() {
     const params = new URLSearchParams(window.location.search);
     const ciudad = params.get('ciudad');
@@ -151,9 +177,11 @@ const showSearchHistory = () => {
     if (ciudad) {
         currentId = ciudad;
         localStorage.setItem('lastId', ciudad);
+        cameFromSharedLink = true;
     } else if (lat && lon) {
         currentId = `${lat},${lon}`;
         localStorage.setItem('lastId', currentId);
+        cameFromSharedLink = true;
     }
 })();
 
@@ -162,24 +190,99 @@ const showSearchHistory = () => {
 // ============================================================
 const renderIcon = (iconName, size = "fs-4") => {
     if (iconName.includes('bi-cloud-sun') && !iconName.includes('moon')) {
-        let imgWidth = "48px", animation = "";
-        if (size.includes("5.5rem") || size.includes("fs-1")) { imgWidth = "160px"; animation = "animation: float 3s infinite ease-in-out;"; }
-        return `<img src="icono-clima.png" alt="Sol y Nube" style="width:${imgWidth};height:auto;vertical-align:middle;${animation}">`;
+        const big = size.includes("5.5rem") || size.includes("fs-1");
+        return `<img src="icono-clima.png" alt="Sol y Nube" class="${big ? 'icon-float' : ''}" style="width:${big ? '160px' : '48px'};height:auto;vertical-align:middle;">`;
     }
-    if (iconName.includes('moon')) return `<i class="bi ${iconName} ${size}" style="color:#64748b!important;filter:drop-shadow(0 0 5px rgba(100,116,139,0.3));"></i>`;
     return `<i class="bi ${iconName} ${size}"></i>`;
+};
+
+// Fundido con desenfoque al cambiar un dato visible (ciudad, unidades).
+// El blur "funde" el estado viejo y el nuevo para que no se vean dos cosas.
+const blurIn = (el) => {
+    if (!el || !el.animate) return;
+    const reduce = prefersReducedMotion();
+    el.animate(
+        reduce
+            ? [{ opacity: 0 }, { opacity: 1 }]
+            : [{ opacity: 0, filter: 'blur(8px)', transform: 'translateY(6px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }],
+        { duration: reduce ? 200 : 450, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }
+    );
+};
+
+// Color absoluto para una temperatura (barras de rango de la semana)
+const TEMP_STOPS = [[-5, [139, 180, 255]], [5, [110, 210, 250]], [13, [110, 231, 183]], [19, [190, 235, 90]], [24, [250, 204, 21]], [30, [251, 146, 60]], [36, [244, 63, 94]]];
+const tempColor = (t) => {
+    if (t <= TEMP_STOPS[0][0]) return `rgb(${TEMP_STOPS[0][1]})`;
+    for (let i = 1; i < TEMP_STOPS.length; i++) {
+        const [t1, c1] = TEMP_STOPS[i];
+        if (t <= t1) {
+            const [t0, c0] = TEMP_STOPS[i - 1];
+            const k = (t - t0) / (t1 - t0);
+            return `rgb(${c0.map((v, j) => Math.round(v + (c1[j] - v) * k)).join(',')})`;
+        }
+    }
+    return `rgb(${TEMP_STOPS[TEMP_STOPS.length - 1][1]})`;
 };
 
 const normalizeInput = (str) => str.normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-const setDynamicBackground = (cur) => {
-    document.body.className = '';
+// Escapa texto antes de insertarlo como HTML (nombres de ciudad/región vienen
+// de APIs externas o de lo que el usuario ha guardado — no deberían poder
+// inyectar HTML/atributos al pintarse en la interfaz).
+const escapeHTML = (str) => String(str ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[ch]));
+
+// ============================================================
+// CARGA DIFERIDA DE LIBRERÍAS PESADAS (Chart.js / html2canvas)
+// Solo se descargan la primera vez que hacen falta de verdad
+// (un gráfico o el botón de compartir), no en el arranque.
+// ============================================================
+const _scriptLoadCache = {};
+function loadScriptOnce(src) {
+    if (_scriptLoadCache[src]) return _scriptLoadCache[src];
+    _scriptLoadCache[src] = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('No se pudo cargar ' + src));
+        document.head.appendChild(s);
+    });
+    return _scriptLoadCache[src];
+}
+const ensureChartJS = () => (typeof Chart !== 'undefined')
+    ? Promise.resolve()
+    : loadScriptOnce('https://cdn.jsdelivr.net/npm/chart.js');
+const ensureHtml2Canvas = () => (typeof html2canvas !== 'undefined')
+    ? Promise.resolve()
+    : loadScriptOnce('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+
+const BG_CLASSES = ['bg-hot', 'bg-rain', 'bg-snow', 'bg-cloudy-day', 'bg-cloudy-night', 'bg-clear-day', 'bg-clear-night'];
+
+// La barra de estado / chrome del navegador toma el color del cielo actual
+const syncThemeColor = () => {
+    const color = getComputedStyle(document.body).getPropertyValue('--theme').trim();
+    if (!color) return;
+    const meta = document.getElementById('meta-theme-color');
+    if (meta) meta.setAttribute('content', color);
+    document.documentElement.style.backgroundColor = color;
+    try { localStorage.setItem('aeris_theme_color', color); } catch (e) {}
+};
+
+const getBgClass = (cur) => {
     const code = cur.desc.toLowerCase(), temp = cur.temp;
-    if (temp > 35) { document.body.classList.add('bg-hot'); return; }
-    if (code.includes('lluvia') || code.includes('llovizna') || code.includes('tormenta') || code.includes('chubascos')) { document.body.classList.add('bg-rain'); return; }
-    if (code.includes('nieve')) { document.body.classList.add('bg-snow'); return; }
-    if (code.includes('nublado') || code.includes('nubes') || code.includes('cubierto') || code.includes('niebla')) { document.body.classList.add(cur.isDay ? 'bg-cloudy-day' : 'bg-cloudy-night'); return; }
-    document.body.classList.add(cur.isDay ? 'bg-clear-day' : 'bg-clear-night');
+    if (temp > 35) return 'bg-hot';
+    if (code.includes('lluvia') || code.includes('llovizna') || code.includes('tormenta') || code.includes('chubascos')) return 'bg-rain';
+    if (code.includes('nieve')) return 'bg-snow';
+    if (code.includes('nublado') || code.includes('nubes') || code.includes('cubierto') || code.includes('niebla')) return cur.isDay ? 'bg-cloudy-day' : 'bg-cloudy-night';
+    return cur.isDay ? 'bg-clear-day' : 'bg-clear-night';
+};
+
+const setDynamicBackground = (cur) => {
+    // Solo tocamos las clases de cielo: is-ready / is-scrolled deben sobrevivir
+    document.body.classList.remove(...BG_CLASSES);
+    document.body.classList.add(getBgClass(cur));
+    syncThemeColor();
 };
 
 // ============================================================
@@ -247,7 +350,13 @@ function animateWeather() {
     weatherAnimFrame = requestAnimationFrame(animateWeather);
 }
 
+const prefersReducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 function startWeatherAnimation(type) {
+    // Respetamos la preferencia de "reducir movimiento" del sistema: no
+    // arrancamos las partículas de lluvia/nieve/sol en canvas para quien
+    // tenga esa opción activada (mareos, migrañas, sensibilidad al movimiento).
+    if (prefersReducedMotion()) type = 'none';
     currentWeatherType = type;
     if (weatherAnimFrame) cancelAnimationFrame(weatherAnimFrame);
     if (type === 'none') { if (ctx2d) ctx2d.clearRect(0, 0, canvas.width, canvas.height); return; }
@@ -305,10 +414,11 @@ function renderSolarClock(sunrise, sunset, timezone) {
         const startAngle = Math.PI, endAngle = 0;
 
         // Arco fondo
+        sCtx.lineCap = 'round';
         sCtx.beginPath();
         sCtx.ellipse(cx, cy, rx, ry, 0, startAngle, endAngle);
-        sCtx.strokeStyle = 'rgba(148,163,184,0.25)';
-        sCtx.lineWidth = 5;
+        sCtx.strokeStyle = 'rgba(255,255,255,0.16)';
+        sCtx.lineWidth = 4;
         sCtx.stroke();
 
         // Arco iluminado
@@ -320,7 +430,7 @@ function renderSolarClock(sunrise, sunset, timezone) {
         sCtx.beginPath();
         sCtx.ellipse(cx, cy, rx, ry, 0, startAngle, progressAngle);
         sCtx.strokeStyle = grad;
-        sCtx.lineWidth = 5;
+        sCtx.lineWidth = 4;
         sCtx.stroke();
 
         // Disco solar con halo
@@ -372,13 +482,13 @@ function startLocalTime(timezone) {
     if (localTimeInterval) clearInterval(localTimeInterval);
     const update = () => {
         try {
-            const time = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: timezone, hour12: false }).format(new Date());
-            el.textContent = `🕐 ${time} (hora local)`;
+            const time = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: timezone, hour12: false }).format(new Date());
+            el.textContent = `${time} · hora local`;
             el.style.display = 'block';
         } catch { el.style.display = 'none'; }
     };
     update();
-    localTimeInterval = setInterval(update, 1000);
+    localTimeInterval = setInterval(update, 15000);
 }
 
 // ============================================================
@@ -425,7 +535,8 @@ function renderComfort(temp, humidity, windSpeed, uv, desc) {
     if (!row) return;
     const { score, label, color } = calcComfort(temp, humidity, windSpeed, uv, desc);
     row.style.setProperty('display', 'flex', 'important');
-    setTimeout(() => { if (bar) bar.style.width = score + '%'; }, 200);
+    // clip-path en vez de width: no provoca layout y el degradado no se deforma
+    setTimeout(() => { if (bar) bar.style.clipPath = `inset(0 ${100 - score}% 0 0 round 99px)`; }, 200);
     if (scoreEl) { scoreEl.textContent = score; scoreEl.style.color = color; }
     if (labelEl) { labelEl.textContent = label; labelEl.style.color = color; }
 }
@@ -449,7 +560,7 @@ function updatePressureTrend(pressure) {
 // 15. GRÁFICO TEMPERATURA 7 DÍAS
 // ============================================================
 let tempChart7Instance = null;
-function renderTempChart(daily) {
+async function renderTempChart(daily) {
     const card = document.getElementById('temp-chart-card');
     if (!card || !daily || daily.length < 3) { if (card) card.style.display = 'none'; return; }
     card.style.display = 'block';
@@ -458,26 +569,48 @@ function renderTempChart(daily) {
     const minTemps = daily.map(d => useFahrenheit ? toF(d.tempMin) : d.tempMin);
     const cCtx = document.getElementById('tempChart');
     if (!cCtx) return;
+    await ensureChartJS();
+    applyChartDefaults();
     if (tempChart7Instance) tempChart7Instance.destroy();
     tempChart7Instance = new Chart(cCtx, {
         type: 'line',
         data: {
             labels,
             datasets: [
-                { label: 'Máx', data: maxTemps, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#ef4444', fill: false, tension: 0.4 },
-                { label: 'Mín', data: minTemps, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#3b82f6', fill: false, tension: 0.4 }
+                { label: 'Máx', data: maxTemps, borderColor: '#ffb070', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#ffb070', pointBorderWidth: 0, fill: false, tension: 0.4 },
+                { label: 'Mín', data: minTemps, borderColor: '#8cc8ff', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#8cc8ff', pointBorderWidth: 0, fill: false, tension: 0.4 }
             ]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: true, labels: { boxWidth: 12, font: { size: 11, weight: 'bold' }, color: '#94a3b8' } } },
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: true, align: 'end', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 6, boxHeight: 6, font: { size: 11, weight: '600' }, color: 'rgba(255,255,255,0.7)' } } },
             scales: {
-                x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
-                y: { grid: { color: 'rgba(148,163,184,0.15)' }, ticks: { color: '#94a3b8', font: { size: 11 }, callback: v => v + (useFahrenheit ? '°F' : '°') } }
+                x: { grid: { display: false }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 11, weight: '500' } } },
+                y: { grid: { color: 'rgba(255,255,255,0.08)' }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 11 }, maxTicksLimit: 5, callback: v => v + '°' } }
             },
-            animation: { duration: 1000 }
+            animation: { duration: prefersReducedMotion() ? 0 : 800, easing: 'easeOutQuart' }
         }
     });
+}
+
+// Tipografía y tooltip coherentes con la interfaz para todos los gráficos
+let chartDefaultsApplied = false;
+function applyChartDefaults() {
+    if (chartDefaultsApplied || typeof Chart === 'undefined') return;
+    chartDefaultsApplied = true;
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    Chart.defaults.color = 'rgba(255,255,255,0.6)';
+    const tt = Chart.defaults.plugins.tooltip;
+    tt.backgroundColor = 'rgba(10,14,28,0.92)';
+    tt.titleColor = '#fff';
+    tt.bodyColor = 'rgba(255,255,255,0.85)';
+    tt.borderColor = 'rgba(255,255,255,0.14)';
+    tt.borderWidth = 1;
+    tt.cornerRadius = 12;
+    tt.padding = 10;
+    tt.boxPadding = 4;
+    tt.usePointStyle = true;
 }
 
 // ============================================================
@@ -485,12 +618,16 @@ function renderTempChart(daily) {
 // ============================================================
 window.closeShareModal = () => {
     const m = document.getElementById('share-modal');
-    if (m) m.style.display = 'none';
+    if (m) m.classList.remove('show');
 };
+document.getElementById('share-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'share-modal') closeShareModal();
+});
 
-window.downloadShareCard = () => {
+window.downloadShareCard = async () => {
     const card = document.getElementById('share-card-render');
     if (!card) return;
+    await ensureHtml2Canvas();
     html2canvas(card, { scale: 3, backgroundColor: null, useCORS: true }).then(canvas => {
         const link = document.createElement('a');
         link.download = `aeris-${(currentCityInfo.name || 'weather').toLowerCase()}.png`;
@@ -512,13 +649,20 @@ function openShareCard(data) {
     // Fondo dinámico según clima
     const bg = document.getElementById('share-bg');
     if (bg) {
-        const d = cur.desc.toLowerCase();
-        if (d.includes('lluvia') || d.includes('tormenta')) bg.style.background = 'linear-gradient(-45deg,#1f2937,#374151,#4b5563,#1e3a5f)';
-        else if (d.includes('nieve')) bg.style.background = 'linear-gradient(-45deg,#e2e8f0,#cbd5e1,#f1f5f9,#94a3b8)';
-        else if (cur.temp > 30) bg.style.background = 'linear-gradient(-45deg,#92400e,#d97706,#f59e0b,#fbbf24)';
-        else bg.style.background = 'linear-gradient(-45deg,#38bdf8,#0284c7,#0c4a6e,#1e3a5f)';
+        // Mismo cielo que la app, con un halo de luz arriba a la derecha
+        const SHARE_SKIES = {
+            'bg-clear-day':    ['rgba(255,210,140,0.5)', '#1554c0', '#2f7fe0', '#5ea6ec'],
+            'bg-clear-night':  ['rgba(150,110,255,0.4)', '#070b1f', '#121a46', '#2a2370'],
+            'bg-cloudy-day':   ['rgba(255,255,255,0.28)', '#3f5068', '#627790', '#8a9fb6'],
+            'bg-cloudy-night': ['rgba(130,150,185,0.25)', '#0a0e15', '#18202d', '#2c3849'],
+            'bg-rain':         ['rgba(90,150,230,0.35)', '#101824', '#1f2f45', '#3a4f6c'],
+            'bg-snow':         ['rgba(255,255,255,0.4)', '#3f5f88', '#6584ab', '#92abc8'],
+            'bg-hot':          ['rgba(255,220,120,0.55)', '#a8290a', '#d9520e', '#ee8b25']
+        };
+        const [glow, c1, c2, c3] = SHARE_SKIES[getBgClass(cur)];
+        bg.style.background = `radial-gradient(120% 80% at 90% 0%, ${glow}, transparent 55%), linear-gradient(165deg, ${c1}, ${c2} 55%, ${c3})`;
     }
-    modal.style.display = 'flex';
+    modal.classList.add('show');
 }
 
 // ============================================================
@@ -542,12 +686,12 @@ const updateAIText = (cur, highPollen = false) => {
     const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, cur.uv);
     const clothingContainer = document.getElementById('clothing-advice');
     if (clothingContainer) {
-        let html = `<div class="w-100 mb-2"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLOS 👦</small><div class="d-flex flex-wrap gap-2">` +
-            clothes.boys.map(i => `<a href="${i.url}" target="_blank" rel="noopener" class="clothing-tag boy"><i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em;opacity:0.6;margin-left:2px"></i></a>`).join('') +
-            `</div></div><div class="w-100"><small class="text-uppercase fw-bold opacity-50" style="font-size:0.65rem;">ELLAS 👧</small><div class="d-flex flex-wrap gap-2">` +
-            clothes.girls.map(i => `<a href="${i.url}" target="_blank" rel="noopener" class="clothing-tag girl"><i class="bi ${i.icon}"></i> ${i.text} <i class="bi bi-box-arrow-up-right" style="font-size:0.7em;opacity:0.6;margin-left:2px"></i></a>`).join('') +
-            `</div></div>`;
-        if (clothes.shopLink) html += `<div class="mt-2 w-100"><a href="${clothes.shopLink.url}" target="_blank" rel="noopener" class="shop-btn w-100 justify-content-center"><i class="bi ${clothes.shopLink.icon}"></i> ${clothes.shopLink.text}</a></div>`;
+        const iconCls = (ic) => ic.startsWith('fa') ? ic : `bi ${ic}`;
+        const tag = (i, kind) => `<a href="${i.url}" target="_blank" rel="noopener" class="clothing-tag ${kind}"><i class="${iconCls(i.icon)}"></i>${i.text}<i class="bi bi-arrow-up-right ext" aria-hidden="true"></i></a>`;
+        let html =
+            `<div class="outfit-group"><span class="outfit-group-label">Ellos</span><div class="outfit-tags">${clothes.boys.map(i => tag(i, 'boy')).join('')}</div></div>` +
+            `<div class="outfit-group"><span class="outfit-group-label">Ellas</span><div class="outfit-tags">${clothes.girls.map(i => tag(i, 'girl')).join('')}</div></div>`;
+        if (clothes.shopLink) html += `<a href="${clothes.shopLink.url}" target="_blank" rel="noopener" class="shop-btn"><i class="bi ${clothes.shopLink.icon}"></i>${clothes.shopLink.text}</a>`;
         clothingContainer.innerHTML = html;
     }
 };
@@ -561,15 +705,15 @@ const getClothingList = (temp, desc, wind, uv) => {
     const isSnow = desc.includes('nieve') || desc.includes('nevada');
     const isClear = desc.includes('despejado') || desc.includes('sol');
     if (temp >= 30)      { boys.push(item('bi-brightness-high','Tirantes','camiseta tirantes hombre')); girls.push(item('bi-brightness-high','Top/Vestido','vestido verano mujer fresco')); boys.push(item('bi-emoji-sunglasses','Shorts','pantalones cortos hombre deporte')); girls.push(item('bi-emoji-sunglasses','Shorts','shorts mujer verano')); boys.push(item('bi-fan','Abanico','abanico mano')); girls.push(item('bi-fan','Abanico','abanico moderno')); }
-    else if (temp >= 25) { boys.push(item('bi-tshirt','Camiseta','camiseta algodon hombre')); girls.push(item('bi-tshirt','Blusa','blusa fresca mujer')); boys.push(item('bi-emoji-smile','Chino corto','pantalon chino corto hombre')); girls.push(item('bi-emoji-smile','Falda','falda verano mujer')); }
-    else if (temp >= 20) { boys.push(item('bi-tshirt','Polo','polo manga corta hombre')); girls.push(item('bi-tshirt','Camiseta','camiseta moda mujer')); boys.push(item('bi-person','Jeans','vaqueros hombre levis')); girls.push(item('bi-person','Culotte','pantalon culotte mujer')); }
+    else if (temp >= 25) { boys.push(item('fa-solid fa-shirt','Camiseta','camiseta algodon hombre')); girls.push(item('fa-solid fa-shirt','Blusa','blusa fresca mujer')); boys.push(item('bi-emoji-smile','Chino corto','pantalon chino corto hombre')); girls.push(item('bi-emoji-smile','Falda','falda verano mujer')); }
+    else if (temp >= 20) { boys.push(item('fa-solid fa-shirt','Polo','polo manga corta hombre')); girls.push(item('fa-solid fa-shirt','Camiseta','camiseta moda mujer')); boys.push(item('bi-person','Jeans','vaqueros hombre levis')); girls.push(item('bi-person','Culotte','pantalon culotte mujer')); }
     else if (temp >= 15) { boys.push(item('bi-person','Camisa','camisa casual hombre')); girls.push(item('bi-person','Cardigan','cardigan mujer fino')); boys.push(item('bi-person','Chinos','pantalones chinos hombre')); girls.push(item('bi-person','Jeans','jeans mujer')); boys.push(item('bi-layers','Chaleco','chaleco ligero hombre')); girls.push(item('bi-layers','Blazer','blazer mujer casual')); }
-    else if (temp >= 10) { boys.push(item('bi-person-hoodie','Sudadera','sudadera con capucha hombre')); girls.push(item('bi-person-hoodie','Jersey','jersey punto mujer')); boys.push(item('bi-layers','Cazadora','cazadora bomber hombre')); girls.push(item('bi-layers','Trench','gabardina mujer')); }
+    else if (temp >= 10) { boys.push(item('fa-solid fa-vest','Sudadera','sudadera con capucha hombre')); girls.push(item('fa-solid fa-vest','Jersey','jersey punto mujer')); boys.push(item('bi-layers','Cazadora','cazadora bomber hombre')); girls.push(item('bi-layers','Trench','gabardina mujer')); }
     else if (temp >= 5)  { boys.push(item('bi-person-fill','Jersey Lana','jersey lana hombre')); girls.push(item('bi-person-fill','Jersey Grueso','jersey grueso mujer invierno')); boys.push(item('bi-bricks','Abrigo','abrigo paño hombre')); girls.push(item('bi-bricks','Abrigo','abrigo lana mujer')); }
     else                 { boys.push(item('bi-snow2','Térmica','camiseta termica hombre')); girls.push(item('bi-snow2','Térmica','camiseta termica mujer')); boys.push(item('bi-person-fill','Plumífero','chaqueta plumas hombre')); girls.push(item('bi-person-fill','Plumífero','abrigo acolchado mujer')); }
     if (temp < 10 || (wind > 20 && temp < 15)) { boys.push(item('bi-emoji-dizzy','Bufanda','bufanda hombre invierno')); girls.push(item('bi-emoji-dizzy','Bufanda','bufanda mujer suave')); }
-    if (temp < 5)  { boys.push(item('fas fa-hat-winter','Gorro','gorro lana hombre')); girls.push(item('fas fa-hat-winter','Gorro','gorro invierno mujer pompon')); }
-    if (isRain)    { boys.push(item('bi-umbrella','Paraguas','paraguas resistente viento')); girls.push(item('bi-umbrella','Paraguas','paraguas plegable mujer')); boys.push(item('bi-cloud-rain','Impermeable','chubasquero hombre')); girls.push(item('bi-cloud-rain','Gabardina','chubasquero mujer impermeable')); if (temp < 15) { boys.push(item('bi-boot','Botas Agua','botas de agua hombre')); girls.push(item('bi-boot','Botas Agua','botas de agua mujer hunter')); } }
+    if (temp < 5)  { boys.push(item('fa-solid fa-mitten','Gorro','gorro lana hombre')); girls.push(item('fa-solid fa-mitten','Gorro','gorro invierno mujer pompon')); }
+    if (isRain)    { boys.push(item('bi-umbrella','Paraguas','paraguas resistente viento')); girls.push(item('bi-umbrella','Paraguas','paraguas plegable mujer')); boys.push(item('bi-cloud-rain','Impermeable','chubasquero hombre')); girls.push(item('bi-cloud-rain','Gabardina','chubasquero mujer impermeable')); if (temp < 15) { boys.push(item('fa-solid fa-shoe-prints','Botas Agua','botas de agua hombre')); girls.push(item('fa-solid fa-shoe-prints','Botas Agua','botas de agua mujer hunter')); } }
     if (isSnow)    { boys.push(item('bi-snow','Botas Nieve','botas nieve hombre impermeables')); girls.push(item('bi-snow','Botas Nieve','botas nieve mujer pelo')); boys.push(item('bi-hand-index-thumb','Guantes','guantes nieve hombre tactiles')); girls.push(item('bi-hand-index-thumb','Guantes','guantes invierno mujer')); }
     if (uv > 5 && isClear) { boys.push(item('bi-sunglasses','Gafas Sol','gafas de sol polarizadas hombre')); girls.push(item('bi-sunglasses','Gafas Sol','gafas de sol mujer tendencia')); boys.push(item('bi-capslock','Gorra','gorra beisbol hombre')); girls.push(item('bi-capslock','Sombrero','sombrero paja mujer')); }
     if (isRain)         shopLink = { text: "¡Ojo! Paraguas anti-viento", url: `${base}paraguas+antiviento+fuerte${tag}`, icon: "bi-umbrella-fill" };
@@ -587,29 +731,83 @@ const getClothingList = (temp, desc, wind, uv) => {
 const modal = document.getElementById('personaModal');
 const personaGrid = document.getElementById('personaGrid');
 
+const personaSheet = document.getElementById('personaSheet');
+const closePersonaModal = () => {
+    modal.classList.remove('show');
+    if (personaSheet) { personaSheet.style.transform = ''; personaSheet.style.transition = ''; }
+};
+
 const openPersonaModal = () => {
     personaGrid.innerHTML = '';
-    Object.keys(aiLogic).forEach(key => {
+    Object.keys(aiLogic).forEach((key, i) => {
         const p = aiLogic[key];
-        const div = document.createElement('div');
-        div.className = `persona-option ${key === currentPersona ? 'active' : ''}`;
-        div.onclick = () => { currentPersona = key; localStorage.setItem('aeris_persona', key); modal.classList.remove('show'); if (lastWeatherData) updateAIText(lastWeatherData); };
-        div.innerHTML = `<span class="persona-icon">${p.icon}</span><span class="persona-name">${p.name}</span>`;
-        personaGrid.appendChild(div);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `persona-option ${key === currentPersona ? 'active' : ''}`;
+        btn.style.setProperty('--i', i);
+        btn.setAttribute('aria-pressed', key === currentPersona);
+        btn.onclick = () => {
+            currentPersona = key;
+            localStorage.setItem('aeris_persona', key);
+            if (navigator.vibrate) navigator.vibrate(8);
+            closePersonaModal();
+            if (lastWeatherData) { updateAIText(lastWeatherData); blurIn(document.getElementById('ai-toggle')); }
+        };
+        btn.innerHTML = `<span class="persona-icon">${p.icon}</span><span class="persona-name">${p.name}</span>`;
+        personaGrid.appendChild(btn);
     });
     modal.classList.add('show');
 };
 document.getElementById('ai-toggle').addEventListener('click', openPersonaModal);
-document.getElementById('closePersonaModal').addEventListener('click', () => modal.classList.remove('show'));
-modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+document.getElementById('closePersonaModal').addEventListener('click', closePersonaModal);
+modal.addEventListener('click', (e) => { if (e.target === modal) closePersonaModal(); });
+
+// Arrastrar hacia abajo para cerrar el sheet (solo en móvil, donde es un sheet).
+// Se sigue el dedo 1:1; un gesto rápido (velocidad > 0.11 px/ms) basta aunque
+// sea corto, y hacia arriba hay fricción en vez de un tope seco.
+(function initSheetDrag() {
+    const zone = document.getElementById('personaDragZone');
+    if (!zone || !personaSheet) return;
+    const isSheet = () => !window.matchMedia('(min-width: 640px)').matches;
+    let startY = 0, startT = 0, dy = 0, dragging = false, pointerId = null;
+
+    zone.addEventListener('pointerdown', (e) => {
+        if (!isSheet() || dragging || e.target.closest('button')) return;
+        dragging = true; pointerId = e.pointerId;
+        startY = e.clientY; startT = performance.now(); dy = 0;
+        zone.setPointerCapture(e.pointerId);
+        personaSheet.style.transition = 'none';
+    });
+    zone.addEventListener('pointermove', (e) => {
+        if (!dragging || e.pointerId !== pointerId) return;
+        const raw = e.clientY - startY;
+        dy = raw >= 0 ? raw : -Math.pow(-raw, 0.6); // resistencia hacia arriba
+        personaSheet.style.transform = `translateY(${dy}px)`;
+    });
+    const end = (e) => {
+        if (!dragging || e.pointerId !== pointerId) return;
+        dragging = false;
+        const velocity = dy / Math.max(1, performance.now() - startT);
+        personaSheet.style.transition = '';
+        if (dy > 120 || velocity > 0.11) closePersonaModal();
+        else personaSheet.style.transform = '';
+    };
+    zone.addEventListener('pointerup', end);
+    zone.addEventListener('pointercancel', end);
+})();
 
 // ============================================================
 // 19. TEMA (automático por hora de sol — sin botón manual)
 // ============================================================
 const applyTheme = (theme) => {
     document.body.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-bs-theme', theme);
     document.documentElement.style.setProperty('--invert-close', theme === 'dark' ? '1' : '0');
+    // Guardamos el tema calculado para que el script anti-flash del <head>
+    // pueda aplicarlo de inmediato en la siguiente carga, antes de tener
+    // datos frescos de la API (evita el parpadeo claro->oscuro por la noche).
+    try { localStorage.setItem('aeris_theme_pref', theme); } catch (e) {}
 };
 
 function autoThemeByTime(sunrise, sunset) {
@@ -631,13 +829,25 @@ const updateHeartUI = () => {
     const heart = document.getElementById('favHeart');
     if (!heart) return;
     const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id));
-    heart.className = exists ? 'bi bi-heart-fill fs-3 text-danger' : 'bi bi-heart fs-3';
+    heart.classList.toggle('is-active', exists);
+    heart.setAttribute('aria-pressed', exists);
+    heart.setAttribute('aria-label', exists ? 'Quitar de favoritos' : 'Añadir a favoritos');
+    const icon = heart.querySelector('i');
+    if (icon) icon.className = exists ? 'bi bi-heart-fill' : 'bi bi-heart';
 };
 const toggleFavorite = () => {
     const index = favorites.findIndex(f => String(f.id) === String(currentCityInfo.id));
+    const adding = index === -1;
     if (index > -1) favorites.splice(index, 1); else favorites.push({ ...currentCityInfo });
     localStorage.setItem('aeris_favs', JSON.stringify(favorites));
     updateHeartUI(); renderFavorites();
+    // Feedback de "guardado": un pequeño latido, solo al añadir
+    const icon = document.querySelector('#favHeart i');
+    if (adding && icon && icon.animate && !prefersReducedMotion()) {
+        icon.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.3)' }, { transform: 'scale(1)' }],
+            { duration: 380, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+    }
+    if (navigator.vibrate) navigator.vibrate(adding ? 12 : 6);
 };
 const renderFavorites = () => {
     const list = document.getElementById('favList');
@@ -646,7 +856,7 @@ const renderFavorites = () => {
     favorites.forEach(city => {
         const li = document.createElement('li');
         li.className = 'fav-item';
-        li.innerHTML = `<div class="fav-item-info"><span class="fav-name">${city.name}</span><span class="fav-region">${city.region}</span></div><div class="fav-delete" aria-label="Eliminar"><i class="bi bi-trash3-fill"></i></div>`;
+        li.innerHTML = `<div class="fav-item-info" role="button" tabindex="0"><span class="fav-name">${escapeHTML(city.name)}</span><span class="fav-region">${escapeHTML(city.region)}</span></div><button type="button" class="fav-delete" aria-label="Eliminar ${escapeHTML(city.name)}"><i class="bi bi-trash3"></i></button>`;
         li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); };
         li.querySelector('.fav-delete').onclick = (e) => {
             e.stopPropagation();
@@ -663,6 +873,18 @@ document.getElementById('favMenuBtn').addEventListener('click', openSidebar);
 document.getElementById('closeSidebar').addEventListener('click', closeSidebar);
 document.getElementById('overlay').addEventListener('click', closeSidebar);
 document.getElementById('favHeart').addEventListener('click', toggleFavorite);
+document.getElementById('favList').addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('fav-item-info')) { e.preventDefault(); e.target.click(); }
+});
+
+// Escape cierra la capa que esté abierta (sin animación extra: es teclado)
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (modal.classList.contains('show')) closePersonaModal();
+    else if (document.getElementById('share-modal').classList.contains('show')) closeShareModal();
+    else if (document.getElementById('favSidebar').classList.contains('open')) closeSidebar();
+    else if (suggestionsList && suggestionsList.classList.contains('show')) suggestionsList.classList.remove('show');
+});
 
 // ============================================================
 // 21. BÚSQUEDA CON HISTORIAL
@@ -683,13 +905,19 @@ if (searchInput) {
                 cities.forEach(c => {
                     const li = document.createElement('li');
                     li.className = 'suggestion-item';
-                    li.innerHTML = `<span>${c.name}</span><small>${c.region}</small>`;
+                    li.innerHTML = `<span>${escapeHTML(c.name)}</span><small>${escapeHTML(c.region)}</small>`;
                     li.onclick = () => selectCity(c);
                     suggestionsList.appendChild(li);
                 });
                 cities.length ? suggestionsList.classList.add('show') : suggestionsList.classList.remove('show');
             } catch (e) { }
         }, 300);
+    });
+    // Enter elige la primera sugerencia visible
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const first = suggestionsList.querySelector('.suggestion-item');
+        if (first && suggestionsList.classList.contains('show')) { e.preventDefault(); first.click(); searchInput.blur(); }
     });
     document.addEventListener('click', (e) => { if (!searchInput.contains(e.target) && !suggestionsList.contains(e.target)) suggestionsList.classList.remove('show'); });
 }
@@ -708,7 +936,8 @@ const selectCity = (city) => {
     const url = new URL(window.location);
     url.searchParams.set('ciudad', city.name);
     window.history.replaceState({}, '', url);
-    document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); });
+    document.querySelectorAll('#city, #desc, #temp, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); });
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     getWeather(id);
 };
 
@@ -722,7 +951,7 @@ document.getElementById('shareBtn').addEventListener('click', () => {
 // ============================================================
 // 23. GRÁFICO DE LLUVIA
 // ============================================================
-const renderRainChart = (nowcast, hourlyData, currentTime) => {
+const renderRainChart = async (nowcast, hourlyData, currentTime) => {
     const card = document.getElementById('rain-card');
     const summary = document.getElementById('rain-summary');
     let timeLabels = [], precipData = [];
@@ -741,10 +970,25 @@ const renderRainChart = (nowcast, hourlyData, currentTime) => {
     card.style.display = 'block';
     summary.innerText = total > 5 ? "Lluvia Fuerte" : (total > 1 ? "Lluvia Moderada" : "Lluvia Ligera");
     const cCtx = document.getElementById('rainChart').getContext('2d');
-    const gradient = cCtx.createLinearGradient(0, 0, 0, 150);
-    gradient.addColorStop(0, 'rgba(56,189,248,0.8)'); gradient.addColorStop(1, 'rgba(56,189,248,0.05)');
+    const gradient = cCtx.createLinearGradient(0, 0, 0, 120);
+    gradient.addColorStop(0, 'rgba(143,211,255,0.65)'); gradient.addColorStop(1, 'rgba(143,211,255,0.02)');
+    await ensureChartJS();
+    applyChartDefaults();
     if (rainChartInstance) rainChartInstance.destroy();
-    rainChartInstance = new Chart(cCtx, { type: 'line', data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { display: false, min: 0 } }, animation: { duration: 1000 } } });
+    rainChartInstance = new Chart(cCtx, {
+        type: 'line',
+        data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#8fd3ff', borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#fff', fill: true, tension: 0.4 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 11, weight: '500' } } },
+                y: { display: false, min: 0 }
+            },
+            animation: { duration: prefersReducedMotion() ? 0 : 800, easing: 'easeOutQuart' }
+        }
+    });
 };
 
 // ============================================================
@@ -785,10 +1029,10 @@ function getBestWindows(activityId, hourly) {
     // Elegir la ventana más larga
     windows.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]));
     const [si, ei] = windows[0];
-    const fmt  = (h) => `${h.toString().padStart(2, '0')}:00`;
     const sH   = getHour(hourly[si].displayTime);
     const eH   = getHour(hourly[ei].displayTime) + 1;
-    return si === ei ? fmt(sH) : `${fmt(sH)}–${fmt(eH)}`;
+    // Formato compacto ("16–18h") para que quepa en la tarjeta de actividad
+    return si === ei ? `${sH}h` : `${sH}–${eH}h`;
 }
 
 const renderPollen = (pollen) => {
@@ -811,15 +1055,39 @@ const renderPollen = (pollen) => {
     list.innerHTML = activeTypes.map(t => {
         const val = pollen[t.k] || 0, percent = Math.min((val / 100) * 100, 100);
         if (val > 50) isHigh = true;
-        return `<div class="pollen-item"><span class="pollen-name text-capitalize opacity-75">${t.n}</span><div class="pollen-bar-bg"><div class="pollen-bar-fill" style="width:${percent}%;background-color:${t.color}"></div></div><span class="pollen-val opacity-50">${val}</span></div>`;
+        return `<div class="pollen-item"><span class="pollen-name">${t.n}</span><div class="pollen-bar-bg"><div class="pollen-bar-fill" style="width:${percent}%;background-color:${t.color}"></div></div><span class="pollen-val">${val}</span></div>`;
     }).join('');
     return isHigh;
 };
 
-const renderAlerts = (alerts) => {
+// Avisos OFICIALES de AEMET Meteoalerta (por comunidad autónoma), aparte
+// de las alertas propias calculadas por umbrales. Vienen ya filtrados y
+// ordenados (rojo > naranja > amarillo) desde el servidor.
+const AEMET_NIVEL_CLASE = { rojo: '', naranja: 'orange', amarillo: 'yellow' };
+const renderAemetAvisos = (avisos) => {
+    if (!avisos || avisos.length === 0) return '';
+    return avisos.map(a => {
+        const cls = AEMET_NIVEL_CLASE[a.nivel] || '';
+        const zonas = (a.zonas && a.zonas.length)
+            ? a.zonas.slice(0, 3).join(', ') + (a.zonas.length > 3 ? '…' : '')
+            : '';
+        const cuerpo = [a.descripcion, zonas].filter(Boolean).map(escapeHTML).join(' · ');
+        return `<div class="alert-card ${cls}">
+            <i class="bi bi-shield-fill-exclamation alert-icon"></i>
+            <div>
+                <span class="aemet-badge">AEMET OFICIAL</span>
+                <div class="fw-bold">${escapeHTML(a.titular || a.fenomeno || 'Aviso meteorológico')}</div>
+                <div class="small opacity-75">${cuerpo}</div>
+            </div>
+        </div>`;
+    }).join('');
+};
+
+const renderAlerts = (alerts, avisosOficiales) => {
     const container = document.getElementById('alerts-container');
-    if (!alerts || alerts.length === 0) { container.innerHTML = ''; return; }
-    container.innerHTML = alerts.map(a => `<div class="alert-card ${a.level}"><i class="bi bi-exclamation-triangle-fill alert-icon"></i><div><div class="fw-bold">${a.title}</div><div class="small opacity-75">${a.msg}</div></div></div>`).join('');
+    const propias = (!alerts || alerts.length === 0) ? '' :
+        alerts.map(a => `<div class="alert-card ${a.level}"><i class="bi bi-exclamation-triangle-fill alert-icon"></i><div><div class="fw-bold">${a.title}</div><div class="small opacity-75">${a.msg}</div></div></div>`).join('');
+    container.innerHTML = renderAemetAvisos(avisosOficiales) + propias;
 };
 
 const renderLifestyle = (cur, daily, hourly) => {
@@ -862,13 +1130,48 @@ const renderLifestyle = (cur, daily, hourly) => {
 // ============================================================
 // 25. toggleDay
 // ============================================================
+// El acordeón se anima en CSS (grid-template-rows 0fr → 1fr); aquí solo
+// cambiamos el estado, así es interrumpible si se toca dos veces seguidas.
 window.toggleDay = (index) => {
-    const el = document.getElementById(`day-detail-${index}`);
-    if (el) {
-        if (el.style.display === 'none') { el.style.display = 'block'; el.style.opacity = '0'; setTimeout(() => el.style.opacity = '1', 10); }
-        else { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }
-    }
+    const item = document.getElementById(`day-item-${index}`);
+    if (!item) return;
+    const open = item.classList.toggle('open');
+    const btn = item.querySelector('.day-row');
+    if (btn) btn.setAttribute('aria-expanded', open);
 };
+
+// Acciones por delegación. La CSP de Helmet incluye script-src-attr 'none',
+// así que los onclick="" en el HTML se bloquean: todo va por listeners.
+document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    switch (el.dataset.action) {
+        case 'toggle-day':     toggleDay(Number(el.dataset.day)); break;
+        case 'close-share':    closeShareModal(); break;
+        case 'download-share': downloadShareCard(); break;
+        case 'retry':          retryWeather(); break;
+    }
+});
+
+// Modal iOS: tocar el fondo cierra; tocar la hoja no
+document.getElementById('iosInstallModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'iosInstallModal') closeIosModal();
+});
+
+// Radar: quitar el esqueleto cuando carga el mapa de verdad (no el about:blank inicial)
+const radarFrame = document.getElementById('radar-frame');
+radarFrame?.addEventListener('load', () => {
+    if (radarFrame.getAttribute('src')) document.getElementById('radar-skeleton').style.display = 'none';
+});
+
+// Logo del splash: si no carga, icono de reserva
+(function () {
+    const img = document.getElementById('splash-logo');
+    if (!img) return;
+    const fallback = () => { img.style.display = 'none'; if (img.nextElementSibling) img.nextElementSibling.style.display = 'block'; };
+    if (img.complete && img.naturalWidth === 0) fallback();
+    else img.addEventListener('error', fallback);
+})();
 
 // ============================================================
 // 26. PUSH NOTIFICATIONS
@@ -897,7 +1200,7 @@ async function registerPush(silent = false) {
     const lat = currentCityInfo.lat || parseFloat(String(currentCityInfo.id).split(',')[0]);
     const lon = currentCityInfo.lon || parseFloat(String(currentCityInfo.id).split(',')[1]);
     if (!lat || !lon) return;
-    await fetch('/api/subscribe', { method: 'POST', body: JSON.stringify({ subscription, lat, lon, city: currentCityInfo.name }), headers: { 'Content-Type': 'application/json' } });
+    await fetch('/api/subscribe', { method: 'POST', body: JSON.stringify({ subscription, lat, lon, city: currentCityInfo.name, region: currentCityInfo.region || '' }), headers: { 'Content-Type': 'application/json' } });
     if (!silent) alert(`🔔 ¡Activado! Te avisaremos si hay lluvia, tormenta o calor extremo en ${currentCityInfo.name}. También recibirás el resumen matutino.`);
 }
 
@@ -921,13 +1224,19 @@ const renderWeather = (data, isOffline = false) => {
     if (displayCity && displayCity.startsWith("Tu ubicacion (")) displayCity = displayCity.replace("Tu ubicacion", "Tu ubicación");
     if (displayCity && displayCity.startsWith("Tu ubicación")) {
         const match = displayCity.match(/\(([^)]+)\)/);
-        cityEl.innerHTML = `TU UBICACIÓN ${match ? `<small style="display:block;opacity:0.6;font-size:1em;text-transform:none;margin-top:5px">(${match[1]})</small>` : ''}`;
+        cityEl.innerHTML = `<i class="bi bi-cursor-fill hero-loc" aria-hidden="true"></i>${match ? escapeHTML(match[1]) : 'Tu ubicación'}`;
     } else {
         cityEl.innerText = displayCity || 'AERIS';
     }
 
-    // Temperatura con unidades
-    document.getElementById('temp').innerText      = fmtTemp(cur.temp) + (useFahrenheit ? '°F' : '°');
+    // Temperatura con unidades (el ° va en su propio span para afinar la tipografía)
+    const tempEl = document.getElementById('temp');
+    tempEl.innerHTML = `${fmtTemp(cur.temp)}<span class="deg">°${useFahrenheit ? '<small>F</small>' : ''}</span>`;
+    const heroKey = `${loc.name}|${cur.temp}|${cur.desc}|${useFahrenheit}`;
+    if (lastHeroKey !== null && heroKey !== lastHeroKey) {
+        ['temp', 'desc', 'weather-icon-container', 'city'].forEach(id => blurIn(document.getElementById(id)));
+    }
+    lastHeroKey = heroKey;
     document.getElementById('feels-like').innerText = fmtTemp(cur.feelsLike);
     document.getElementById('desc').innerText      = cur.desc;
     document.getElementById('hum').innerText       = cur.humidity;
@@ -946,7 +1255,7 @@ const renderWeather = (data, isOffline = false) => {
     const renderedIcon = renderIcon(cur.icon, "5.5rem");
     document.getElementById('weather-icon-container').innerHTML = renderedIcon.includes('<img')
         ? renderedIcon
-        : `<i class="bi ${cur.icon}" style="font-size:5.5rem;animation:float 3s infinite ease-in-out;"></i>`;
+        : `<i class="bi ${cur.icon} icon-float" style="font-size:5.5rem;display:inline-block;"></i>`;
 
     // AQI
     const aqi = cur.aqi || 0;
@@ -961,7 +1270,8 @@ const renderWeather = (data, isOffline = false) => {
     document.getElementById('aqi-text').style.color = aqiColor;
     document.getElementById('pm25').innerText = cur.pm25 !== undefined ? cur.pm25 + (typeof cur.pm25 === 'number' ? ' µg/m³' : '') : '--';
     document.getElementById('pm10').innerText = cur.pm10 !== undefined ? cur.pm10 + (typeof cur.pm10 === 'number' ? ' µg/m³' : '') : '--';
-    document.getElementById('aqi-dot').style.left = `${Math.min((aqi / 300) * 100, 100)}%`;
+    // transform en vez de left: el punto se desliza sin recalcular layout
+    document.getElementById('aqi-dot').style.transform = `translateX(${Math.min((aqi / 300) * 100, 100)}cqw)`;
 
     // Max/Min
     if (data.daily && data.daily.length > 0) {
@@ -974,7 +1284,7 @@ const renderWeather = (data, isOffline = false) => {
     renderRainChart(data.nowcast, data.hourly, cur.time);
     const isHighPollen = renderPollen(data.pollen);
     renderLifestyle(cur, data.daily, data.hourly);
-    renderAlerts(data.alerts);
+    renderAlerts(data.alerts, data.avisosOficiales);
     updateAIText(cur, isHighPollen);
     setDynamicBackground(cur);
     renderComfort(cur.temp, cur.humidity, cur.windSpeed, cur.uv, cur.desc);
@@ -998,48 +1308,64 @@ const renderWeather = (data, isOffline = false) => {
 
     // Hourly
     const hCont = document.getElementById('hourly');
-    if (hCont) hCont.innerHTML = data.hourly.map(h =>
-        `<div class="hourly-item">
-            <div class="small opacity-75 fw-bold mb-1">${h.displayTime}</div>
-            ${renderIcon(h.icon, "fs-4")}
-            <div class="fw-bold fs-5">${fmtTemp(h.temp)}${useFahrenheit ? '°F' : '°'}</div>
-            <div class="small fw-bold" style="font-size:0.7rem;color:var(--accent)">${h.rainProb > 0 ? h.rainProb + '%' : ''}</div>
-        </div>`
-    ).join('');
+    if (hCont) {
+        hCont.innerHTML = data.hourly.map(h =>
+            `<div class="hourly-item" role="listitem">
+                <span class="h-time">${h.displayTime}</span>
+                <span class="h-icon">${renderIcon(h.icon, "")}</span>
+                <span class="h-rain">${h.rainProb > 0 ? h.rainProb + '%' : ''}</span>
+                <span class="h-temp">${fmtTemp(h.temp)}°</span>
+            </div>`
+        ).join('');
+        hCont.scrollLeft = 0;
+    }
 
-    // Daily
+    // Daily: barras de rango sobre la escala de toda la semana (estilo iOS)
     const dCont = document.getElementById('daily');
-    if (dCont) dCont.innerHTML = data.daily.map((d, index) => {
-        const formattedDate = new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
-        let hourlyHtml = d.dayHours && d.dayHours.length > 0
-            ? d.dayHours.map(h => {
-                const hour = parseInt(h.time.split(':')[0]);
-                let iconClass = h.icon;
-                if (hour < parseInt(d.sunrise.split(':')[0]) || hour > parseInt(d.sunset.split(':')[0]))
-                    iconClass = iconClass.replace('bi-sun', 'bi-moon').replace('bi-cloud-sun', 'bi-cloud-moon');
-                return `<div class="day-hourly-item"><span class="opacity-50 fw-bold">${h.time}</span>${renderIcon(iconClass, "fs-5 text-primary")}<span class="fw-bold">${fmtTemp(h.temp)}°</span><small style="color:#3b82f6;font-weight:800;font-size:0.65rem">${h.rainProb > 0 ? h.rainProb + '%' : ''}</small></div>`;
-            }).join('')
-            : '<div class="text-center w-100 opacity-50 small">No hay datos horarios</div>';
-        return `<div style="cursor:pointer" onclick="toggleDay(${index})" role="button" aria-label="Ver horas de ${formattedDate}">
-            <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border)!important">
-                <div style="width:35%" class="fw-bold text-capitalize">
-                    <div>${formattedDate}</div>
-                    <div class="small opacity-50 d-flex gap-2"><span><i class="bi bi-sunrise"></i> ${d.sunrise}</span><span><i class="bi bi-sunset"></i> ${d.sunset}</span></div>
+    if (dCont && data.daily && data.daily.length) {
+        const weekMin = Math.min(...data.daily.map(d => d.tempMin));
+        const weekMax = Math.max(...data.daily.map(d => d.tempMax));
+        const span = Math.max(1, weekMax - weekMin);
+        const pos = (t) => Math.max(0, Math.min(100, ((t - weekMin) / span) * 100));
+        const todayStr = new Date().toLocaleDateString('sv-SE');
+        const openDays = new Set([...dCont.querySelectorAll('.day-item.open')].map(el => el.id));
+
+        dCont.innerHTML = data.daily.map((d, index) => {
+            const date = new Date(d.fecha.replace(/-/g, '/'));
+            const isToday = d.fecha === todayStr;
+            const dayName = isToday ? 'Hoy' : date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
+            const dayNum = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '');
+            const l = pos(d.tempMin), r = 100 - pos(d.tempMax);
+            const nowDot = isToday ? `<span class="day-now" style="left:${pos(cur.temp)}%"></span>` : '';
+            const hourlyHtml = d.dayHours && d.dayHours.length > 0
+                ? d.dayHours.map(h => {
+                    const hour = parseInt(h.time.split(':')[0]);
+                    let iconClass = h.icon;
+                    if (hour < parseInt(d.sunrise.split(':')[0]) || hour > parseInt(d.sunset.split(':')[0]))
+                        iconClass = iconClass.replace('bi-sun', 'bi-moon').replace('bi-cloud-sun', 'bi-cloud-moon');
+                    return `<div class="day-hourly-item"><span class="dh-time">${h.time}</span>${renderIcon(iconClass, "")}<span class="dh-temp">${fmtTemp(h.temp)}°</span><span class="dh-rain">${h.rainProb > 0 ? h.rainProb + '%' : ''}</span></div>`;
+                }).join('')
+                : '<div class="text-center w-100 small" style="color:var(--text-3)">No hay datos horarios</div>';
+            const itemId = `day-item-${index}`;
+            const isOpen = openDays.has(itemId);
+            return `<div class="day-item${isOpen ? ' open' : ''}" id="${itemId}" role="listitem">
+                <button type="button" class="day-row" data-action="toggle-day" data-day="${index}" aria-expanded="${isOpen}" aria-controls="day-detail-${index}" aria-label="${escapeHTML(dayName)} ${dayNum}: máxima ${fmtTemp(d.tempMax)}°, mínima ${fmtTemp(d.tempMin)}°. Ver horas">
+                    <span class="day-name">${dayName}<small>${dayNum}</small></span>
+                    <span class="day-icon">${renderIcon(d.icon, "")}<span class="day-rain">${d.rainProbMax > 0 ? d.rainProbMax + '%' : ''}</span></span>
+                    <span class="day-min">${fmtTemp(d.tempMin)}°</span>
+                    <span class="day-bar"><span class="day-bar-fill" style="left:${l}%;right:${r}%;background:linear-gradient(90deg,${tempColor(d.tempMin)},${tempColor(d.tempMax)})"></span>${nowDot}</span>
+                    <span class="day-max">${fmtTemp(d.tempMax)}°</span>
+                    <i class="bi bi-chevron-down day-chev" aria-hidden="true"></i>
+                </button>
+                <div id="day-detail-${index}" class="day-detail">
+                    <div class="day-detail-inner"><div class="day-detail-body">
+                        <div class="day-sun"><span><i class="bi bi-sunrise"></i> ${d.sunrise}</span><span><i class="bi bi-sunset"></i> ${d.sunset}</span></div>
+                        <div class="day-detail-content">${hourlyHtml}</div>
+                    </div></div>
                 </div>
-                <div class="d-flex flex-column align-items-center" style="width:25%">
-                    ${renderIcon(d.icon, "fs-5")}
-                    <small class="text-primary fw-bold">${d.rainProbMax > 0 ? d.rainProbMax + '%' : ''}</small>
-                </div>
-                <div class="text-end fw-bold" style="width:30%">
-                    <span style="color:#ef4444">${fmtTemp(d.tempMax)}°</span> / <span style="color:#3b82f6">${fmtTemp(d.tempMin)}°</span>
-                    <i class="bi bi-chevron-down ms-2 opacity-50 small"></i>
-                </div>
-            </div>
-        </div>
-        <div id="day-detail-${index}" class="day-detail" style="display:none;opacity:0">
-            <div class="day-detail-content">${hourlyHtml}</div>
-        </div>`;
-    }).join('');
+            </div>`;
+        }).join('');
+    }
 
     // Offline banner
     const offlineBanner = document.getElementById('offline-banner');
@@ -1053,6 +1379,8 @@ const renderWeather = (data, isOffline = false) => {
 
     // Animación clima
     startWeatherAnimation(getAnimationType(cur.desc, cur.isDay));
+
+    hideSplash();
 };
 
 // ============================================================
@@ -1081,8 +1409,28 @@ async function getWeather(id) {
             document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
             const errorBanner = document.getElementById('error-banner');
             if (errorBanner) errorBanner.style.display = 'flex';
+            hideSplash();
         }
     }
+}
+
+// Localizar: icono girando mientras el GPS responde; si falla, se
+// restaura lo que había en vez de dejar los esqueletos para siempre.
+function locateUser(timeout, onFail) {
+    const btn = document.getElementById('geoBtn');
+    if (btn) btn.classList.add('is-loading');
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            if (btn) btn.classList.remove('is-loading');
+            const id = `${pos.coords.latitude},${pos.coords.longitude}`;
+            localStorage.setItem('lastId', id); localStorage.setItem('lastName', ''); localStorage.setItem('lastRegion', '');
+            currentId = id;
+            currentCityInfo = { id, name: '', region: '', lat: pos.coords.latitude, lon: pos.coords.longitude };
+            getWeather(id);
+        },
+        () => { if (btn) btn.classList.remove('is-loading'); onFail(); },
+        { timeout, enableHighAccuracy: false }
+    );
 }
 
 // ============================================================
@@ -1092,18 +1440,12 @@ const geoBtn = document.getElementById('geoBtn');
 if (geoBtn) {
     geoBtn.addEventListener('click', () => {
         if (!navigator.geolocation) return;
-        document.querySelectorAll('.glass-card h5, .glass-card .h4, .temp-big').forEach(el => el.classList.add('skeleton'));
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const id = `${pos.coords.latitude},${pos.coords.longitude}`;
-                localStorage.setItem('lastId', id); localStorage.setItem('lastName', ''); localStorage.setItem('lastRegion', '');
-                currentId = id;
-                currentCityInfo = { id, name: '', region: '', lat: pos.coords.latitude, lon: pos.coords.longitude };
-                getWeather(id);
-            },
-            () => {},
-            { timeout: 8000, enableHighAccuracy: false }
-        );
+        document.querySelectorAll('#city, #desc, #temp').forEach(el => el.classList.add('skeleton'));
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+        locateUser(8000, () => {
+            if (window._lastFullData) renderWeather(window._lastFullData, window._lastIsOffline);
+            else document.querySelectorAll('#city, #desc, #temp').forEach(el => el.classList.remove('skeleton'));
+        });
     });
 }
 
@@ -1128,11 +1470,16 @@ function initOnboarding() {
         next.textContent = n === slides.length - 1 ? '¡Empezar! 🚀' : 'Siguiente →';
     };
 
+    const finish = () => {
+        localStorage.setItem('aeris_onboarding_done', '1');
+        overlay.classList.add('is-leaving');
+        setTimeout(() => { overlay.style.display = 'none'; overlay.classList.remove('is-leaving'); }, 230);
+    };
     next.addEventListener('click', () => {
-        if (slide < slides.length - 1) { goTo(slide + 1); }
-        else { localStorage.setItem('aeris_onboarding_done', '1'); overlay.style.display = 'none'; }
+        if (slide < slides.length - 1) goTo(slide + 1);
+        else finish();
     });
-    skip.addEventListener('click', () => { localStorage.setItem('aeris_onboarding_done', '1'); overlay.style.display = 'none'; });
+    skip.addEventListener('click', finish);
     goTo(0);
 }
 
@@ -1140,11 +1487,8 @@ function initOnboarding() {
 // 31. CARGA INICIAL
 // ============================================================
 window.addEventListener('load', () => {
-    // Splash
-    setTimeout(() => { const splash = document.getElementById('splash-screen'); if (splash) splash.classList.add('hidden'); }, 2000);
-
-    // Onboarding
-    setTimeout(initOnboarding, 2200);
+    // Splash: se oculta al pintar los datos; esto es solo la red de seguridad
+    setTimeout(hideSplash, 4000);
 
     // Modal notificaciones
     if (Notification.permission === 'default') {
@@ -1161,21 +1505,15 @@ window.addEventListener('load', () => {
     renderFavorites();
     updateUnitsUI();
 
-    // Geolocalización automática
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const id = `${pos.coords.latitude},${pos.coords.longitude}`;
-                localStorage.setItem('lastId', id); localStorage.setItem('lastName', ''); localStorage.setItem('lastRegion', '');
-                currentId = id;
-                currentCityInfo = { id, name: '', region: '', lat: pos.coords.latitude, lon: pos.coords.longitude };
-                getWeather(id);
-            },
-            () => { getWeather(localStorage.getItem('lastId') || 'Madrid'); },
-            { timeout: 4000, enableHighAccuracy: false }
-        );
+    // Geolocalización automática: SOLO en la primerísima visita real
+    // (sin ciudad guardada de antes y sin venir de un enlace compartido).
+    // En cargas posteriores respetamos la última ciudad vista/favorita;
+    // el botón de geolocalización manual sigue disponible para actualizar.
+    const shouldAutoGeolocate = !hadStoredCity && !cameFromSharedLink && !!navigator.geolocation;
+    if (shouldAutoGeolocate) {
+        locateUser(4000, () => getWeather(currentId));
     } else {
-        getWeather(localStorage.getItem('lastId') || 'Madrid');
+        getWeather(currentId);
     }
 });
 
@@ -1200,8 +1538,10 @@ if ('serviceWorker' in navigator) {
         btn.addEventListener('click', () => {
             const el = document.getElementById(btn.dataset.target);
             if (!el) return;
-            const y = el.getBoundingClientRect().top + window.pageYOffset - 10;
-            window.scrollTo({ top: y, behavior: 'smooth' });
+            // Compensamos la barra superior fija para que la tarjeta no quede debajo
+            const navH = document.querySelector('.nav-bar')?.offsetHeight || 0;
+            const y = btn.dataset.target === 'capture-card' ? 0 : el.getBoundingClientRect().top + window.pageYOffset - navH - 6;
+            window.scrollTo({ top: y, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
             setActive(btn.dataset.target);
             if (navigator.vibrate) navigator.vibrate(8);
 
@@ -1231,7 +1571,21 @@ if ('serviceWorker' in navigator) {
         });
     }, { passive: true });
 
+    // Indicador deslizante: transform directo en el elemento (no una variable
+    // CSS en el padre, que recalcularía estilos de todos los hijos)
+    const indicator = document.getElementById('bnavIndicator');
     function setActive(id) {
-        items.forEach(b => b.classList.toggle('active', b.dataset.target === id));
+        let idx = 0;
+        items.forEach((b, i) => {
+            const on = b.dataset.target === id;
+            b.classList.toggle('active', on);
+            if (on) { idx = i; b.setAttribute('aria-current', 'true'); } else b.removeAttribute('aria-current');
+        });
+        if (indicator) indicator.style.transform = `translateX(${idx * 100}%)`;
     }
+
+    // Desenfoque bajo la barra superior solo cuando hay contenido debajo
+    const onScrollEdge = () => document.body.classList.toggle('is-scrolled', window.scrollY > 6);
+    window.addEventListener('scroll', onScrollEdge, { passive: true });
+    onScrollEdge();
 })();

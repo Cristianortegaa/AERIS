@@ -7,8 +7,16 @@ const webpush = require('web-push');
 const { Sequelize, DataTypes } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
+const helmet = require('helmet');
+const compression = require('compression');
+const zlib = require('zlib');
+const tarStream = require('tar-stream');
+const { XMLParser } = require('fast-xml-parser');
 
 const app = express();
+
+// --- Cliente HTTP con timeout para APIs externas (evita peticiones colgadas) ---
+const http = axios.create({ timeout: 8000 });
 
 // --- LOG HELPER ---
 const log = (level, msg, ...args) => {
@@ -16,6 +24,26 @@ const log = (level, msg, ...args) => {
     if (level === 'error') console.error(`[${ts}] ERROR: ${msg}`, ...args);
     else console.log(`[${ts}] ${level.toUpperCase()}: ${msg}`, ...args);
 };
+
+// --- SEGURIDAD (helmet) Y COMPRESION ---
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+            "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            "font-src": ["'self'", "data:", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            "img-src": ["'self'", "data:", "https:"],
+            "connect-src": ["'self'"],
+            "frame-src": ["https://embed.windy.com"],
+            "object-src": ["'none'"],
+            "upgrade-insecure-requests": null
+        }
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+app.use(compression());
 
 // --- CORS ---
 const allowedOrigins = process.env.ALLOWED_ORIGIN
@@ -33,7 +61,12 @@ app.use(cors({
 }));
 
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static('public', {
+    maxAge: '1d',
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    }
+}));
 
 // --- RATE LIMITING ---
 const weatherLimiter = rateLimit({
@@ -82,10 +115,20 @@ const Subscription = sequelize.define('Subscription', {
     lat: { type: DataTypes.FLOAT },
     lon: { type: DataTypes.FLOAT },
     city: { type: DataTypes.STRING },
-    lastNotification: { type: DataTypes.DATE }
+    region: { type: DataTypes.STRING },
+    lastNotification: { type: DataTypes.DATE },
+    lastAemetAviso: { type: DataTypes.STRING } // identificador del último aviso oficial ya notificado (evita repetir)
 }, { timestamps: false });
 
-sequelize.sync().then(() => log('info', 'Base de datos lista.'));
+sequelize.sync().then(async () => {
+    log('info', 'Base de datos lista.');
+    // Migración segura para bases de datos ya existentes que no tenían
+    // estas columnas (sync() no altera tablas existentes por defecto).
+    for (const col of ['region VARCHAR(255)', 'lastAemetAviso VARCHAR(255)']) {
+        try { await sequelize.query(`ALTER TABLE Subscriptions ADD COLUMN ${col}`); }
+        catch (e) { /* la columna ya existe: normal, no es un error real */ }
+    }
+});
 
 // --- UTILS ---
 const decodeWMO = (code, isDay = 1) => {
@@ -120,6 +163,151 @@ const decodeWMO = (code, isDay = 1) => {
     const icon = isDay ? (dayIcons[c] || 'bi-cloud') : (nightIcons[c] || dayIcons[c] || 'bi-cloud');
     return { text: textMap[c] || "Variable", icon };
 };
+
+// --- AVISOS OFICIALES DE AEMET (Meteoalerta) ---
+// Códigos de área verificados a mano contra la API real de AEMET (una
+// petición por código y comprobación del areaDesc/zona devuelta), ya que
+// la documentación pública no los lista de forma fiable.
+const AEMET_AREA_KEYWORDS = [
+    ['61', ['andaluc']],
+    ['62', ['aragon']],
+    ['63', ['asturias']],
+    ['64', ['balear']],
+    ['65', ['canaria']],
+    ['66', ['cantabria']],
+    ['67', ['castilla y leon', 'castilla-leon']],
+    ['68', ['castilla-la mancha', 'castilla la mancha']],
+    ['69', ['catalu']],
+    ['70', ['extremadura']],
+    ['71', ['galicia']],
+    ['72', ['madrid']],
+    ['73', ['murcia']],
+    ['74', ['navarra']],
+    ['75', ['pais vasco', 'euskadi']],
+    ['76', ['rioja']],
+    ['77', ['valenc']],
+    ['78', ['ceuta']],
+    ['79', ['melilla']]
+];
+
+const normalizeRegion = (str) => String(str || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const getAemetAreaCode = (regionName) => {
+    const n = normalizeRegion(regionName);
+    if (!n) return null;
+    for (const [code, keywords] of AEMET_AREA_KEYWORDS) {
+        if (keywords.some(k => n.includes(k))) return code;
+    }
+    return null;
+};
+
+// Descomprime el .tar.gz que devuelve AEMET y extrae el texto de cada XML
+function extractXmlsFromTarGz(buffer) {
+    return new Promise((resolve, reject) => {
+        let gunzipped;
+        try { gunzipped = zlib.gunzipSync(buffer); } catch (e) { return reject(e); }
+        const extract = tarStream.extract();
+        const xmls = [];
+        extract.on('entry', (header, stream, next) => {
+            const chunks = [];
+            stream.on('data', (chunk) => chunks.push(chunk));
+            stream.on('end', () => {
+                if (header.name.endsWith('.xml')) xmls.push(Buffer.concat(chunks).toString('utf-8'));
+                next();
+            });
+            stream.on('error', reject);
+            stream.resume();
+        });
+        extract.on('finish', () => resolve(xmls));
+        extract.on('error', reject);
+        extract.end(gunzipped);
+    });
+}
+
+const AEMET_NIVEL_ORDEN = { rojo: 0, naranja: 1, amarillo: 2, verde: 3 };
+const aemetAvisosCache = new Map(); // areaCode -> { data, ts }
+const AEMET_CACHE_MS = 15 * 60 * 1000; // 15 min: los avisos no cambian cada minuto
+
+async function fetchAemetAvisos(areaCode) {
+    const apiKey = process.env.AEMET_API_KEY;
+    if (!apiKey || !areaCode) return [];
+
+    const cached = aemetAvisosCache.get(areaCode);
+    if (cached && (Date.now() - cached.ts) < AEMET_CACHE_MS) return cached.data;
+
+    try {
+        const metaRes = await http.get(`https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/${areaCode}`, {
+            headers: { api_key: apiKey }
+        });
+        if (!metaRes.data || metaRes.data.estado !== 200 || !metaRes.data.datos) {
+            aemetAvisosCache.set(areaCode, { data: [], ts: Date.now() });
+            return [];
+        }
+
+        const tarRes = await http.get(metaRes.data.datos, {
+            headers: { api_key: apiKey },
+            responseType: 'arraybuffer'
+        });
+
+        const xmls = await extractXmlsFromTarGz(Buffer.from(tarRes.data));
+        const parser = new XMLParser({ ignoreAttributes: false, textNodeName: '#text' });
+        const now = Date.now();
+        const seen = new Set();
+        const avisos = [];
+
+        for (const xml of xmls) {
+            let doc;
+            try { doc = parser.parse(xml); } catch (e) { continue; }
+            const alert = doc && doc.alert;
+            if (!alert || !alert.info) continue;
+
+            const infos = Array.isArray(alert.info) ? alert.info : [alert.info];
+            const info = infos.find(i => i.language === 'es-ES') || infos[0];
+            if (!info) continue;
+
+            const params = Array.isArray(info.parameter) ? info.parameter : (info.parameter ? [info.parameter] : []);
+            const getParam = (name) => {
+                const p = params.find(p => p.valueName === name);
+                return p ? String(p.value) : null;
+            };
+
+            const nivel = (getParam('AEMET-Meteoalerta nivel') || '').toLowerCase();
+            if (!nivel || nivel === 'verde') continue; // "verde" = sin riesgo, no interesa mostrarlo
+
+            const expires = info.expires ? new Date(info.expires).getTime() : null;
+            if (expires && expires < now) continue; // ya caducado
+
+            const areasRaw = Array.isArray(info.area) ? info.area : (info.area ? [info.area] : []);
+            const zonas = areasRaw.map(a => a && a.areaDesc).filter(Boolean);
+
+            const fenomenoRaw = getParam('AEMET-Meteoalerta fenomeno') || '';
+            const fenomeno = fenomenoRaw.includes(';') ? fenomenoRaw.split(';')[1] : fenomenoRaw;
+
+            const key = `${nivel}|${fenomeno}|${zonas.join(',')}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            avisos.push({
+                nivel,                                 // amarillo | naranja | rojo
+                fenomeno: fenomeno || 'Fenómeno adverso',
+                titular: info.headline || info.event || '',
+                descripcion: info.description || '',
+                zonas,
+                onset: info.onset || null,
+                expires: info.expires || null
+            });
+        }
+
+        avisos.sort((a, b) => (AEMET_NIVEL_ORDEN[a.nivel] ?? 9) - (AEMET_NIVEL_ORDEN[b.nivel] ?? 9));
+        aemetAvisosCache.set(areaCode, { data: avisos, ts: Date.now() });
+        return avisos;
+    } catch (e) {
+        log('error', 'AEMET avisos:', e.message);
+        return cached ? cached.data : []; // si falla, mejor devolver lo último bueno que nada
+    }
+}
 
 const windDirectionText = (degrees) => {
     if (degrees === undefined || degrees === null) return '';
@@ -164,6 +352,7 @@ app.post('/api/subscribe', subscribeLimiter, async (req, res) => {
             lat: req.body.lat,
             lon: req.body.lon,
             city: req.body.city,
+            region: req.body.region || '',
             lastNotification: new Date(0)
         });
         res.status(201).json({});
@@ -176,7 +365,7 @@ app.post('/api/subscribe', subscribeLimiter, async (req, res) => {
 app.get('/api/search/:query', async (req, res) => {
     try {
         const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(req.params.query)}&count=8&language=es&format=json`;
-        const response = await axios.get(url);
+        const response = await http.get(url);
         if (!response.data.results) return res.json([]);
         const cities = response.data.results.map(city => {
             const parts = [];
@@ -213,7 +402,7 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
             if (!forcedName || badNames.includes(forcedName)) {
                 try {
                     const geoUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
-                    const geoRes = await axios.get(geoUrl);
+                    const geoRes = await http.get(geoUrl);
                     if (geoRes.data.results && geoRes.data.results.length > 0) {
                         forcedName = `Tu ubicacion (${geoRes.data.results[0].name})`;
                         const r = geoRes.data.results[0];
@@ -223,7 +412,7 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
                     try {
                         // Nominatim con zoom=14 para nombre de barrio/localidad
                         const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14`;
-                        const nomRes = await axios.get(nomUrl, { headers: { 'User-Agent': 'AerisWeatherApp/1.0 (contact: aerisweatherapp@gmail.com)' } });
+                        const nomRes = await http.get(nomUrl, { headers: { 'User-Agent': 'AerisWeatherApp/1.0 (contact: aerisweatherapp@gmail.com)' } });
                         const a = nomRes.data.address;
                         const place = a.suburb || a.neighbourhood || a.city || a.town || a.village || a.municipality;
                         forcedName = place ? `Tu ubicacion (${place})` : "Tu ubicacion";
@@ -232,7 +421,7 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
                 }
             }
         } else {
-            const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`);
+            const geoRes = await http.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`);
             if (!geoRes.data.results) throw new Error("Ciudad no encontrada");
             lat = geoRes.data.results[0].latitude;
             lon = geoRes.data.results[0].longitude;
@@ -247,10 +436,13 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
             return res.json(data);
         }
 
-        const [wRes, aRes, pRes] = await Promise.allSettled([
-            axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,cloud_cover,surface_pressure&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
-            axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`),
-            axios.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen,oak_pollen,pine_pollen,cypress_pollen,hazel_pollen,plane_tree_pollen,poplar_pollen,ash_pollen&timezone=auto`)
+        const aemetAreaCode = getAemetAreaCode(forcedRegion);
+
+        const [wRes, aRes, pRes, avisosRes] = await Promise.allSettled([
+            http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,cloud_cover,surface_pressure&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
+            http.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`),
+            http.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen,oak_pollen,pine_pollen,cypress_pollen,hazel_pollen,plane_tree_pollen,poplar_pollen,ash_pollen&timezone=auto`),
+            fetchAemetAvisos(aemetAreaCode)
         ]);
 
         if (wRes.status === 'rejected') {
@@ -263,6 +455,7 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
         const w = wRes.value.data;
         const a = (aRes.status === 'fulfilled') ? aRes.value.data : { current: {} };
         const p = (pRes.status === 'fulfilled') ? pRes.value.data : { current: {} };
+        const avisosOficiales = (avisosRes.status === 'fulfilled') ? avisosRes.value : [];
 
         const currentWMO = decodeWMO(w.current.weather_code, w.current.is_day);
         const currentTime = w.current.time;
@@ -341,6 +534,7 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
             hourly,
             pollen: pollenData,
             alerts,
+            avisosOficiales,
             daily: w.daily.time.map((t, i) => ({
                 fecha: t,
                 tempMax: Math.round(w.daily.temperature_2m_max[i]),
@@ -389,11 +583,48 @@ app.get('/api/cron/check-rain', async (req, res) => {
         let sentCount = 0;
 
         for (const user of users) {
-            if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
-
             try {
+                // --- 0. Aviso OFICIAL de AEMET (naranja/rojo) ---
+                // Independiente del cooldown general de 1h: se controla por
+                // aviso concreto (lastAemetAviso), no por tiempo, para poder
+                // avisar de un aviso nuevo aunque acabe de saltar otra
+                // notificación, y para no repetir el mismo aviso cada hora
+                // mientras siga activo.
+                if (user.region) {
+                    const areaCode = getAemetAreaCode(user.region);
+                    if (areaCode) {
+                        const avisosOficiales = await fetchAemetAvisos(areaCode);
+                        const topAviso = avisosOficiales.find(a => a.nivel === 'rojo' || a.nivel === 'naranja');
+                        const avisoKey = topAviso ? `${topAviso.nivel}|${topAviso.fenomeno}` : null;
+
+                        if (topAviso && avisoKey !== user.lastAemetAviso) {
+                            const emoji = topAviso.nivel === 'rojo' ? '🔴' : '🟠';
+                            await webpush.sendNotification(
+                                { endpoint: user.endpoint, keys: user.keys },
+                                JSON.stringify({
+                                    title: `${emoji} Aviso oficial AEMET (${topAviso.nivel}) en ${user.city}`,
+                                    body: topAviso.titular || topAviso.fenomeno,
+                                    icon: '/logo.png', badge: '/logo.png'
+                                })
+                            );
+                            user.lastAemetAviso = avisoKey;
+                            user.lastNotification = new Date();
+                            await user.save();
+                            sentCount++;
+                            continue; // ya avisado en esta pasada, no lo saturamos con más notificaciones
+                        } else if (!topAviso && user.lastAemetAviso) {
+                            // El aviso ya no está activo: reseteamos para poder avisar de uno nuevo más adelante
+                            user.lastAemetAviso = null;
+                            await user.save();
+                        }
+                    }
+                }
+
+                // --- Resto de comprobaciones propias (cooldown normal de 1h) ---
+                if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
+
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m&forecast_days=1&timezone=auto`;
-                const response = await axios.get(url);
+                const response = await http.get(url);
                 const nowcast = response.data.minutely_15;
                 const current = response.data.current;
 
@@ -479,7 +710,7 @@ app.get('/api/cron/morning-summary', async (req, res) => {
         for (const user of users) {
             try {
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&current=temperature_2m&timezone=auto&forecast_days=1`;
-                const response = await axios.get(url);
+                const response = await http.get(url);
                 const d = response.data.daily;
                 if (!d) continue;
                 const wmo = decodeWMO(d.weather_code[0], 1);

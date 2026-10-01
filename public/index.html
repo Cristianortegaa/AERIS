@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
     <title>AERIS - Tu App del Tiempo</title>
     <meta name="description" content="AERIS es tu app del tiempo con personalidad. Pronóstico, alertas de lluvia, calidad del aire, polen y recomendaciones de ropa según el clima.">
 
@@ -14,7 +14,9 @@
     <meta property="og:type" content="website">
 
     <!-- Fuentes -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -24,71 +26,84 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=3">
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- html2canvas -->
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
+         solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Aplicar tema antes de render para evitar flash -->
-    <script>
-        (function () {
-            var t = localStorage.getItem('aeris_theme_pref');
-            if (t === 'dark' || t === 'light') {
-                document.documentElement.setAttribute('data-bs-theme', t);
-                document.documentElement.setAttribute('data-theme', t);
-            }
-        })();
-    </script>
-
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#bae6fd">
+    <meta name="theme-color" content="#1554c0" id="meta-theme-color">
+    <meta name="color-scheme" content="dark">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Aplicar tema y color de barra antes de pintar para evitar flash -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('aeris_theme_pref');
+                if (t === 'dark' || t === 'light') {
+                    document.documentElement.setAttribute('data-bs-theme', t);
+                    document.documentElement.setAttribute('data-theme', t);
+                }
+                var c = localStorage.getItem('aeris_theme_color');
+                if (c) {
+                    document.getElementById('meta-theme-color').setAttribute('content', c);
+                    document.documentElement.style.backgroundColor = c;
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body data-theme="light">
+
+<!-- CIELO DINÁMICO (gradiente + auroras + grano) -->
+<div class="sky" aria-hidden="true">
+    <span class="sky-blob b1"></span>
+    <span class="sky-blob b2"></span>
+    <span class="sky-blob b3"></span>
+</div>
 
 <!-- CANVAS ANIMACIONES CLIMA -->
 <canvas id="weather-canvas" aria-hidden="true"></canvas>
 
 <!-- SPLASH SCREEN -->
-<div id="splash-screen">
-    <div class="splash-logo-container">
-        <img src="logo.png" alt="Aeris" style="width:70px;height:70px;object-fit:contain"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-        <i class="bi bi-cloud-sun-fill" style="font-size:3rem;color:#0284c7;display:none;"></i>
+<div id="splash-screen" aria-hidden="true">
+    <div class="splash-mark">
+        <img src="logo.png" alt="" id="splash-logo">
+        <i class="bi bi-cloud-sun-fill" style="display:none;"></i>
     </div>
     <div class="splash-title">AERIS</div>
+    <div class="splash-bar"><span></span></div>
 </div>
 
 <!-- ONBOARDING (primera vez) -->
-<div id="onboarding-overlay" style="display:none;">
+<div id="onboarding-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Bienvenida">
     <div class="onboarding-card">
         <div id="onboarding-slides">
             <div class="onboarding-slide active" data-slide="0">
                 <div class="onboarding-emoji">🤖</div>
-                <h3 class="fw-bold mb-2">Bienvenido a AERIS</h3>
-                <p class="opacity-75 small">Tu app del tiempo con personalidad. No solo el tiempo — también te dice qué ponerte y qué plan hacer hoy.</p>
+                <h3>Bienvenido a AERIS</h3>
+                <p>Tu app del tiempo con personalidad. No solo el tiempo — también te dice qué ponerte y qué plan hacer hoy.</p>
             </div>
             <div class="onboarding-slide" data-slide="1">
                 <div class="onboarding-emoji">🎭</div>
-                <h3 class="fw-bold mb-2">14 Personalidades</h3>
-                <p class="opacity-75 small">Toca el robot 🤖 para cambiar la IA que te comenta el tiempo. Desde Zen hasta Villano — elige tu favorita.</p>
+                <h3>14 Personalidades</h3>
+                <p>Toca el bocadillo del robot para cambiar la IA que te comenta el tiempo. Desde Zen hasta Villano — elige tu favorita.</p>
             </div>
             <div class="onboarding-slide" data-slide="2">
                 <div class="onboarding-emoji">🔔</div>
-                <h3 class="fw-bold mb-2">Alertas Inteligentes</h3>
-                <p class="opacity-75 small">Activa las notificaciones y AERIS te avisa de lluvia, calor extremo y tormentas. También recibe el resumen del tiempo cada mañana.</p>
+                <h3>Alertas Inteligentes</h3>
+                <p>Activa las notificaciones y AERIS te avisa de lluvia, calor extremo y tormentas. También recibe el resumen del tiempo cada mañana.</p>
             </div>
             <div class="onboarding-slide" data-slide="3">
                 <div class="onboarding-emoji">⭐</div>
-                <h3 class="fw-bold mb-2">Guarda tus Lugares</h3>
-                <p class="opacity-75 small">Toca el corazón ❤️ para guardar una ciudad. Accede a todos tus favoritos desde el menú lateral.</p>
+                <h3>Guarda tus Lugares</h3>
+                <p>Toca el corazón para guardar una ciudad. Accede a todos tus favoritos desde el menú lateral.</p>
             </div>
         </div>
         <div class="onboarding-dots" id="onboarding-dots">
@@ -97,9 +112,9 @@
             <div class="ob-dot"></div>
             <div class="ob-dot"></div>
         </div>
-        <div class="d-flex gap-2 justify-content-center mt-3">
-            <button class="btn btn-outline-secondary btn-sm rounded-pill px-4" id="ob-skip">Saltar</button>
-            <button class="btn btn-primary btn-sm rounded-pill px-4 fw-bold" id="ob-next">Siguiente →</button>
+        <div class="onboarding-actions">
+            <button class="btn-pill ghost" id="ob-skip">Saltar</button>
+            <button class="btn-pill solid" id="ob-next">Siguiente →</button>
         </div>
     </div>
 </div>
@@ -110,78 +125,65 @@
 </button>
 
 <!-- MODAL INSTALACIÓN iOS -->
-<div id="iosInstallModal" onclick="closeIosModal()" role="dialog" aria-modal="true" aria-label="Instrucciones de instalación">
-    <div class="ios-content" onclick="event.stopPropagation()">
-        <div class="mb-3">
-            <img src="logo.png" style="width:64px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,0.2);" alt="Aeris">
-        </div>
+<div id="iosInstallModal" role="dialog" aria-modal="true" aria-label="Instrucciones de instalación">
+    <div class="ios-content">
+        <div class="sheet-grabber"></div>
+        <img src="logo.png" class="ios-logo" alt="Aeris">
         <div id="tiktok-instructions" style="display:none;">
-            <h4 class="fw-bold text-danger mb-2">⚠️ Estás en TikTok</h4>
-            <p class="small opacity-75 mb-3">Desde aquí <b>NO</b> se puede instalar. Tienes que salir al navegador real.</p>
-            <div class="bg-dark text-white p-3 rounded-3 text-start mb-3 border border-secondary">
-                <div class="d-flex gap-3 mb-2 align-items-center">
-                    <i class="bi bi-three-dots fs-4 text-warning"></i>
-                    <span class="small">1. Toca los <b>3 puntos</b> o la <b>Brújula</b> (esquina superior derecha).</span>
+            <h4 class="ios-title warn">⚠️ Estás en TikTok</h4>
+            <p class="ios-sub">Desde aquí <b>NO</b> se puede instalar. Tienes que salir al navegador real.</p>
+            <div class="ios-steps">
+                <div class="ios-step">
+                    <div class="ios-step-icon"><i class="bi bi-three-dots"></i></div>
+                    <div><div class="ios-step-num">Paso 1</div><div class="ios-step-text">Toca los <b>3 puntos</b> o la <b>Brújula</b> (arriba a la derecha)</div></div>
                 </div>
-                <div class="d-flex gap-3 align-items-center">
-                    <i class="bi bi-compass fs-4 text-warning"></i>
-                    <span class="small">2. Elige <b>"Abrir en el navegador"</b>.</span>
+                <div class="ios-step">
+                    <div class="ios-step-icon"><i class="bi bi-compass"></i></div>
+                    <div><div class="ios-step-num">Paso 2</div><div class="ios-step-text">Elige <b>"Abrir en el navegador"</b></div></div>
                 </div>
             </div>
-            <p class="small fw-bold opacity-50">Cuando se abra Safari/Chrome, podrás instalarla.</p>
+            <p class="ios-foot">Cuando se abra Safari/Chrome, podrás instalarla.</p>
         </div>
         <div id="safari-instructions">
-            <h4 class="fw-bold mb-1">Instalar AERIS</h4>
-            <p class="small opacity-75 mb-4">Sigue estos pasos para que funcione al 100%:</p>
-            <div class="d-flex flex-column gap-3 text-start px-2">
-                <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
-                    <div class="d-flex align-items-center justify-content-center bg-warning text-dark rounded-circle flex-shrink-0" style="width:32px;height:32px;">
-                        <i class="bi bi-three-dots fw-bold"></i>
-                    </div>
-                    <div class="ms-3">
-                        <div class="small text-uppercase opacity-50 fw-bold" style="font-size:0.65rem;">Paso 1</div>
-                        <div class="fw-bold font-monospace" style="font-size:0.9rem;">Toca los "3 puntos"</div>
-                    </div>
+            <h4 class="ios-title">Instalar AERIS</h4>
+            <p class="ios-sub">Sigue estos pasos para que funcione al 100%:</p>
+            <div class="ios-steps">
+                <div class="ios-step">
+                    <div class="ios-step-icon"><i class="bi bi-three-dots"></i></div>
+                    <div><div class="ios-step-num">Paso 1</div><div class="ios-step-text">Toca los "3 puntos"</div></div>
                 </div>
-                <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
-                    <div class="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle flex-shrink-0" style="width:32px;height:32px;">
-                        <i class="bi bi-box-arrow-up fw-bold"></i>
-                    </div>
-                    <div class="ms-3">
-                        <div class="small text-uppercase opacity-50 fw-bold" style="font-size:0.65rem;">Paso 2</div>
-                        <div class="fw-bold font-monospace" style="font-size:0.9rem;">Selecciona "Compartir"</div>
-                    </div>
+                <div class="ios-step">
+                    <div class="ios-step-icon"><i class="bi bi-box-arrow-up"></i></div>
+                    <div><div class="ios-step-num">Paso 2</div><div class="ios-step-text">Selecciona "Compartir"</div></div>
                 </div>
-                <div class="d-flex align-items-center bg-white bg-opacity-10 rounded-3 p-3 border border-secondary border-opacity-25">
-                    <div class="d-flex align-items-center justify-content-center bg-light text-dark rounded-circle flex-shrink-0" style="width:32px;height:32px;">
-                        <i class="bi bi-plus-square fw-bold"></i>
-                    </div>
-                    <div class="ms-3">
-                        <div class="small text-uppercase opacity-50 fw-bold" style="font-size:0.65rem;">Paso 3</div>
-                        <div class="fw-bold font-monospace" style="font-size:0.9rem;">Dale a "Añadir a pantalla de inicio"</div>
-                    </div>
+                <div class="ios-step">
+                    <div class="ios-step-icon"><i class="bi bi-plus-square"></i></div>
+                    <div><div class="ios-step-num">Paso 3</div><div class="ios-step-text">Dale a "Añadir a pantalla de inicio"</div></div>
                 </div>
             </div>
-            <i class="bi bi-arrow-down-circle-fill fs-1 text-primary mt-4 fade-down"></i>
+            <i class="bi bi-arrow-down-circle-fill ios-arrow-hint"></i>
         </div>
     </div>
 </div>
 
-<!-- MODAL PERSONALIDAD IA -->
-<div class="persona-modal" id="personaModal" role="dialog" aria-modal="true" aria-label="Elige personalidad">
-    <div class="persona-content">
-        <div class="d-flex justify-content-between align-items-center">
-            <h5 class="fw-bold mb-0">Elige Personalidad</h5>
-            <button class="btn-close" id="closePersonaModal" aria-label="Cerrar" style="filter:invert(var(--invert-close));"></button>
+<!-- MODAL PERSONALIDAD IA (bottom sheet en móvil) -->
+<div class="persona-modal" id="personaModal" role="dialog" aria-modal="true" aria-labelledby="personaTitle">
+    <div class="persona-content" id="personaSheet">
+        <div class="persona-drag-zone" id="personaDragZone">
+            <div class="sheet-grabber"></div>
+            <div class="persona-head">
+                <h2 id="personaTitle">Elige personalidad</h2>
+                <button class="btn-icon sm" id="closePersonaModal" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
         </div>
         <div class="persona-grid" id="personaGrid"></div>
     </div>
 </div>
 
-<!-- MODAL SHARE CARD (rediseñado) -->
-<div id="share-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;padding:20px;">
-    <div style="max-width:360px;width:100%;position:relative;">
-        <button onclick="closeShareModal()" style="position:absolute;top:-40px;right:0;background:none;border:none;color:white;font-size:1.5rem;cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+<!-- MODAL SHARE CARD -->
+<div id="share-modal" class="share-modal" role="dialog" aria-modal="true" aria-label="Compartir el tiempo">
+    <div class="share-dialog">
+        <button type="button" data-action="close-share" class="btn-icon sm share-close" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
         <div id="share-card-render" class="share-card-design">
             <div class="share-card-bg" id="share-bg"></div>
             <div class="share-card-content">
@@ -200,8 +202,8 @@
                 <div class="share-footer">aeris-ghg8.onrender.com</div>
             </div>
         </div>
-        <button onclick="downloadShareCard()" class="btn btn-primary w-100 mt-3 fw-bold rounded-pill">
-            <i class="bi bi-download me-2"></i>Guardar imagen
+        <button type="button" data-action="download-share" class="btn-pill solid share-download">
+            <i class="bi bi-download"></i>Guardar imagen
         </button>
     </div>
 </div>
@@ -210,51 +212,52 @@
 <div class="overlay" id="overlay"></div>
 
 <!-- SIDEBAR FAVORITOS -->
-<div class="fav-sidebar" id="favSidebar" role="navigation" aria-label="Mis lugares favoritos">
+<aside class="fav-sidebar" id="favSidebar" aria-label="Mis lugares favoritos">
     <div class="fav-header">
-        <span>Mis Lugares</span>
-        <button class="btn btn-sm rounded-circle d-flex align-items-center justify-content-center"
-                style="width:32px;height:32px;opacity:0.7;background:rgba(150,150,150,0.2);border:none;color:var(--text)"
-                id="closeSidebar" aria-label="Cerrar menú">
+        <span>Mis lugares</span>
+        <button class="btn-icon sm" id="closeSidebar" aria-label="Cerrar menú">
             <i class="bi bi-x-lg"></i>
         </button>
     </div>
     <ul class="fav-list" id="favList" aria-label="Lista de favoritos"></ul>
-    <div class="p-3">
+    <div class="fav-footer">
         <a href="https://ko-fi.com/aerisweather" target="_blank" rel="noopener" class="support-btn" aria-label="Apoyar en Ko-fi">
-            <i class="fa-solid fa-arrow-up-right-dots"></i> Ayúdame a Seguir Creciendo
+            <i class="fa-solid fa-mug-hot"></i> Ayúdame a seguir creciendo
         </a>
-        <div class="text-center mt-3 opacity-50">
-            <small style="font-size:0.65rem;letter-spacing:1px;color:var(--text)">AERIS WEATHER</small>
+        <div class="fav-credits">
+            <span>AERIS WEATHER</span>
+            <span>Datos: Open-Meteo · AEMET</span>
         </div>
     </div>
-</div>
+</aside>
 
 <!-- CONTENIDO PRINCIPAL -->
-<div class="container">
+<main class="container app-shell">
 
-    <!-- BARRA DE NAVEGACIÓN -->
-    <div class="nav-bar">
-        <div class="d-flex gap-2">
-            <button class="btn-icon" id="favMenuBtn" aria-label="Abrir mis lugares">
-                <i class="bi bi-list-stars fs-5"></i>
-            </button>
-        </div>
-        <div class="search-group ms-2" style="position:relative;">
+    <!-- Desenfoque progresivo bajo la barra superior al hacer scroll.
+         Vive dentro de <main> para quedar entre las tarjetas y la barra. -->
+    <div class="topbar-scrim" aria-hidden="true"></div>
+
+    <!-- BARRA SUPERIOR -->
+    <header class="nav-bar">
+        <button class="btn-icon" id="favMenuBtn" aria-label="Abrir mis lugares">
+            <i class="bi bi-list-stars"></i>
+        </button>
+        <div class="search-group">
+            <i class="bi bi-search search-icon" aria-hidden="true"></i>
             <input type="text" class="search-input" id="citySearch"
-                   placeholder="Buscar ciudad..." autocomplete="off"
+                   placeholder="Buscar ciudad" autocomplete="off" spellcheck="false"
+                   enterkeyhint="search" autocapitalize="words"
                    aria-label="Buscar ciudad" aria-autocomplete="list" aria-controls="suggestions">
             <ul class="suggestions-list" id="suggestions" role="listbox" aria-label="Sugerencias de ciudades"></ul>
         </div>
-        <div class="d-flex gap-2 ms-2">
-            <button class="btn-icon" id="unitsBtn" aria-label="Cambiar unidades de temperatura" title="°C / °F">
-                <span id="units-label" style="font-size:0.75rem;font-weight:800;">°C</span>
-            </button>
-            <button class="btn-icon" id="geoBtn" aria-label="Usar mi ubicación actual">
-                <i class="bi bi-geo-alt-fill fs-5"></i>
-            </button>
-        </div>
-    </div>
+        <button class="btn-icon" id="unitsBtn" aria-label="Cambiar unidades de temperatura" title="°C / °F">
+            <span id="units-label">°C</span>
+        </button>
+        <button class="btn-icon" id="geoBtn" aria-label="Usar mi ubicación actual">
+            <i class="bi bi-geo-alt"></i>
+        </button>
+    </header>
 
     <!-- BANNERS DE ESTADO -->
     <div id="offline-banner" role="alert" aria-live="polite">
@@ -265,10 +268,10 @@
     <div id="error-banner" role="alert" aria-live="assertive">
         <i class="bi bi-exclamation-circle-fill error-icon"></i>
         <div>
-            <div class="fw-bold">No se pudo cargar el tiempo</div>
-            <div class="small opacity-75">Comprueba tu conexión e inténtalo de nuevo</div>
-            <button onclick="retryWeather()" class="btn btn-sm btn-light mt-2 fw-bold rounded-pill px-3">
-                <i class="bi bi-arrow-clockwise me-1"></i> Reintentar
+            <div class="banner-title">No se pudo cargar el tiempo</div>
+            <div class="banner-sub">Comprueba tu conexión e inténtalo de nuevo</div>
+            <button type="button" data-action="retry" class="btn-pill solid sm mt-2">
+                <i class="bi bi-arrow-clockwise"></i> Reintentar
             </button>
         </div>
     </div>
@@ -276,231 +279,254 @@
     <!-- ALERTAS METEOROLÓGICAS -->
     <div id="alerts-container" aria-live="polite"></div>
 
-    <!-- TARJETA PRINCIPAL -->
-    <div class="glass-card" id="capture-card">
-        <button class="share-btn" id="shareBtn" aria-label="Compartir tiempo">
-            <i class="bi bi-share-fill"></i>
-        </button>
+    <div class="layout">
+        <!-- ===== COLUMNA PRINCIPAL ===== -->
+        <div class="col-main">
 
-        <!-- Ciudad + hora local -->
-        <div class="d-flex justify-content-between align-items-start">
-            <div style="flex-grow:1;max-width:70%;display:flex;flex-direction:column;">
-                <h4 id="city" class="text-uppercase opacity-75 small fw-bold mb-1 skeleton"
-                    style="color:var(--accent);letter-spacing:1px;width:100px;min-height:1em;"></h4>
-                <div id="local-time" class="small fw-bold opacity-50 mb-1" style="font-size:0.7rem;letter-spacing:0.5px;display:none;"></div>
-                <div id="desc" class="h4 text-capitalize fw-bold skeleton"
-                     style="width:180px;min-height:1.2em;line-height:1.2;"></div>
-            </div>
-            <div id="weather-icon-container"
-                 style="width:110px;height:110px;margin-top:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
-                 aria-hidden="true">
-                <div class="skeleton skeleton-circle" style="width:80px;height:80px;"></div>
-            </div>
-        </div>
-
-        <div class="mt-1 d-flex align-items-end">
-            <div class="d-flex flex-column">
-                <div id="temp" class="temp-big skeleton" style="line-height:0.9;width:140px;min-height:0.8em;margin-bottom:10px;"></div>
-                <div class="small fw-bold opacity-75 mt-1" style="color:var(--text-sec);font-size:0.9rem">
-                    Sensación: <span id="feels-like" class="skeleton" style="width:30px;display:inline-block">--</span><span class="unit-temp">°</span>
+            <!-- 1. TARJETA PRINCIPAL -->
+            <section class="glass-card hero-card" id="capture-card" aria-label="Tiempo actual">
+                <div class="hero-top">
+                    <div class="hero-place">
+                        <h1 id="city" class="hero-city skeleton" style="width:130px;"></h1>
+                        <div id="local-time" class="hero-time" style="display:none;"></div>
+                    </div>
+                    <button class="btn-icon sm" id="shareBtn" aria-label="Compartir tiempo">
+                        <i class="bi bi-box-arrow-up"></i>
+                    </button>
                 </div>
-                <div id="compare-txt" class="small opacity-50 fw-bold" style="font-size:0.8rem;margin-top:-2px;"></div>
-            </div>
-            <div class="ms-auto mb-3 small fw-bold opacity-75 d-flex flex-column text-end">
-                <span style="color:#ef4444"><i class="bi bi-arrow-up"></i> <span id="max-temp" class="skeleton" style="width:25px;display:inline-block"></span><span class="unit-temp">°</span></span>
-                <span style="color:#3b82f6"><i class="bi bi-arrow-down"></i> <span id="min-temp" class="skeleton" style="width:25px;display:inline-block"></span><span class="unit-temp">°</span></span>
-            </div>
+
+                <div class="hero-main">
+                    <div id="temp" class="temp-big skeleton" style="width:160px;"></div>
+                    <div id="weather-icon-container" class="hero-icon" aria-hidden="true">
+                        <div class="skeleton skeleton-circle" style="width:88px;height:88px;"></div>
+                    </div>
+                </div>
+
+                <div id="desc" class="hero-desc skeleton" style="width:180px;"></div>
+
+                <div class="hero-meta">
+                    <span class="hl"><i class="bi bi-arrow-up"></i><span id="max-temp" class="skeleton" style="width:24px;"></span><span class="unit-temp">°</span></span>
+                    <span class="hl"><i class="bi bi-arrow-down"></i><span id="min-temp" class="skeleton" style="width:24px;"></span><span class="unit-temp">°</span></span>
+                    <span class="dot-sep" aria-hidden="true"></span>
+                    <span>Sensación <span id="feels-like" class="skeleton" style="width:26px;">--</span><span class="unit-temp">°</span></span>
+                </div>
+                <div id="compare-txt" class="hero-compare"></div>
+
+                <!-- STATS -->
+                <div class="stats-grid">
+                    <div class="stat-tile">
+                        <i class="bi bi-droplet-fill stat-icon" aria-hidden="true"></i><div class="stat-label">Humedad</div>
+                        <div class="stat-value"><span id="hum" class="skeleton" style="width:28px;">--</span><small>%</small></div>
+                    </div>
+                    <div class="stat-tile">
+                        <i class="bi bi-wind stat-icon" aria-hidden="true"></i><div class="stat-label">Viento</div>
+                        <div class="stat-value"><span id="wind" class="skeleton" style="width:28px;">--</span><small class="unit-wind">km/h</small></div>
+                        <div class="stat-sub" id="wind-dir"></div>
+                    </div>
+                    <div class="stat-tile">
+                        <i class="bi bi-speedometer2 stat-icon" aria-hidden="true"></i><div class="stat-label">Presión</div>
+                        <div class="stat-value"><span id="pressure" class="skeleton" style="width:36px;">--</span><small>hPa</small><span id="pressure-trend"></span></div>
+                    </div>
+                    <div class="stat-tile">
+                        <i class="bi bi-sun-fill stat-icon" aria-hidden="true"></i><div class="stat-label">Índice UV</div>
+                        <div class="stat-value"><span id="uv" class="skeleton" style="width:22px;">--</span></div>
+                    </div>
+                </div>
+
+                <!-- ÍNDICE DE CONFORT -->
+                <div id="comfort-row" class="comfort-row" style="display:none;">
+                    <span class="comfort-title">Confort</span>
+                    <div class="comfort-bar-bg"><div class="comfort-bar-fill" id="comfort-bar"></div></div>
+                    <span id="comfort-score">—</span>
+                    <span id="comfort-label">—</span>
+                </div>
+
+                <div class="hero-footer">
+                    <button id="favHeart" class="heart-btn" aria-label="Añadir a favoritos" aria-pressed="false">
+                        <i class="bi bi-heart"></i>
+                    </button>
+                    <button class="ai-chip" id="ai-toggle" aria-label="Cambiar personalidad IA">
+                        <span id="tip-text" class="ai-text skeleton" style="width:170px;min-height:2.4em;"></span>
+                        <span id="tip-icon" class="ai-avatar" aria-hidden="true">🤖</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 2. PRÓXIMAS 24H -->
+            <section class="glass-card" id="section-horas" aria-labelledby="lbl-horas">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-horas"><i class="bi bi-clock"></i>Próximas 24 h</h2>
+                </div>
+                <div class="hourly-scroll" id="hourly" role="list" aria-label="Pronóstico por hora">
+                    <div class="hourly-item"><div class="skeleton" style="width:34px;height:12px;"></div><div class="skeleton skeleton-circle" style="width:28px;height:28px;"></div><div class="skeleton" style="width:28px;height:18px;"></div></div>
+                    <div class="hourly-item"><div class="skeleton" style="width:34px;height:12px;"></div><div class="skeleton skeleton-circle" style="width:28px;height:28px;"></div><div class="skeleton" style="width:28px;height:18px;"></div></div>
+                    <div class="hourly-item"><div class="skeleton" style="width:34px;height:12px;"></div><div class="skeleton skeleton-circle" style="width:28px;height:28px;"></div><div class="skeleton" style="width:28px;height:18px;"></div></div>
+                    <div class="hourly-item"><div class="skeleton" style="width:34px;height:12px;"></div><div class="skeleton skeleton-circle" style="width:28px;height:28px;"></div><div class="skeleton" style="width:28px;height:18px;"></div></div>
+                </div>
+            </section>
+
+            <!-- 3. TENDENCIA LLUVIA -->
+            <section class="glass-card" id="rain-card" style="display:none;" aria-labelledby="lbl-lluvia">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-lluvia"><i class="bi bi-cloud-drizzle"></i>Tendencia lluvia</h2>
+                    <span class="card-extra accent" id="rain-summary">--</span>
+                </div>
+                <div class="rain-chart-wrapper"><canvas id="rainChart" aria-label="Gráfico de precipitación"></canvas></div>
+            </section>
+
+            <!-- 4. PRÓXIMOS DÍAS -->
+            <section class="glass-card" id="section-semana" aria-labelledby="lbl-semana">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-semana"><i class="bi bi-calendar3"></i>Próximos días</h2>
+                    <span class="card-extra">Toca un día para ver horas</span>
+                </div>
+                <div id="daily" class="daily-list" role="list" aria-label="Pronóstico diario">
+                    <div class="day-skeleton"><div class="skeleton" style="width:56px;height:14px;"></div><div class="skeleton skeleton-circle" style="width:26px;height:26px;"></div><div class="skeleton" style="flex:1;height:6px;"></div></div>
+                    <div class="day-skeleton"><div class="skeleton" style="width:56px;height:14px;"></div><div class="skeleton skeleton-circle" style="width:26px;height:26px;"></div><div class="skeleton" style="flex:1;height:6px;"></div></div>
+                    <div class="day-skeleton"><div class="skeleton" style="width:56px;height:14px;"></div><div class="skeleton skeleton-circle" style="width:26px;height:26px;"></div><div class="skeleton" style="flex:1;height:6px;"></div></div>
+                </div>
+            </section>
+
+            <!-- 5. GRÁFICO TEMPERATURA 7 DÍAS -->
+            <section class="glass-card" id="temp-chart-card" style="display:none;" aria-labelledby="lbl-temp7">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-temp7"><i class="bi bi-graph-up-arrow"></i>Temperatura 7 días</h2>
+                </div>
+                <div class="temp-chart-wrapper">
+                    <canvas id="tempChart" aria-label="Gráfico de temperatura semanal"></canvas>
+                </div>
+            </section>
         </div>
 
-        <!-- STATS ROW -->
-        <div class="stats-row mt-3 pb-3 border-bottom border-secondary border-opacity-10">
-            <span class="stat-pill"><i class="bi bi-droplet-fill" style="color:#38bdf8"></i> <span id="hum" class="skeleton" style="width:28px;display:inline-block">--</span>%</span>
-            <span class="stat-pill"><i class="bi bi-wind" style="color:#67e8f9"></i> <span id="wind" class="skeleton" style="width:28px;display:inline-block">--</span> <span class="unit-wind">km/h</span> <span id="wind-dir" style="opacity:0.6;font-size:0.8em"></span></span>
-            <span class="stat-pill"><i class="bi bi-speedometer2" style="color:#94a3b8"></i> <span id="pressure" class="skeleton" style="width:34px;display:inline-block">--</span> hPa<span id="pressure-trend" class="ms-1"></span></span>
-            <span class="stat-pill"><i class="bi bi-sun-fill" style="color:#facc15"></i> UV <span id="uv" class="skeleton" style="width:22px;display:inline-block">--</span></span>
-        </div>
+        <!-- ===== COLUMNA LATERAL ===== -->
+        <div class="col-side">
 
-        <!-- ÍNDICE DE CONFORT -->
-        <div id="comfort-row" class="align-items-center gap-2 py-2 border-bottom border-secondary border-opacity-10" style="display:none;">
-            <span class="small fw-bold opacity-60" style="color:var(--text-sec);font-size:0.75rem;">CONFORT</span>
-            <div class="comfort-bar-bg flex-grow-1">
-                <div class="comfort-bar-fill" id="comfort-bar" style="width:0%"></div>
-            </div>
-            <span id="comfort-score" class="fw-bold" style="font-size:0.85rem;min-width:30px;text-align:right;">—</span>
-            <span id="comfort-label" class="small fw-bold" style="font-size:0.7rem;min-width:50px;">—</span>
-        </div>
+            <!-- 6. RELOJ SOLAR + FASE LUNAR -->
+            <section class="glass-card" id="solar-card" style="display:none;" aria-labelledby="lbl-sol">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-sol"><i class="bi bi-brightness-alt-high"></i>Sol y luna</h2>
+                    <span id="lunar-display" class="lunar-chip" title="Fase lunar"></span>
+                </div>
+                <div class="solar-clock-wrapper">
+                    <canvas id="solar-clock-canvas" width="320" height="80" aria-label="Reloj solar"></canvas>
+                </div>
+                <div class="solar-times">
+                    <span><i class="bi bi-sunrise"></i> <span id="sunrise-time">—</span></span>
+                    <span id="solar-pct"></span>
+                    <span><span id="sunset-time">—</span> <i class="bi bi-sunset"></i></span>
+                </div>
+            </section>
 
-        <div class="d-flex justify-content-between align-items-center mt-3 pt-1">
-            <div>
-                <i id="favHeart" class="bi bi-heart fs-3" style="cursor:pointer;transition:0.2s;color:var(--text-sec)" aria-label="Añadir a favoritos" role="button" tabindex="0"></i>
-            </div>
-            <div class="ai-container" id="ai-toggle" style="opacity:0.9;" role="button" aria-label="Cambiar personalidad IA" tabindex="0">
-                <span id="tip-text" class="text-end fst-italic fw-bold skeleton" style="font-size:0.8rem;line-height:1.2;width:180px;min-height:2em;display:block"></span>
-                <span id="tip-icon" class="fs-4" aria-hidden="true">🤖</span>
-            </div>
+            <!-- 7. CALIDAD DEL AIRE -->
+            <section class="glass-card" id="section-ambiente" aria-labelledby="lbl-aire">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-aire"><i class="bi bi-lungs"></i>Calidad del aire</h2>
+                </div>
+                <div class="aqi-head">
+                    <div id="aqi-val" class="aqi-val skeleton" style="width:48px;height:40px;"></div>
+                    <div id="aqi-text" class="aqi-text skeleton" style="width:80px;height:1em;"></div>
+                </div>
+                <div class="aqi-bar" aria-hidden="true"><div class="aqi-dot" id="aqi-dot"></div></div>
+                <div class="aqi-foot">
+                    <span>PM2.5 <b id="pm25">--</b></span>
+                    <span>PM10 <b id="pm10">--</b></span>
+                </div>
+            </section>
+
+            <!-- 8. POLEN / ALERGIAS -->
+            <section class="glass-card" id="pollen-card" style="display:none;" aria-labelledby="lbl-polen">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-polen"><i class="bi bi-flower1"></i>Alergias y polen</h2>
+                </div>
+                <div id="pollen-list"></div>
+            </section>
+
+            <!-- 9. ESTILO DE VIDA -->
+            <section class="glass-card" id="section-vida" aria-labelledby="lbl-vida">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-vida"><i class="bi bi-activity"></i>Estilo de vida</h2>
+                </div>
+                <div class="activity-grid" id="lifestyle-list" role="list" aria-label="Actividades recomendadas">
+                    <div class="skeleton" style="height:96px;border-radius:18px;"></div>
+                    <div class="skeleton" style="height:96px;border-radius:18px;"></div>
+                    <div class="skeleton" style="height:96px;border-radius:18px;"></div>
+                    <div class="skeleton" style="height:96px;border-radius:18px;"></div>
+                </div>
+                <div class="legend">
+                    <span><i class="status-dot status-good"></i>Ideal</span>
+                    <span><i class="status-dot status-fair"></i>Regular</span>
+                    <span><i class="status-dot status-bad"></i>Malo</span>
+                </div>
+            </section>
+
+            <!-- 10. OUTFIT RECOMENDADO -->
+            <section class="glass-card" id="section-outfit" aria-labelledby="lbl-outfit">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-outfit"><i class="bi bi-bag-heart"></i>Outfit recomendado</h2>
+                    <span class="card-extra">Toca para comprar</span>
+                </div>
+                <div id="clothing-advice">
+                    <div class="outfit-tags">
+                        <div class="skeleton" style="width:84px;height:32px;border-radius:99px;"></div>
+                        <div class="skeleton" style="width:104px;height:32px;border-radius:99px;"></div>
+                        <div class="skeleton" style="width:72px;height:32px;border-radius:99px;"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 11. RADAR EN VIVO -->
+            <section class="glass-card radar-card" id="section-mapa" aria-label="Radar meteorológico en vivo">
+                <div class="skeleton" id="radar-skeleton"></div>
+                <iframe id="radar-frame" src="" title="Radar meteorológico en vivo" loading="lazy"></iframe>
+                <div class="radar-badge"><span class="live-dot"></span>RADAR EN VIVO</div>
+            </section>
         </div>
     </div>
 
-    <!-- 2. PRÓXIMAS 24H -->
-    <div class="glass-card">
-        <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMAS 24H</h6>
-        <div class="hourly-scroll" id="hourly" role="list" aria-label="Pronóstico por hora">
-            <div class="hourly-item">
-                <div class="skeleton" style="width:40px;height:15px;margin-bottom:5px"></div>
-                <div class="skeleton skeleton-circle" style="width:30px;height:30px;margin:0 auto 5px"></div>
-                <div class="skeleton" style="width:30px;height:20px;"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 3. TENDENCIA LLUVIA -->
-    <div class="glass-card" id="rain-card" style="display:none;transition:opacity 0.5s ease;">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-            <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)"><i class="bi bi-cloud-drizzle-fill"></i> TENDENCIA LLUVIA</h6>
-            <small class="fw-bold" style="color:var(--accent);font-size:0.75rem" id="rain-summary">--</small>
-        </div>
-        <div class="rain-chart-wrapper"><canvas id="rainChart" aria-label="Gráfico de precipitación"></canvas></div>
-    </div>
-
-    <!-- 4. PRÓXIMOS DÍAS -->
-    <div class="glass-card" id="section-semana">
-        <h6 class="small opacity-75 mb-3 fw-bold" style="color:var(--text-sec)">PRÓXIMOS DÍAS <small class="fw-normal opacity-50 ms-1">(Toca para ver horas)</small></h6>
-        <div id="daily" role="list" aria-label="Pronóstico diario">
-            <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-color:var(--glass-border)!important">
-                <div style="width:35%"><div class="skeleton" style="width:80%;height:1.2em;margin-bottom:5px"></div><div class="skeleton" style="width:50%;height:0.8em"></div></div>
-                <div style="width:25%"><div class="skeleton skeleton-circle" style="width:30px;height:30px;margin:0 auto"></div></div>
-                <div style="width:30%"><div class="skeleton" style="width:100%;height:1.2em"></div></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 5. GRÁFICO TEMPERATURA 7 DÍAS -->
-    <div class="glass-card" id="temp-chart-card" style="display:none;">
-        <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-graph-up-arrow text-danger"></i> TEMPERATURA 7 DÍAS</h6>
-        <div style="height:140px;position:relative;">
-            <canvas id="tempChart" aria-label="Gráfico de temperatura semanal"></canvas>
-        </div>
-    </div>
-
-    <!-- 6. RELOJ SOLAR + FASE LUNAR -->
-    <div class="glass-card" id="solar-card" style="display:none;">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="small opacity-75 fw-bold mb-0" style="color:var(--text-sec)"><i class="bi bi-brightness-high-fill text-warning"></i> SOL Y LUNA</h6>
-            <span id="lunar-display" class="fw-bold" style="font-size:1.2rem;" title="Fase lunar"></span>
-        </div>
-        <div class="solar-clock-wrapper">
-            <canvas id="solar-clock-canvas" width="320" height="80" aria-label="Reloj solar"></canvas>
-        </div>
-        <div class="d-flex justify-content-between mt-2 small fw-bold opacity-60" style="font-size:0.7rem;color:var(--text-sec)">
-            <span><i class="bi bi-sunrise text-warning"></i> <span id="sunrise-time">—</span></span>
-            <span id="solar-pct" class="opacity-50" style="font-size:0.65rem;"></span>
-            <span><i class="bi bi-sunset text-orange"></i> <span id="sunset-time">—</span></span>
-        </div>
-    </div>
-
-    <!-- 7. CALIDAD DEL AIRE -->
-    <div class="glass-card" id="section-ambiente" aria-label="Calidad del aire">
-        <span class="label-sm text-uppercase fw-bold opacity-75 small" style="color:var(--text-sec)"><i class="bi bi-wind"></i> Calidad Aire</span>
-        <div class="d-flex align-items-end justify-content-between mt-2">
-            <div class="fw-bold fs-2 skeleton" id="aqi-val" style="width:40px;height:40px"></div>
-            <div class="small opacity-75 text-end fw-bold skeleton" id="aqi-text" style="width:80px;height:1em"></div>
-        </div>
-        <div class="aqi-bar" aria-hidden="true"><div class="aqi-dot" id="aqi-dot" style="left:0%"></div></div>
-        <div class="d-flex justify-content-between mt-2 small opacity-50 fw-bold" style="font-size:0.7rem">
-            <span>PM2.5: <span id="pm25">--</span></span>
-            <span>PM10: <span id="pm10">--</span></span>
-        </div>
-    </div>
-
-    <!-- 8. POLEN / ALERGIAS -->
-    <div class="glass-card" id="pollen-card" style="display:none" aria-label="Información de alergias y polen">
-        <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-flower1"></i> ALERGIAS Y POLEN</h6>
-        <div id="pollen-list"></div>
-    </div>
-
-    <!-- 9. ESTILO DE VIDA -->
-    <div class="glass-card">
-        <h6 class="small opacity-75 fw-bold mb-3" style="color:var(--text-sec)"><i class="bi bi-activity"></i> ESTILO DE VIDA</h6>
-        <div class="activity-scroll" id="lifestyle-list" role="list" aria-label="Actividades recomendadas">
-            <div class="skeleton" style="width:80px;height:80px;border-radius:16px"></div>
-            <div class="skeleton" style="width:80px;height:80px;border-radius:16px"></div>
-            <div class="skeleton" style="width:80px;height:80px;border-radius:16px"></div>
-        </div>
-        <div class="d-flex justify-content-center gap-3 mt-2 small opacity-75 fw-bold" style="font-size:0.65rem;color:var(--text)">
-            <div class="d-flex align-items-center gap-1"><div class="status-dot status-good"></div> Ideal</div>
-            <div class="d-flex align-items-center gap-1"><div class="status-dot status-fair"></div> Regular</div>
-            <div class="d-flex align-items-center gap-1"><div class="status-dot status-bad"></div> Malo</div>
-        </div>
-    </div>
-
-    <!-- 10. OUTFIT RECOMENDADO -->
-    <div class="glass-card">
-        <h6 class="small opacity-75 fw-bold mb-2" style="color:var(--text-sec)">
-            <i class="bi bi-bag-heart-fill"></i> OUTFIT RECOMENDADO <span style="font-weight:400;opacity:0.7">(Toca para comprar)</span>
-        </h6>
-        <div id="clothing-advice">
-            <div class="d-flex flex-wrap gap-2">
-                <div class="skeleton" style="width:80px;height:30px;border-radius:50px;"></div>
-                <div class="skeleton" style="width:100px;height:30px;border-radius:50px;"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 11. RADAR EN VIVO -->
-    <div class="glass-card" id="section-mapa" style="padding:0;overflow:hidden;height:350px;position:relative;" aria-label="Radar meteorológico en vivo">
-        <div class="skeleton" style="width:100%;height:100%;position:absolute;top:0;left:0;border-radius:0" id="radar-skeleton"></div>
-        <iframe id="radar-frame" width="100%" height="100%" src="" frameborder="0"
-                title="Radar meteorológico en vivo"
-                style="border:none;position:relative;z-index:2"
-                onload="document.getElementById('radar-skeleton').style.display='none'"></iframe>
-        <div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.5);color:white;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:bold;pointer-events:none;backdrop-filter:blur(4px);z-index:3">
-            RADAR EN VIVO
-        </div>
-    </div>
-
-</div><!-- /container -->
+</main><!-- /container -->
 
 <!-- MODAL NOTIFICACIONES -->
 <div class="modal fade" id="notificationModal" tabindex="-1" aria-hidden="true" style="z-index:10000;">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content glass-card border-0" style="background:var(--glass);color:var(--text);">
-            <div class="modal-body text-center p-4">
-                <div class="mb-3 p-3 rounded-circle d-inline-flex align-items-center justify-content-center" style="background:rgba(2,132,199,0.1);">
-                    <i class="bi bi-cloud-lightning-rain-fill" style="font-size:2.5rem;color:var(--accent);"></i>
+        <div class="modal-content sheet-surface">
+            <div class="modal-body notif-body">
+                <div class="notif-icon">
+                    <i class="bi bi-bell-fill"></i>
                 </div>
-                <h5 class="fw-bold mb-2">¿Quieres alertas del tiempo?</h5>
-                <p class="opacity-75 small mb-4">Aeris puede avisarte si va a llover, nevar o si hay calor extremo en tu zona, incluso con la app cerrada. También recibirás el resumen del tiempo cada mañana.</p>
-                <div class="d-flex gap-2 justify-content-center">
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Ahora no</button>
-                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-4" id="enableNotifBtn">Sí, activar</button>
+                <h5>¿Quieres alertas del tiempo?</h5>
+                <p>Aeris puede avisarte si va a llover, nevar o si hay calor extremo en tu zona, incluso con la app cerrada. También recibirás el resumen del tiempo cada mañana.</p>
+                <div class="notif-actions">
+                    <button type="button" class="btn-pill ghost" data-bs-dismiss="modal">Ahora no</button>
+                    <button type="button" class="btn-pill solid" id="enableNotifBtn">Sí, activar</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- BOTTOM NAVIGATION -->
-<nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Navegación principal">
+<!-- BOTTOM NAVIGATION (tab bar flotante) -->
+<nav class="bottom-nav" id="bottomNav" aria-label="Navegación principal">
+    <span class="bnav-indicator" id="bnavIndicator" aria-hidden="true"></span>
     <button class="bottom-nav-item active" data-target="capture-card" aria-label="Tiempo ahora">
-        <div class="bnav-icon"><i class="bi bi-house-fill"></i></div>
+        <span class="bnav-icon"><i class="bi bi-house-fill"></i></span>
         <span>Ahora</span>
     </button>
     <button class="bottom-nav-item" data-target="section-semana" aria-label="Previsión semanal">
-        <div class="bnav-icon"><i class="bi bi-calendar-week"></i></div>
+        <span class="bnav-icon"><i class="bi bi-calendar3-week"></i></span>
         <span>Semana</span>
     </button>
     <button class="bottom-nav-item" data-target="section-ambiente" aria-label="Calidad del aire y vida">
-        <div class="bnav-icon"><i class="bi bi-wind"></i></div>
+        <span class="bnav-icon"><i class="bi bi-wind"></i></span>
         <span>Ambiente</span>
     </button>
     <button class="bottom-nav-item" data-target="section-mapa" aria-label="Radar meteorológico">
-        <div class="bnav-icon"><i class="bi bi-broadcast"></i></div>
+        <span class="bnav-icon"><i class="bi bi-broadcast"></i></span>
         <span>Radar</span>
     </button>
 </nav>
 
 <!-- APP JS -->
-<script src="app.js"></script>
+<script src="app.js?v=3"></script>
 
 </body>
 </html>
