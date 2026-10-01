@@ -94,15 +94,27 @@ if (publicVapidKey && privateVapidKey) {
     log('warn', 'VAPID keys no configuradas. Las notificaciones push estaran desactivadas.');
 }
 
-// --- DB (SQLite en disco) ---
-const dbDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-
-const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: path.join(dbDir, 'aeris.db'),
-    logging: false
-});
+// --- DB ---
+// Con DATABASE_URL (Postgres: Neon, Supabase, Render...) las suscripciones
+// sobreviven a despliegues y reinicios. Sin ella, SQLite en disco local
+// (válido en desarrollo; en el plan gratuito de Render el disco se borra).
+let sequelize;
+if (process.env.DATABASE_URL) {
+    sequelize = new Sequelize(process.env.DATABASE_URL, {
+        dialect: 'postgres',
+        logging: false,
+        dialectOptions: process.env.DATABASE_SSL === 'false' ? {} : { ssl: { require: true, rejectUnauthorized: false } },
+        pool: { max: 5, idle: 10000 }
+    });
+} else {
+    const dbDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+    sequelize = new Sequelize({
+        dialect: 'sqlite',
+        storage: path.join(dbDir, 'aeris.db'),
+        logging: false
+    });
+}
 
 const WeatherCache = sequelize.define('WeatherCache', {
     locationId: { type: DataTypes.STRING, primaryKey: true },
@@ -110,7 +122,8 @@ const WeatherCache = sequelize.define('WeatherCache', {
 }, { timestamps: true, createdAt: false, updatedAt: 'updatedAt' });
 
 const Subscription = sequelize.define('Subscription', {
-    endpoint: { type: DataTypes.STRING, primaryKey: true },
+    // TEXT: los endpoints de push (sobre todo Apple/Mozilla) pueden pasar de 255 caracteres
+    endpoint: { type: DataTypes.TEXT, primaryKey: true },
     keys: { type: DataTypes.JSON },
     lat: { type: DataTypes.FLOAT },
     lon: { type: DataTypes.FLOAT },
@@ -121,14 +134,15 @@ const Subscription = sequelize.define('Subscription', {
 }, { timestamps: false });
 
 sequelize.sync().then(async () => {
-    log('info', 'Base de datos lista.');
+    log('info', `Base de datos lista (${sequelize.getDialect()}).`);
     // Migración segura para bases de datos ya existentes que no tenían
     // estas columnas (sync() no altera tablas existentes por defecto).
-    for (const col of ['region VARCHAR(255)', 'lastAemetAviso VARCHAR(255)']) {
-        try { await sequelize.query(`ALTER TABLE Subscriptions ADD COLUMN ${col}`); }
-        catch (e) { /* la columna ya existe: normal, no es un error real */ }
+    const qi = sequelize.getQueryInterface();
+    const cols = await qi.describeTable('Subscriptions');
+    for (const col of ['region', 'lastAemetAviso']) {
+        if (!cols[col]) await qi.addColumn('Subscriptions', col, { type: DataTypes.STRING });
     }
-});
+}).catch(e => log('error', 'Base de datos:', e.message));
 
 // --- UTILS ---
 const decodeWMO = (code, isDay = 1) => {
@@ -346,19 +360,44 @@ app.get('/api/vapid-key', (req, res) => {
 
 app.post('/api/subscribe', subscribeLimiter, async (req, res) => {
     try {
-        await Subscription.upsert({
-            endpoint: req.body.subscription.endpoint,
-            keys: req.body.subscription.keys,
-            lat: req.body.lat,
-            lon: req.body.lon,
-            city: req.body.city,
-            region: req.body.region || '',
-            lastNotification: new Date(0)
-        });
-        res.status(201).json({});
+        const { subscription, lat, lon, city, region, welcome } = req.body || {};
+        if (!subscription || typeof subscription.endpoint !== 'string' || !/^https:\/\//.test(subscription.endpoint)
+            || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth
+            || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
+            return res.status(400).json({ error: 'Suscripción no válida.' });
+        }
+        const fields = {
+            keys: subscription.keys,
+            lat: Number(lat),
+            lon: Number(lon),
+            city: String(city || '').slice(0, 120),
+            region: String(region || '').slice(0, 120)
+        };
+        // La app se re-suscribe en cada visita para mantener la ciudad al día:
+        // no tocamos lastNotification/lastAemetAviso de una suscripción existente,
+        // o se saltaría el límite de 1 aviso por hora y se repetirían avisos.
+        const existing = await Subscription.findByPk(subscription.endpoint);
+        if (existing) await existing.update(fields);
+        else await Subscription.create({ endpoint: subscription.endpoint, ...fields, lastNotification: new Date(0) });
+
+        // Notificación de bienvenida al activar: confirma al momento que toda
+        // la cadena (claves VAPID, service worker, permiso) funciona.
+        if (welcome && publicVapidKey && privateVapidKey) {
+            try {
+                await webpush.sendNotification(
+                    { endpoint: subscription.endpoint, keys: subscription.keys },
+                    JSON.stringify({
+                        title: '✅ Avisos de AERIS activados',
+                        body: `Te avisaremos de lluvia, tormentas y calor extremo en ${fields.city || 'tu zona'}.`,
+                        icon: '/logo.png', badge: '/logo.png'
+                    })
+                );
+            } catch (e) { log('error', 'push bienvenida:', e.statusCode || e.message); }
+        }
+        res.status(201).json({ ok: true });
     } catch (e) {
         log('error', 'subscribe', e.message);
-        res.status(500).json({});
+        res.status(500).json({ error: 'No se pudo guardar la suscripción.' });
     }
 });
 
@@ -429,7 +468,8 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
             if (!forcedName) forcedName = geoRes.data.results[0].name;
         }
 
-        const cache = await WeatherCache.findByPk(locationId);
+        // La caché es una optimización: si la BD falla, se sigue sirviendo el tiempo
+        const cache = await WeatherCache.findByPk(locationId).catch(e => { log('error', 'caché (lectura):', e.message); return null; });
         if (cache && (new Date() - new Date(cache.updatedAt) < 5 * 60 * 1000)) {
             const data = JSON.parse(cache.data);
             if (forcedName && forcedName !== "Tu ubicacion") data.location.name = forcedName;
@@ -559,7 +599,8 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
             })).filter(d => d.fecha >= currentTime.split('T')[0])
         };
 
-        await WeatherCache.upsert({ locationId, data: JSON.stringify(finalData), updatedAt: new Date() });
+        await WeatherCache.upsert({ locationId, data: JSON.stringify(finalData), updatedAt: new Date() })
+            .catch(e => log('error', 'caché (escritura):', e.message));
         res.json(finalData);
 
     } catch (e) {

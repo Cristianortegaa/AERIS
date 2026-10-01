@@ -1305,32 +1305,85 @@ radarFrame?.addEventListener('load', () => {
 // ============================================================
 // 26. PUSH NOTIFICATIONS
 // ============================================================
+// La API de notificaciones no existe en Safari de iPhone sin instalar la app
+// ni en los navegadores internos de TikTok/Instagram: comprobar SIEMPRE antes
+// de tocar `Notification`, o el error corta la carga de la app entera.
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const notifPermission = () => ('Notification' in window) ? Notification.permission : 'unsupported';
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+let vapidKeyPromise = null;
+const getVapidKey = () => vapidKeyPromise || (vapidKeyPromise = fetch('/api/vapid-key')
+    .then(r => r.ok ? r.json() : null).then(j => j && j.key).catch(() => null));
+
+const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    return Uint8Array.from(rawData, ch => ch.charCodeAt(0));
+};
+
+// silent = re-suscripción en segundo plano (mantiene la ciudad al día);
+// si no, es el usuario pulsando "Activar" y merece saber qué ha pasado.
 async function registerPush(silent = false) {
-    if (!('serviceWorker' in navigator)) return;
-    if (silent && Notification.permission !== 'granted') return;
-    const register = await navigator.serviceWorker.ready;
-    let subscription = await register.pushManager.getSubscription();
-    if (!subscription) {
-        try {
-            const response = await fetch('/api/vapid-key');
-            if (!response.ok) return;
-            const { key } = await response.json();
-            const urlBase64ToUint8Array = (base64String) => {
-                const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-                const rawData = window.atob(base64);
-                const outputArray = new Uint8Array(rawData.length);
-                for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-                return outputArray;
-            };
-            subscription = await register.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
-        } catch (e) { return; }
+    const say = (msg, type) => { if (!silent) showToast(msg, type); };
+    if (!pushSupported()) {
+        return say(isIOS()
+            ? 'En iPhone, instala AERIS en la pantalla de inicio (Compartir → Añadir a inicio) para recibir avisos.'
+            : 'Este navegador no admite notificaciones.', 'warn');
     }
-    const lat = currentCityInfo.lat || parseFloat(String(currentCityInfo.id).split(',')[0]);
-    const lon = currentCityInfo.lon || parseFloat(String(currentCityInfo.id).split(',')[1]);
-    if (!lat || !lon) return;
-    await fetch('/api/subscribe', { method: 'POST', body: JSON.stringify({ subscription, lat, lon, city: currentCityInfo.name, region: currentCityInfo.region || '' }), headers: { 'Content-Type': 'application/json' } });
-    if (!silent) alert(`🔔 ¡Activado! Te avisaremos si hay lluvia, tormenta o calor extremo en ${currentCityInfo.name}. También recibirás el resumen matutino.`);
+    if (silent && notifPermission() !== 'granted') return;
+    try {
+        const key = await getVapidKey();
+        if (!key) return say('Las notificaciones no están disponibles ahora mismo. Inténtalo más tarde.', 'warn');
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            return say('Has bloqueado las notificaciones. Puedes activarlas en los ajustes del navegador.', 'warn');
+        }
+        const register = await navigator.serviceWorker.ready;
+        let subscription = await register.pushManager.getSubscription();
+        if (!subscription) {
+            subscription = await register.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+        }
+        const lat = currentCityInfo.lat || parseFloat(String(currentCityInfo.id).split(',')[0]);
+        const lon = currentCityInfo.lon || parseFloat(String(currentCityInfo.id).split(',')[1]);
+        if (!lat || !lon) return say('Elige una ciudad para activar los avisos.', 'warn');
+
+        const res = await fetch('/api/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription, lat, lon, city: currentCityInfo.name, region: currentCityInfo.region || '', welcome: !silent })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        say(`Avisos activados para ${currentCityInfo.name || 'tu zona'}. Te llegará una notificación de prueba.`, 'ok');
+    } catch (e) {
+        console.error('push:', e);
+        say('No se pudieron activar los avisos. Inténtalo de nuevo.', 'warn');
+    }
+}
+
+// Toast mínimo: entra y sale por abajo (mismo camino), transición y no
+// keyframes para que varios seguidos se reemplacen sin saltos.
+let toastTimer = null;
+function showToast(message, type = 'ok') {
+    let el = document.getElementById('aeris-toast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'aeris-toast';
+        el.className = 'toast-msg';
+        el.setAttribute('role', 'status');
+        el.setAttribute('aria-live', 'polite');
+        el.innerHTML = '<i class="bi" aria-hidden="true"></i><span></span>';
+        el.addEventListener('click', () => el.classList.remove('show'));
+        document.body.appendChild(el);
+    }
+    el.querySelector('i').className = `bi ${type === 'ok' ? 'bi-check-circle-fill' : 'bi-info-circle-fill'}`;
+    el.querySelector('span').textContent = message;
+    el.dataset.type = type;
+    requestAnimationFrame(() => el.classList.add('show'));
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
 }
 
 // ============================================================
@@ -1530,7 +1583,7 @@ async function getWeather(id) {
         localStorage.setItem('aeris_offline_data', JSON.stringify({ data, timestamp: Date.now() }));
         lastFetchAt = Date.now();
         renderWeather(data, false);
-        if (Notification.permission === 'granted') registerPush(true);
+        if (notifPermission() === 'granted') registerPush(true);
     } catch (e) {
         console.error(e);
         const offlineRaw = localStorage.getItem('aeris_offline_data');
@@ -1620,9 +1673,11 @@ window.addEventListener('load', () => {
     // Splash: se oculta al pintar los datos; esto es solo la red de seguridad
     setTimeout(hideSplash, 4000);
 
-    // Modal notificaciones
-    if (Notification.permission === 'default') {
-        setTimeout(() => {
+    // Modal notificaciones: solo si el navegador puede recibirlas y el
+    // servidor puede enviarlas (no pedimos un permiso que no sirve de nada)
+    if (pushSupported() && notifPermission() === 'default') {
+        setTimeout(async () => {
+            if (!(await getVapidKey())) return;
             const modalEl = document.getElementById('notificationModal');
             if (modalEl && window.bootstrap) {
                 const bsModal = new bootstrap.Modal(modalEl);

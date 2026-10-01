@@ -1543,6 +1543,40 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 .banner-title { font-weight: 600; letter-spacing: -0.01em; }
 .banner-sub { font-size: 0.84rem; opacity: 0.8; }
 
+/* Toast (avisos breves de la app) */
+.toast-msg {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+    z-index: 12000;
+    width: min(calc(100% - 32px), 420px);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 13px 16px;
+    border-radius: 20px;
+    background: rgba(12, 16, 30, 0.92);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 20px 50px -18px rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 0.86rem;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 16px);
+    transition: opacity 400ms ease, transform 400ms ease;
+}
+.toast-msg.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.toast-msg i { font-size: 1.05rem; flex-shrink: 0; margin-top: 1px; color: #4ade80; }
+.toast-msg[data-type="warn"] i { color: #fbbf24; }
+@media (prefers-reduced-motion: reduce) {
+    .toast-msg, .toast-msg.show { transform: translate(-50%, 0); }
+}
+
 /* ------------------------------------------------------------
    22. CAPAS: OVERLAY, SIDEBAR, SHEETS, MODALES
    ------------------------------------------------------------ */
