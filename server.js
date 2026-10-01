@@ -699,7 +699,10 @@ async function sendPush(user, payload) {
         );
         return true;
     } catch (err) {
-        if (err.statusCode === 410 || err.statusCode === 404) await user.destroy().catch(() => {});
+        // 404/410: el navegador ya no tiene la suscripción. 403 (VAPID distinto):
+        // se creó con otras claves y nunca funcionará; la app la rehará al abrirse.
+        const vapidMismatch = err.statusCode === 403 && /vapid|credentials|BadJwtToken/i.test(String(err.body || ''));
+        if (err.statusCode === 410 || err.statusCode === 404 || vapidMismatch) await user.destroy().catch(() => {});
         else log('error', `push ${user.city}:`, err.statusCode || err.message);
         return false;
     }

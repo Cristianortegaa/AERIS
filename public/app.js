@@ -1345,9 +1345,19 @@ async function registerPush(silent = false) {
         const key = await getVapidKey();
         if (!key) return say('Las notificaciones no están disponibles ahora mismo. Inténtalo más tarde.', 'warn');
         const register = await navigator.serviceWorker.ready;
+        const serverKey = urlBase64ToUint8Array(key);
         let subscription = await register.pushManager.getSubscription();
+        // Una suscripción hecha con otras claves VAPID (p. ej. de antes de
+        // configurarlas bien) nunca recibirá nada: el push service responde 403.
+        // Si la clave no coincide con la del servidor, se rehace.
+        if (subscription) {
+            const subKey = subscription.options && subscription.options.applicationServerKey;
+            const sameKey = subKey && subKey.byteLength === serverKey.byteLength &&
+                new Uint8Array(subKey).every((b, i) => b === serverKey[i]);
+            if (!sameKey) { await subscription.unsubscribe().catch(() => {}); subscription = null; }
+        }
         if (!subscription) {
-            subscription = await register.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+            subscription = await register.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey });
         }
         const lat = currentCityInfo.lat || parseFloat(String(currentCityInfo.id).split(',')[0]);
         const lon = currentCityInfo.lon || parseFloat(String(currentCityInfo.id).split(',')[1]);

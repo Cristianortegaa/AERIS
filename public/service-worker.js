@@ -1,9 +1,9 @@
-const CACHE_NAME = 'aeris-v17';
+const CACHE_NAME = 'aeris-v18';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
-    '/styles.css?v=8',
-    '/app.js?v=8',
+    '/styles.css?v=9',
+    '/app.js?v=9',
     '/logo.png',
     '/icono-clima.png',
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
