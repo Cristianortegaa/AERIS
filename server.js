@@ -130,7 +130,8 @@ const Subscription = sequelize.define('Subscription', {
     city: { type: DataTypes.STRING },
     region: { type: DataTypes.STRING },
     lastNotification: { type: DataTypes.DATE },
-    lastAemetAviso: { type: DataTypes.STRING } // identificador del último aviso oficial ya notificado (evita repetir)
+    lastAemetAviso: { type: DataTypes.STRING }, // identificador del último aviso oficial ya notificado (evita repetir)
+    timezone: { type: DataTypes.STRING }        // zona horaria IANA (p. ej. Europe/Madrid) para la pausa nocturna
 }, { timestamps: false });
 
 sequelize.sync().then(async () => {
@@ -139,7 +140,7 @@ sequelize.sync().then(async () => {
     // estas columnas (sync() no altera tablas existentes por defecto).
     const qi = sequelize.getQueryInterface();
     const cols = await qi.describeTable('Subscriptions');
-    for (const col of ['region', 'lastAemetAviso']) {
+    for (const col of ['region', 'lastAemetAviso', 'timezone']) {
         if (!cols[col]) await qi.addColumn('Subscriptions', col, { type: DataTypes.STRING });
     }
 }).catch(e => log('error', 'Base de datos:', e.message));
@@ -360,7 +361,7 @@ app.get('/api/vapid-key', (req, res) => {
 
 app.post('/api/subscribe', subscribeLimiter, async (req, res) => {
     try {
-        const { subscription, lat, lon, city, region, welcome } = req.body || {};
+        const { subscription, lat, lon, city, region, timezone, welcome } = req.body || {};
         if (!subscription || typeof subscription.endpoint !== 'string' || !/^https:\/\//.test(subscription.endpoint)
             || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth
             || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
@@ -371,7 +372,8 @@ app.post('/api/subscribe', subscribeLimiter, async (req, res) => {
             lat: Number(lat),
             lon: Number(lon),
             city: String(city || '').slice(0, 120),
-            region: String(region || '').slice(0, 120)
+            region: String(region || '').slice(0, 120),
+            timezone: isValidTimeZone(timezone) ? timezone : null
         };
         // La app se re-suscribe en cada visita para mantener la ciudad al día:
         // no tocamos lastNotification/lastAemetAviso de una suscripción existente,
@@ -637,115 +639,150 @@ function imminentRainNotification(nowcast, current, city) {
     };
 }
 
-// --- CRON JOB (protegido con secret) ---
-app.get('/api/cron/check-rain', async (req, res) => {
-    const secret = process.env.CRON_SECRET;
-    if (secret && req.headers['x-cron-secret'] !== secret) {
-        return res.status(401).json({ error: 'No autorizado' });
+// --- CRON: utilidades compartidas ---
+// Zona ≈ celda de 0,1° (unos 11 × 8 km en España): todos los suscriptores de
+// una zona comparten UNA llamada a Open-Meteo en vez de una por persona.
+const zoneKey = (lat, lon) => `${(Math.round(lat * 10) / 10).toFixed(1)},${(Math.round(lon * 10) / 10).toFixed(1)}`;
+function groupByZone(users) {
+    const zones = new Map();
+    for (const u of users) {
+        if (!Number.isFinite(u.lat) || !Number.isFinite(u.lon)) continue;
+        const k = zoneKey(u.lat, u.lon);
+        if (!zones.has(k)) zones.set(k, []);
+        zones.get(k).push(u);
     }
+    return [...zones.values()];
+}
 
-    if (!publicVapidKey || !privateVapidKey) {
-        return res.status(503).json({ error: 'VAPID no configurado, notificaciones desactivadas.' });
+// De madrugada (00:00–07:00 en la hora local del suscriptor) basta con
+// comprobar una vez por hora en vez de cada 15 min. Con la zona horaria real:
+// la hora solar no sirve (en España el reloj va ~2 h por delante del sol y se
+// perderían los avisos de las 7–9 de la mañana). Sin zona guardada (suscripciones
+// antiguas) usamos la hora solar con una ventana más estrecha, 01–06.
+function isValidTimeZone(tz) {
+    if (typeof tz !== 'string' || !tz || tz.length > 64) return false;
+    try { new Intl.DateTimeFormat('en-GB', { timeZone: tz }); return true; } catch { return false; }
+}
+function isQuietHour(user, date = new Date()) {
+    if (user.timezone && isValidTimeZone(user.timezone)) {
+        const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: user.timezone, hour: '2-digit', hour12: false }).format(date)) % 24;
+        return h < 7;
     }
+    const solar = ((date.getUTCHours() + date.getUTCMinutes() / 60 + user.lon / 15) % 24 + 24) % 24;
+    return solar >= 1 && solar < 6;
+}
 
+// Concurrencia limitada: rápido, pero sin saturar APIs ni pasarse del
+// tiempo máximo de espera del servicio de cron.
+async function forEachLimit(items, limit, fn) {
+    let next = 0;
+    const worker = async () => { while (next < items.length) await fn(items[next++]); };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}
+
+// Envía un push; si el navegador ya no tiene esa suscripción (404/410) la borramos.
+async function sendPush(user, payload) {
     try {
-        log('info', 'Ejecutando Cron Job...');
-        const users = await Subscription.findAll();
-        let sentCount = 0;
+        await webpush.sendNotification(
+            { endpoint: user.endpoint, keys: user.keys },
+            JSON.stringify({ icon: '/logo.png', badge: '/logo.png', ...payload })
+        );
+        return true;
+    } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) await user.destroy().catch(() => {});
+        else log('error', `push ${user.city}:`, err.statusCode || err.message);
+        return false;
+    }
+}
 
-        for (const user of users) {
-            try {
-                // --- 0. Aviso OFICIAL de AEMET (naranja/rojo) ---
-                // Independiente del cooldown general de 1h: se controla por
-                // aviso concreto (lastAemetAviso), no por tiempo, para poder
-                // avisar de un aviso nuevo aunque acabe de saltar otra
-                // notificación, y para no repetir el mismo aviso cada hora
-                // mientras siga activo.
-                if (user.region) {
-                    const areaCode = getAemetAreaCode(user.region);
+// Qué avisar con los datos de una zona (lluvia inminente > calor > viento > tormenta)
+function weatherNotification(data, city) {
+    const current = data.current;
+    if (!current) return null;
+    return imminentRainNotification(data.minutely_15, current, city)
+        || (current.temperature_2m >= 36 && {
+            title: `🌡️ Calor extremo en ${city}`,
+            body: `Temperatura: ${Math.round(current.temperature_2m)}°C. Hidrátate y busca la sombra.`
+        })
+        || (current.wind_speed_10m >= 70 && {
+            title: `💨 Viento fuerte en ${city}`,
+            body: `Rachas de ${Math.round(current.wind_speed_10m)} km/h. Precaución en exteriores.`
+        })
+        || (current.weather_code >= 95 && {
+            title: `⚡ Tormenta en ${city}`,
+            body: 'Actividad eléctrica detectada. Busca refugio.'
+        })
+        || null;
+}
+
+const cronAuthorized = (req, res) => {
+    const secret = process.env.CRON_SECRET;
+    if (secret && req.headers['x-cron-secret'] !== secret) { res.status(401).json({ error: 'No autorizado' }); return false; }
+    if (!publicVapidKey || !privateVapidKey) { res.status(503).json({ error: 'VAPID no configurado, notificaciones desactivadas.' }); return false; }
+    return true;
+};
+
+// --- CRON: avisos (llámalo cada 15 min) ---
+app.get('/api/cron/check-rain', async (req, res) => {
+    if (!cronAuthorized(req, res)) return;
+    try {
+        const zones = groupByZone(await Subscription.findAll());
+        const hourlyPass = new Date().getUTCMinutes() < 15; // la pasada "en punto"
+        const stats = { zonas: zones.length, llamadasOpenMeteo: 0, zonasEnPausaNocturna: 0, notificaciones: 0 };
+
+        await forEachLimit(zones, 6, async (zoneUsers) => {
+            const pending = [];
+            // 0. Aviso OFICIAL de AEMET (naranja/rojo), por usuario y sin cooldown
+            //    general: se controla por aviso concreto para no repetirlo.
+            //    fetchAemetAvisos ya cachea 15 min por área, no gasta llamadas.
+            for (const user of zoneUsers) {
+                try {
+                    const areaCode = user.region ? getAemetAreaCode(user.region) : null;
                     if (areaCode) {
-                        const avisosOficiales = await fetchAemetAvisos(areaCode);
-                        const topAviso = avisosOficiales.find(a => a.nivel === 'rojo' || a.nivel === 'naranja');
+                        const topAviso = (await fetchAemetAvisos(areaCode)).find(a => a.nivel === 'rojo' || a.nivel === 'naranja');
                         const avisoKey = topAviso ? `${topAviso.nivel}|${topAviso.fenomeno}` : null;
-
                         if (topAviso && avisoKey !== user.lastAemetAviso) {
                             const emoji = topAviso.nivel === 'rojo' ? '🔴' : '🟠';
-                            await webpush.sendNotification(
-                                { endpoint: user.endpoint, keys: user.keys },
-                                JSON.stringify({
-                                    title: `${emoji} Aviso oficial AEMET (${topAviso.nivel}) en ${user.city}`,
-                                    body: topAviso.titular || topAviso.fenomeno,
-                                    icon: '/logo.png', badge: '/logo.png'
-                                })
-                            );
-                            user.lastAemetAviso = avisoKey;
-                            user.lastNotification = new Date();
-                            await user.save();
-                            sentCount++;
-                            continue; // ya avisado en esta pasada, no lo saturamos con más notificaciones
+                            if (await sendPush(user, {
+                                title: `${emoji} Aviso oficial AEMET (${topAviso.nivel}) en ${user.city}`,
+                                body: topAviso.titular || topAviso.fenomeno
+                            })) {
+                                user.lastAemetAviso = avisoKey;
+                                user.lastNotification = new Date();
+                                await user.save();
+                                stats.notificaciones++;
+                            }
+                            continue; // ya avisado en esta pasada
                         } else if (!topAviso && user.lastAemetAviso) {
-                            // El aviso ya no está activo: reseteamos para poder avisar de uno nuevo más adelante
-                            user.lastAemetAviso = null;
+                            user.lastAemetAviso = null; // el aviso terminó: se podrá avisar de uno nuevo
                             await user.save();
                         }
                     }
-                }
-
-                // --- Resto de comprobaciones propias (cooldown normal de 1h) ---
-                if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
-
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m&forecast_days=2&timezone=auto`;
-                const response = await http.get(url);
-                const nowcast = response.data.minutely_15;
-                const current = response.data.current;
-
-                let notif = null;
-
-                // 1. Lluvia / Nieve inminente (próxima hora)
-                notif = imminentRainNotification(nowcast, current, user.city);
-
-                // 2. Calor extremo
-                if (!notif && current.temperature_2m >= 36) {
-                    notif = {
-                        title: `🌡️ Calor extremo en ${user.city}`,
-                        body: `Temperatura: ${Math.round(current.temperature_2m)}°C. Hidratate y busca la sombra.`
-                    };
-                }
-
-                // 3. Viento fuerte
-                if (!notif && current.wind_speed_10m >= 70) {
-                    notif = {
-                        title: `💨 Viento fuerte en ${user.city}`,
-                        body: `Rachas de ${Math.round(current.wind_speed_10m)} km/h. Precaucion en exteriores.`
-                    };
-                }
-
-                // 4. Tormenta electrica
-                if (!notif && current.weather_code >= 95) {
-                    notif = {
-                        title: `⚡ Tormenta en ${user.city}`,
-                        body: `Actividad electrica detectada. Busca refugio.`
-                    };
-                }
-
-                if (notif) {
-                    await webpush.sendNotification(
-                        { endpoint: user.endpoint, keys: user.keys },
-                        JSON.stringify({ title: notif.title, body: notif.body, icon: '/logo.png', badge: '/logo.png' })
-                    );
-                    user.lastNotification = new Date();
-                    await user.save();
-                    sentCount++;
-                }
-            } catch (err) {
-                if (err.statusCode === 410) {
-                    await user.destroy();
-                } else {
-                    log('error', `cron usuario ${user.city}:`, err.message);
-                }
+                } catch (err) { log('error', `cron AEMET ${user.city}:`, err.message); }
+                // Máximo 1 aviso propio por hora y usuario
+                if (Date.now() - new Date(user.lastNotification) >= 60 * 60 * 1000) pending.push(user);
             }
-        }
-        res.json({ success: true, message: `Cron ejecutado. Notificaciones enviadas: ${sentCount}` });
+            if (!pending.length) return;
+
+            const { lat, lon } = pending[0];
+            if (!hourlyPass && isQuietHour(pending[0])) { stats.zonasEnPausaNocturna++; return; }
+
+            try {
+                stats.llamadasOpenMeteo++;
+                const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m&forecast_days=2&timezone=auto`);
+                for (const user of pending) {
+                    const notif = weatherNotification(data, user.city);
+                    if (notif && await sendPush(user, notif)) {
+                        user.lastNotification = new Date();
+                        await user.save();
+                        stats.notificaciones++;
+                    }
+                }
+            } catch (err) { log('error', `cron zona ${lat},${lon}:`, err.message); }
+        });
+
+        log('info', 'Cron avisos:', JSON.stringify(stats));
+        res.json({ success: true, ...stats });
     } catch (error) {
         log('error', 'Cron Job:', error.message);
         res.status(500).json({ success: false, error: error.message });
@@ -754,52 +791,36 @@ app.get('/api/cron/check-rain', async (req, res) => {
 
 // --- CRON: RESUMEN MATUTINO (llámalo cada mañana a las 8h) ---
 app.get('/api/cron/morning-summary', async (req, res) => {
-    const secret = process.env.CRON_SECRET;
-    if (secret && req.headers['x-cron-secret'] !== secret) {
-        return res.status(401).json({ error: 'No autorizado' });
-    }
-    if (!publicVapidKey || !privateVapidKey) {
-        return res.status(503).json({ error: 'VAPID no configurado.' });
-    }
+    if (!cronAuthorized(req, res)) return;
     try {
-        const users = await Subscription.findAll();
-        let sentCount = 0;
-        for (const user of users) {
+        const zones = groupByZone(await Subscription.findAll());
+        const stats = { zonas: zones.length, llamadasOpenMeteo: 0, notificaciones: 0 };
+        const emojis = { 'Despejado': '☀️', 'Parcialmente': '⛅', 'Nublado': '☁️', 'Lluvia': '🌧️', 'Nieve': '❄️', 'Tormenta': '⛈️', 'Niebla': '🌫️' };
+
+        await forEachLimit(zones, 6, async (zoneUsers) => {
+            const { lat, lon } = zoneUsers[0];
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&current=temperature_2m&timezone=auto&forecast_days=1`;
-                const response = await http.get(url);
-                const d = response.data.daily;
-                if (!d) continue;
+                stats.llamadasOpenMeteo++;
+                const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&timezone=auto&forecast_days=1`);
+                const d = data.daily;
+                if (!d) return;
                 const wmo = decodeWMO(d.weather_code[0], 1);
                 const max = Math.round(d.temperature_2m_max[0]);
                 const min = Math.round(d.temperature_2m_min[0]);
                 const rain = d.precipitation_probability_max[0] || 0;
                 const uv = d.uv_index_max[0] || 0;
-
-                // Emoji según condición
-                const emojis = { 'Despejado': '☀️', 'Parcialmente': '⛅', 'Nublado': '☁️', 'Lluvia': '🌧️', 'Nieve': '❄️', 'Tormenta': '⛈️', 'Niebla': '🌫️' };
                 let emoji = '🌤️';
                 for (const [k, v] of Object.entries(emojis)) { if (wmo.text.includes(k)) { emoji = v; break; } }
-
-                // ¿Buen día? (comfort > 70 && sin lluvia && temp 18-28)
                 const isNiceDay = rain < 20 && max >= 18 && max <= 28 && d.weather_code[0] <= 3;
-                const niceExtra = isNiceDay ? ' ¡Buen día para salir! 🏃' : '';
+                const body = `${wmo.text} · ${min}°–${max}° · Lluvia: ${rain}% · UV: ${uv}${isNiceDay ? ' ¡Buen día para salir! 🏃' : ''}`;
+                for (const user of zoneUsers) {
+                    if (await sendPush(user, { title: `${emoji} Buenos días en ${user.city}`, body })) stats.notificaciones++;
+                }
+            } catch (err) { log('error', `morning zona ${lat},${lon}:`, err.message); }
+        });
 
-                const notif = {
-                    title: `${emoji} Buenos días en ${user.city}`,
-                    body: `${wmo.text} · ${min}°–${max}° · Lluvia: ${rain}% · UV: ${uv}${niceExtra}`
-                };
-                await webpush.sendNotification(
-                    { endpoint: user.endpoint, keys: user.keys },
-                    JSON.stringify({ title: notif.title, body: notif.body, icon: '/logo.png', badge: '/logo.png' })
-                );
-                sentCount++;
-            } catch (err) {
-                if (err.statusCode === 410) await user.destroy();
-                else log('error', `morning usuario ${user.city}:`, err.message);
-            }
-        }
-        res.json({ success: true, message: `Resumen matutino enviado a ${sentCount} usuarios.` });
+        log('info', 'Cron resumen:', JSON.stringify(stats));
+        res.json({ success: true, ...stats });
     } catch (error) {
         log('error', 'Morning cron:', error.message);
         res.status(500).json({ success: false, error: error.message });

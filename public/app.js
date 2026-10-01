@@ -686,42 +686,42 @@ const updateAIText = (cur, highPollen = false) => {
     const clothingContainer = document.getElementById('clothing-advice');
     if (clothingContainer) {
         const iconCls = (ic) => ic.startsWith('fa') ? ic : `bi ${ic}`;
-        const tag = (i, kind) => `<a href="${i.url}" target="_blank" rel="noopener" class="clothing-tag ${kind}"><i class="${iconCls(i.icon)}"></i>${i.text}<i class="bi bi-arrow-up-right ext" aria-hidden="true"></i></a>`;
+        const tag = (i, kind) => `<span class="clothing-tag ${kind}"><i class="${iconCls(i.icon)}" aria-hidden="true"></i>${i.text}</span>`;
         let html =
             `<div class="outfit-group"><span class="outfit-group-label">Ellos</span><div class="outfit-tags">${clothes.boys.map(i => tag(i, 'boy')).join('')}</div></div>` +
             `<div class="outfit-group"><span class="outfit-group-label">Ellas</span><div class="outfit-tags">${clothes.girls.map(i => tag(i, 'girl')).join('')}</div></div>`;
-        if (clothes.shopLink) html += `<a href="${clothes.shopLink.url}" target="_blank" rel="noopener" class="shop-btn"><i class="bi ${clothes.shopLink.icon}"></i>${clothes.shopLink.text}</a>`;
+        if (clothes.tip) html += `<div class="outfit-tip"><i class="bi ${clothes.tip.icon}" aria-hidden="true"></i><span>${clothes.tip.text}</span></div>`;
         clothingContainer.innerHTML = html;
     }
 };
 
 const getClothingList = (temp, desc, wind, uv) => {
-    const tag = "&tag=cristianort01-21", base = "https://www.amazon.es/s?k=";
-    const item = (icon, text, search) => ({ icon, text, url: `${base}${search.replace(/ /g, '+')}${tag}` });
-    let boys = [], girls = [], shopLink = null;
+    const item = (icon, text) => ({ icon, text });
+    let boys = [], girls = [], tip = null;
     desc = desc.toLowerCase();
     const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
     const isSnow = desc.includes('nieve') || desc.includes('nevada');
     const isClear = desc.includes('despejado') || desc.includes('sol');
-    if (temp >= 30)      { boys.push(item('bi-brightness-high','Tirantes','camiseta tirantes hombre')); girls.push(item('bi-brightness-high','Top/Vestido','vestido verano mujer fresco')); boys.push(item('bi-emoji-sunglasses','Shorts','pantalones cortos hombre deporte')); girls.push(item('bi-emoji-sunglasses','Shorts','shorts mujer verano')); boys.push(item('bi-fan','Abanico','abanico mano')); girls.push(item('bi-fan','Abanico','abanico moderno')); }
-    else if (temp >= 25) { boys.push(item('fa-solid fa-shirt','Camiseta','camiseta algodon hombre')); girls.push(item('fa-solid fa-shirt','Blusa','blusa fresca mujer')); boys.push(item('bi-emoji-smile','Chino corto','pantalon chino corto hombre')); girls.push(item('bi-emoji-smile','Falda','falda verano mujer')); }
-    else if (temp >= 20) { boys.push(item('fa-solid fa-shirt','Polo','polo manga corta hombre')); girls.push(item('fa-solid fa-shirt','Camiseta','camiseta moda mujer')); boys.push(item('bi-person','Jeans','vaqueros hombre levis')); girls.push(item('bi-person','Culotte','pantalon culotte mujer')); }
-    else if (temp >= 15) { boys.push(item('bi-person','Camisa','camisa casual hombre')); girls.push(item('bi-person','Cardigan','cardigan mujer fino')); boys.push(item('bi-person','Chinos','pantalones chinos hombre')); girls.push(item('bi-person','Jeans','jeans mujer')); boys.push(item('bi-layers','Chaleco','chaleco ligero hombre')); girls.push(item('bi-layers','Blazer','blazer mujer casual')); }
-    else if (temp >= 10) { boys.push(item('fa-solid fa-vest','Sudadera','sudadera con capucha hombre')); girls.push(item('fa-solid fa-vest','Jersey','jersey punto mujer')); boys.push(item('bi-layers','Cazadora','cazadora bomber hombre')); girls.push(item('bi-layers','Trench','gabardina mujer')); }
-    else if (temp >= 5)  { boys.push(item('bi-person-fill','Jersey Lana','jersey lana hombre')); girls.push(item('bi-person-fill','Jersey Grueso','jersey grueso mujer invierno')); boys.push(item('bi-bricks','Abrigo','abrigo paño hombre')); girls.push(item('bi-bricks','Abrigo','abrigo lana mujer')); }
-    else                 { boys.push(item('bi-snow2','Térmica','camiseta termica hombre')); girls.push(item('bi-snow2','Térmica','camiseta termica mujer')); boys.push(item('bi-person-fill','Plumífero','chaqueta plumas hombre')); girls.push(item('bi-person-fill','Plumífero','abrigo acolchado mujer')); }
-    if (temp < 10 || (wind > 20 && temp < 15)) { boys.push(item('bi-emoji-dizzy','Bufanda','bufanda hombre invierno')); girls.push(item('bi-emoji-dizzy','Bufanda','bufanda mujer suave')); }
-    if (temp < 5)  { boys.push(item('fa-solid fa-mitten','Gorro','gorro lana hombre')); girls.push(item('fa-solid fa-mitten','Gorro','gorro invierno mujer pompon')); }
-    if (isRain)    { boys.push(item('bi-umbrella','Paraguas','paraguas resistente viento')); girls.push(item('bi-umbrella','Paraguas','paraguas plegable mujer')); boys.push(item('bi-cloud-rain','Impermeable','chubasquero hombre')); girls.push(item('bi-cloud-rain','Gabardina','chubasquero mujer impermeable')); if (temp < 15) { boys.push(item('fa-solid fa-shoe-prints','Botas Agua','botas de agua hombre')); girls.push(item('fa-solid fa-shoe-prints','Botas Agua','botas de agua mujer hunter')); } }
-    if (isSnow)    { boys.push(item('bi-snow','Botas Nieve','botas nieve hombre impermeables')); girls.push(item('bi-snow','Botas Nieve','botas nieve mujer pelo')); boys.push(item('bi-hand-index-thumb','Guantes','guantes nieve hombre tactiles')); girls.push(item('bi-hand-index-thumb','Guantes','guantes invierno mujer')); }
-    if (uv > 5 && isClear) { boys.push(item('bi-sunglasses','Gafas Sol','gafas de sol polarizadas hombre')); girls.push(item('bi-sunglasses','Gafas Sol','gafas de sol mujer tendencia')); boys.push(item('bi-capslock','Gorra','gorra beisbol hombre')); girls.push(item('bi-capslock','Sombrero','sombrero paja mujer')); }
-    if (isRain)         shopLink = { text: "¡Ojo! Paraguas anti-viento", url: `${base}paraguas+antiviento+fuerte${tag}`, icon: "bi-umbrella-fill" };
-    else if (isSnow)    shopLink = { text: "Cadenas para el coche", url: `${base}cadenas+nieve+coche+textil${tag}`, icon: "bi-snow2" };
-    else if (uv > 7)    shopLink = { text: "Crema Solar Facial 50+", url: `${base}crema+solar+facial+50+isdin${tag}`, icon: "bi-sun-fill" };
-    else if (temp > 32) shopLink = { text: "Ventilador de Cuello", url: `${base}ventilador+cuello+portatil${tag}`, icon: "bi-fan" };
-    else if (temp < 4)  shopLink = { text: "Calentadores de Manos USB", url: `${base}calentador+manos+usb${tag}`, icon: "bi-fire" };
-    else shopLink = { text: "🔥 Ofertas Flash (Hasta -50%)", url: `${base}ofertas+amazon+hoy${tag}`, icon: "bi-lightning-charge-fill" };
-    return { boys: boys.slice(0, 5), girls: girls.slice(0, 5), shopLink };
+    if (temp >= 30)      { boys.push(item('bi-brightness-high','Tirantes')); girls.push(item('bi-brightness-high','Top/Vestido')); boys.push(item('bi-emoji-sunglasses','Shorts')); girls.push(item('bi-emoji-sunglasses','Shorts')); boys.push(item('bi-fan','Abanico')); girls.push(item('bi-fan','Abanico')); }
+    else if (temp >= 25) { boys.push(item('fa-solid fa-shirt','Camiseta')); girls.push(item('fa-solid fa-shirt','Blusa')); boys.push(item('bi-emoji-smile','Chino corto')); girls.push(item('bi-emoji-smile','Falda')); }
+    else if (temp >= 20) { boys.push(item('fa-solid fa-shirt','Polo')); girls.push(item('fa-solid fa-shirt','Camiseta')); boys.push(item('bi-person','Jeans')); girls.push(item('bi-person','Culotte')); }
+    else if (temp >= 15) { boys.push(item('bi-person','Camisa')); girls.push(item('bi-person','Cardigan')); boys.push(item('bi-person','Chinos')); girls.push(item('bi-person','Jeans')); boys.push(item('bi-layers','Chaleco')); girls.push(item('bi-layers','Blazer')); }
+    else if (temp >= 10) { boys.push(item('fa-solid fa-vest','Sudadera')); girls.push(item('fa-solid fa-vest','Jersey')); boys.push(item('bi-layers','Cazadora')); girls.push(item('bi-layers','Trench')); }
+    else if (temp >= 5)  { boys.push(item('bi-person-fill','Jersey Lana')); girls.push(item('bi-person-fill','Jersey Grueso')); boys.push(item('bi-bricks','Abrigo')); girls.push(item('bi-bricks','Abrigo')); }
+    else                 { boys.push(item('bi-snow2','Térmica')); girls.push(item('bi-snow2','Térmica')); boys.push(item('bi-person-fill','Plumífero')); girls.push(item('bi-person-fill','Plumífero')); }
+    if (temp < 10 || (wind > 20 && temp < 15)) { boys.push(item('bi-emoji-dizzy','Bufanda')); girls.push(item('bi-emoji-dizzy','Bufanda')); }
+    if (temp < 5)  { boys.push(item('fa-solid fa-mitten','Gorro')); girls.push(item('fa-solid fa-mitten','Gorro')); }
+    if (isRain)    { boys.push(item('bi-umbrella','Paraguas')); girls.push(item('bi-umbrella','Paraguas')); boys.push(item('bi-cloud-rain','Impermeable')); girls.push(item('bi-cloud-rain','Gabardina')); if (temp < 15) { boys.push(item('fa-solid fa-shoe-prints','Botas Agua')); girls.push(item('fa-solid fa-shoe-prints','Botas Agua')); } }
+    if (isSnow)    { boys.push(item('bi-snow','Botas Nieve')); girls.push(item('bi-snow','Botas Nieve')); boys.push(item('bi-hand-index-thumb','Guantes')); girls.push(item('bi-hand-index-thumb','Guantes')); }
+    if (uv > 5 && isClear) { boys.push(item('bi-sunglasses','Gafas Sol')); girls.push(item('bi-sunglasses','Gafas Sol')); boys.push(item('bi-capslock','Gorra')); girls.push(item('bi-capslock','Sombrero')); }
+    // Un consejo práctico según el tiempo (sin enlaces: la app no es comercial)
+    if (isRain && wind > 25) tip = { text: 'Viento y lluvia: mejor un paraguas antiviento o chubasquero', icon: 'bi-umbrella-fill' };
+    else if (isRain)    tip = { text: 'Lleva paraguas: hoy toca mojarse', icon: 'bi-umbrella-fill' };
+    else if (isSnow)    tip = { text: 'Si vas a conducir, lleva cadenas en el coche', icon: 'bi-snow2' };
+    else if (uv > 7)    tip = { text: `UV muy alto (${uv}): crema solar 50+ y gafas`, icon: 'bi-sun-fill' };
+    else if (temp > 32) tip = { text: 'Calor fuerte: ropa clara, agua y sombra', icon: 'bi-thermometer-sun' };
+    else if (temp < 4)  tip = { text: 'Frío intenso: abrígate por capas y protege manos y orejas', icon: 'bi-thermometer-snow' };
+    return { boys: boys.slice(0, 5), girls: girls.slice(0, 5), tip };
 };
 
 // ============================================================
@@ -1353,7 +1353,12 @@ async function registerPush(silent = false) {
         const res = await fetch('/api/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ subscription, lat, lon, city: currentCityInfo.name, region: currentCityInfo.region || '', welcome: !silent })
+            body: JSON.stringify({
+                subscription, lat, lon,
+                city: currentCityInfo.name, region: currentCityInfo.region || '',
+                timezone: (window._lastFullData && window._lastFullData.location && window._lastFullData.location.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone,
+                welcome: !silent
+            })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         say(`Avisos activados para ${currentCityInfo.name || 'tu zona'}. Te llegará una notificación de prueba.`, 'ok');
