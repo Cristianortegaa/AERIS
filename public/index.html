@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -287,9 +287,14 @@
                         <h1 id="city" class="hero-city skeleton" style="width:130px;"></h1>
                         <div id="local-time" class="hero-time" style="display:none;"></div>
                     </div>
-                    <button class="btn-icon sm" id="shareBtn" aria-label="Compartir tiempo">
-                        <i class="bi bi-box-arrow-up"></i>
-                    </button>
+                    <div class="hero-actions">
+                        <button class="btn-icon sm" id="bellBtn" aria-label="Activar avisos del tiempo" title="Avisos">
+                            <i class="bi bi-bell"></i>
+                        </button>
+                        <button class="btn-icon sm" id="shareBtn" aria-label="Compartir tiempo">
+                            <i class="bi bi-box-arrow-up"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="hero-main">
@@ -536,7 +541,7 @@
 </nav>
 
 <!-- APP JS -->
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 
 </body>
 </html>

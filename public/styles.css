@@ -584,6 +584,9 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 .hero-card {
     padding: 22px 22px 18px;
     overflow: hidden;
+    /* clip: recorta el halo igual, pero el navegador no puede "desplazar" la
+       tarjeta al enfocar un botón (con hidden sí, y el contenido se movía) */
+    overflow: clip;
 }
 /* Halo ambiental detrás del icono */
 .hero-card::before {
@@ -607,6 +610,8 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
     gap: 12px;
 }
 .hero-place { min-width: 0; }
+.hero-actions { display: flex; gap: 8px; flex-shrink: 0; }
+#bellBtn.is-on { color: #ffd43b; background: rgba(255, 212, 59, 0.14); border-color: rgba(255, 212, 59, 0.3); }
 .hero-city {
     margin: 0;
     font-family: var(--font-sans);

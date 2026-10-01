@@ -20,6 +20,7 @@
 
     window.addEventListener('load', () => { updateInstallModal(); setTimeout(updateInstallModal, 300); setTimeout(updateInstallModal, 1000); });
     window.closeIosModal = () => { if (iosModal) iosModal.style.display = 'none'; };
+    window.openIosModal  = () => { updateInstallModal(); if (iosModal) iosModal.style.display = 'flex'; };
 
     const isIos = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
     const isInStandaloneMode = ('standalone' in navigator) && navigator.standalone;
@@ -1334,13 +1335,15 @@ async function registerPush(silent = false) {
     }
     if (silent && notifPermission() !== 'granted') return;
     try {
+        // El permiso se pide ANTES de cualquier await: Safari solo muestra el
+        // diálogo si la petición sale directamente del toque del usuario.
+        const permission = notifPermission() === 'granted' ? 'granted' : await Notification.requestPermission();
+        if (permission !== 'granted') {
+            updateBellUI();
+            return say('Has bloqueado las notificaciones. Actívalas en los ajustes del navegador para esta web.', 'warn');
+        }
         const key = await getVapidKey();
         if (!key) return say('Las notificaciones no están disponibles ahora mismo. Inténtalo más tarde.', 'warn');
-
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            return say('Has bloqueado las notificaciones. Puedes activarlas en los ajustes del navegador.', 'warn');
-        }
         const register = await navigator.serviceWorker.ready;
         let subscription = await register.pushManager.getSubscription();
         if (!subscription) {
@@ -1361,12 +1364,46 @@ async function registerPush(silent = false) {
             })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        localStorage.setItem('aeris_push_on', '1');
+        updateBellUI();
         say(`Avisos activados para ${currentCityInfo.name || 'tu zona'}. Te llegará una notificación de prueba.`, 'ok');
     } catch (e) {
         console.error('push:', e);
         say('No se pudieron activar los avisos. Inténtalo de nuevo.', 'warn');
     }
 }
+
+// Campana del hero: forma permanente de activar los avisos (el modal solo
+// sale una vez y no aparece en iPhone sin instalar ni si se pulsó "Ahora no").
+function updateBellUI() {
+    const btn = document.getElementById('bellBtn');
+    if (!btn) return;
+    const on = notifPermission() === 'granted' && localStorage.getItem('aeris_push_on') === '1';
+    btn.classList.toggle('is-on', on);
+    btn.querySelector('i').className = on ? 'bi bi-bell-fill' : 'bi bi-bell';
+    btn.setAttribute('aria-label', on ? 'Avisos activados' : 'Activar avisos del tiempo');
+}
+document.getElementById('bellBtn')?.addEventListener('click', () => {
+    if (!pushSupported()) {
+        if (isIOS()) {
+            // En iPhone hay que instalarla primero: enseñamos cómo
+            showToast('En iPhone, primero instala AERIS en la pantalla de inicio. Luego ábrela desde ahí y toca la campana.', 'warn');
+            if (window.openIosModal) window.openIosModal();
+        } else {
+            showToast('Este navegador no admite notificaciones. Prueba con Chrome.', 'warn');
+        }
+        return;
+    }
+    const perm = notifPermission();
+    if (perm === 'denied') {
+        return showToast('Las notificaciones están bloqueadas para esta web. Actívalas en los ajustes del navegador (icono del candado junto a la dirección).', 'warn');
+    }
+    if (perm === 'granted' && localStorage.getItem('aeris_push_on') === '1') {
+        registerPush(true); // re-sincroniza la ciudad sin molestar
+        return showToast(`Los avisos ya están activados para ${currentCityInfo.name || 'tu zona'}.`, 'ok');
+    }
+    registerPush(false); // pide el permiso aquí mismo, dentro del toque
+});
 
 // Toast mínimo: entra y sale por abajo (mismo camino), transición y no
 // keyframes para que varios seguidos se reemplacen sin saltos.
@@ -1694,6 +1731,7 @@ window.addEventListener('load', () => {
 
     renderFavorites();
     updateUnitsUI();
+    updateBellUI();
 
     // Geolocalización automática: SOLO en la primerísima visita real
     // (sin ciudad guardada de antes y sin venir de un enlace compartido).
