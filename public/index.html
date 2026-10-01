@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=3">
+    <link rel="stylesheet" href="styles.css?v=4">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -312,6 +312,13 @@
                 </div>
                 <div id="compare-txt" class="hero-compare"></div>
 
+                <!-- Lluvia inminente (solo aparece si llueve o va a llover en 2 h) -->
+                <button type="button" class="nowcast-pill" id="nowcast-pill" data-action="goto-rain" hidden>
+                    <i class="bi bi-umbrella-fill" aria-hidden="true"></i>
+                    <span id="nowcast-pill-text"></span>
+                    <i class="bi bi-chevron-right nowcast-pill-chev" aria-hidden="true"></i>
+                </button>
+
                 <!-- STATS -->
                 <div class="stats-grid">
                     <div class="stat-tile">
@@ -368,10 +375,17 @@
             <!-- 3. TENDENCIA LLUVIA -->
             <section class="glass-card" id="rain-card" style="display:none;" aria-labelledby="lbl-lluvia">
                 <div class="card-head">
-                    <h2 class="card-label" id="lbl-lluvia"><i class="bi bi-cloud-drizzle"></i>Tendencia lluvia</h2>
+                    <h2 class="card-label" id="lbl-lluvia"><i class="bi bi-cloud-drizzle"></i><span id="rain-title">Lluvia próximas 2 h</span></h2>
                     <span class="card-extra accent" id="rain-summary">--</span>
                 </div>
-                <div class="rain-chart-wrapper"><canvas id="rainChart" aria-label="Gráfico de precipitación"></canvas></div>
+                <p class="nowcast-text" id="nowcast-text" aria-live="polite"></p>
+                <div class="nowcast-chart" id="nowcast-chart" aria-hidden="true"></div>
+                <div class="nowcast-axis" id="nowcast-axis" aria-hidden="true"></div>
+                <div class="nowcast-legend" aria-hidden="true">
+                    <span><i class="nc-swatch light"></i>Débil</span>
+                    <span><i class="nc-swatch moderate"></i>Moderada</span>
+                    <span><i class="nc-swatch heavy"></i>Fuerte</span>
+                </div>
             </section>
 
             <!-- 4. PRÓXIMOS DÍAS -->
@@ -526,7 +540,7 @@
 </nav>
 
 <!-- APP JS -->
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 
 </body>
 </html>

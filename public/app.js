@@ -76,7 +76,6 @@ let currentCityName   = localStorage.getItem('lastName') || 'Madrid';
 let currentCityRegion = localStorage.getItem('lastRegion') || '';
 let currentCityInfo   = { id: currentId, name: currentCityName, region: currentCityRegion, lat: null, lon: null };
 let favorites         = JSON.parse(localStorage.getItem('aeris_favs')) || [];
-let rainChartInstance = null;
 let tempChartInstance = null;
 let lastWeatherData   = null;
 let currentPersona    = localStorage.getItem('aeris_persona') || 'normal';
@@ -949,47 +948,171 @@ document.getElementById('shareBtn').addEventListener('click', () => {
 });
 
 // ============================================================
-// 23. GRÁFICO DE LLUVIA
+// 23. LLUVIA INMINENTE (nowcast minuto a minuto)
 // ============================================================
-const renderRainChart = async (nowcast, hourlyData, currentTime) => {
-    const card = document.getElementById('rain-card');
-    const summary = document.getElementById('rain-summary');
-    let timeLabels = [], precipData = [];
-    if (nowcast && nowcast.time && nowcast.time.length > 0) {
-        let startIndex = 0;
-        if (currentTime) { const target = new Date(currentTime).getTime(); startIndex = nowcast.time.findIndex(t => new Date(t).getTime() >= target); }
-        if (startIndex === -1 || startIndex >= nowcast.time.length) startIndex = 0;
-        for (let i = 0; i < 6; i++) { if (startIndex + i < nowcast.precipitation.length) { precipData.push(nowcast.precipitation[startIndex + i]); timeLabels.push(nowcast.time[startIndex + i].split('T')[1]); } }
-    }
-    if (precipData.reduce((a, b) => a + b, 0) === 0 && hourlyData) {
-        precipData = []; timeLabels = [];
-        for (let i = 0; i < 5; i++) { if (hourlyData[i]) { precipData.push(hourlyData[i].precip || 0); timeLabels.push(hourlyData[i].displayTime); } }
-    }
-    const total = precipData.reduce((a, b) => a + b, 0);
-    if (total < 0.1) { card.style.display = 'none'; return; }
-    card.style.display = 'block';
-    summary.innerText = total > 5 ? "Lluvia Fuerte" : (total > 1 ? "Lluvia Moderada" : "Lluvia Ligera");
-    const cCtx = document.getElementById('rainChart').getContext('2d');
-    const gradient = cCtx.createLinearGradient(0, 0, 0, 120);
-    gradient.addColorStop(0, 'rgba(143,211,255,0.65)'); gradient.addColorStop(1, 'rgba(143,211,255,0.02)');
-    await ensureChartJS();
-    applyChartDefaults();
-    if (rainChartInstance) rainChartInstance.destroy();
-    rainChartInstance = new Chart(cCtx, {
-        type: 'line',
-        data: { labels: timeLabels, datasets: [{ label: 'mm', data: precipData, backgroundColor: gradient, borderColor: '#8fd3ff', borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#fff', fill: true, tension: 0.4 }] },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { grid: { display: false }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 11, weight: '500' } } },
-                y: { display: false, min: 0 }
-            },
-            animation: { duration: prefersReducedMotion() ? 0 : 800, easing: 'easeOutQuart' }
-        }
-    });
+// Open-Meteo da la precipitación en tramos de 15 min; cada valor es lo que
+// cae en los 15 min ANTERIORES a su hora (el tramo "10:45" cubre 10:30–10:45).
+// Las horas vienen en hora local de la ciudad, así que comparamos contra la
+// hora actual EN ESA ZONA, no la del dispositivo.
+const NC_WET = 0.05;          // mm en 15 min (≈0,2 mm/h): por debajo cuenta como seco
+const NC_WINDOW_MIN = 120;    // ventana que contamos: 2 horas
+
+const localNowKey = (tz) => {
+    try {
+        return new Intl.DateTimeFormat('sv-SE', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+            .format(new Date()).replace(' ', 'T');
+    } catch { return null; }
 };
+// Fechas "YYYY-MM-DDTHH:mm" sin zona → milisegundos comparables entre sí
+const naiveMs = (s) => Date.parse(s.slice(0, 16) + ':00Z');
+
+const intensityOf = (mmh) => mmh >= 10 ? 'heavy' : mmh >= 2 ? 'moderate' : 'light';
+const INTENSITY_TXT = { light: 'débil', moderate: 'moderada', heavy: 'fuerte' };
+const capitalize = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+const roundTo5 = (m) => Math.max(5, Math.round(m / 5) * 5);
+const fmtMins = (m) => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`;
+
+function buildNowcast(data) {
+    const nc = data.nowcast, tz = data.location && data.location.timezone;
+    const isSnow = !!(data.current && data.current.temp <= 1);
+    const W = isSnow
+        ? { noun: 'nieve', verb: 'nevar', now: 'Nevando ahora', stop: 'Deja de nevar' }
+        : { noun: 'lluvia', verb: 'llover', now: 'Lloviendo ahora', stop: 'Para de llover' };
+    const nowKey = tz ? localNowKey(tz) : null;
+
+    // --- Modo minuto a minuto (próximas 2 h) ---
+    if (nc && nc.time && nc.time.length && nowKey) {
+        const now = naiveMs(nowKey);
+        const slots = nc.time
+            .map((t, i) => ({ t, end: naiveMs(t), mm: nc.precipitation[i] || 0 }))
+            .filter(sl => sl.end > now)
+            .slice(0, 8)
+            .map(sl => ({
+                ...sl,
+                mmh: sl.mm * 4,
+                wet: sl.mm >= NC_WET,
+                startOff: Math.max(0, (sl.end - 15 * 60000 - now) / 60000),
+                endOff: (sl.end - now) / 60000
+            }));
+
+        if (slots.length >= 4) {
+            const firstWet = slots.findIndex(sl => sl.wet);
+            const peak = slots.reduce((m, sl) => Math.max(m, sl.mmh), 0);
+            const peakTxt = INTENSITY_TXT[intensityOf(peak)];
+            const clock = (sl) => sl.t.slice(11, 16);                                          // fin del tramo
+            const clockStart = (sl) => new Date(sl.end - 15 * 60000).toISOString().slice(11, 16); // inicio del tramo
+            let text = null, pill = null;
+
+            if (firstWet === 0) {
+                const firstDry = slots.findIndex(sl => !sl.wet);
+                if (firstDry === -1) {
+                    text = `<b>${W.now}</b>, ${peakTxt}. Seguirá al menos las próximas 2 horas.`;
+                    pill = `${W.now} · sigue las próximas 2 h`;
+                } else {
+                    const lastWet = slots[firstDry - 1];
+                    text = `<b>${W.now}</b> (${peakTxt}). ${W.stop} hacia las <b>${clock(lastWet)}</b>.`;
+                    pill = `${W.stop} en ${fmtMins(roundTo5(lastWet.endOff))}`;
+                }
+            } else if (firstWet > 0) {
+                const startMin = roundTo5(slots[firstWet].startOff);
+                const rest = slots.slice(firstWet);
+                const dryAfter = rest.findIndex(sl => !sl.wet);
+                const dur = dryAfter === -1 ? null : roundTo5(rest[dryAfter - 1].endOff - slots[firstWet].startOff);
+                text = `Empieza a ${W.verb} en <b>${fmtMins(startMin)}</b> (${peakTxt})` +
+                    (dur ? `, durante unos ${fmtMins(dur)}.` : ' y seguirá un buen rato.') +
+                    `<small>Hacia las ${clockStart(slots[firstWet])}</small>`;
+                pill = `${capitalize(W.noun)} en ${fmtMins(startMin)}`;
+            }
+
+            if (text) {
+                // Marcas del eje según cuántos tramos hay (cada tramo = 15 min)
+                const n = slots.length;
+                const marks = [['Ahora', 0]];
+                [[2, '30 min'], [4, '1 h'], [6, '1 h 30'], [8, '2 h']].forEach(([k, label]) => { if (k <= n) marks.push([label, (k / n) * 100]); });
+                return {
+                    mode: 'minutely', text, pill, isSnow,
+                    summary: capitalize(peakTxt),
+                    bars: slots.map((sl, i) => ({ mmh: sl.mmh, wet: sl.wet, isNow: i === 0 })),
+                    axis: marks
+                };
+            }
+        }
+    }
+
+    // --- Sin lluvia en 2 h: ¿la hay en las próximas horas? (modo horario) ---
+    const hourly = (data.hourly || []).slice(0, 6);
+    const hTotal = hourly.reduce((a, h) => a + (h.precip || 0), 0);
+    if (hourly.length && hTotal >= 0.1) {
+        // El valor horario es lo que cae en la hora ANTERIOR: "14:00" = 13:00–14:00
+        const startOfHour = (t) => isNaN(parseInt(t, 10)) ? t : `${String((parseInt(t, 10) + 23) % 24).padStart(2, '0')}:00`;
+        const firstWetH = hourly.find(h => (h.precip || 0) >= 0.1);
+        const peak = hourly.reduce((m, h) => Math.max(m, h.precip || 0), 0);
+        const n = hourly.length;
+        return {
+            mode: 'hourly', pill: null, isSnow,
+            text: firstWetH
+                ? `Sin ${W.noun} ahora mismo. Probable hacia las <b>${startOfHour(firstWetH.displayTime)}</b>.`
+                : `Posible ${W.noun} débil en las próximas horas.`,
+            summary: capitalize(INTENSITY_TXT[intensityOf(peak)]),
+            bars: hourly.map((h, i) => ({ mmh: h.precip || 0, wet: (h.precip || 0) >= 0.1, isNow: i === 0 })),
+            axis: hourly
+                .map((h, i) => [i === 0 ? 'Ahora' : startOfHour(h.displayTime), (i / n) * 100])
+                .filter((_, i) => i % 2 === 0)
+        };
+    }
+    return null;
+}
+
+// Altura en escala logarítmica: 1 mm/h ya se ve, 20 mm/h llena la barra
+const barHeight = (mmh, wet) => wet ? Math.max(0.12, Math.min(1, Math.log10(1 + mmh) / Math.log10(21))) : 0.04;
+
+function renderNowcast(data) {
+    const card = document.getElementById('rain-card');
+    const pillEl = document.getElementById('nowcast-pill');
+    if (!card) return;
+    const nc = buildNowcast(data);
+
+    if (!nc) {
+        card.style.display = 'none';
+        if (pillEl) pillEl.hidden = true;
+        return;
+    }
+    card.style.display = 'block';
+    document.getElementById('rain-title').textContent =
+        `${nc.isSnow ? 'Nieve' : 'Lluvia'} ${nc.mode === 'minutely' ? 'próximas 2 h' : 'próximas horas'}`;
+    document.getElementById('rain-summary').textContent = nc.summary;
+    // Texto montado aquí con números y horas propias: no lleva datos externos sin escapar
+    document.getElementById('nowcast-text').innerHTML = nc.text;
+
+    const chart = document.getElementById('nowcast-chart');
+    chart.innerHTML = nc.bars.map((b, i) => {
+        const cls = !b.wet ? '' : (nc.isSnow ? 'snow' : intensityOf(b.mmh));
+        return `<span class="nc-bar ${cls}${b.isNow ? ' is-now' : ''}"><i style="height:${(barHeight(b.mmh, b.wet) * 100).toFixed(1)}%;animation-delay:${i * 25}ms"></i></span>`;
+    }).join('');
+    document.getElementById('nowcast-axis').innerHTML =
+        nc.axis.map(([label, pct]) => `<span style="left:${pct.toFixed(1)}%">${label}</span>`).join('');
+    const legend = card.querySelector('.nowcast-legend');
+    if (legend) legend.style.display = nc.isSnow ? 'none' : '';
+
+    if (pillEl) {
+        pillEl.hidden = !nc.pill;
+        pillEl.classList.toggle('is-snow', nc.isSnow);
+        if (nc.pill) document.getElementById('nowcast-pill-text').textContent = nc.pill;
+    }
+}
+
+// Las cuentas atrás ("en 25 min") caducan: se recalculan cada minuto con los
+// datos que ya hay, y se piden datos nuevos si tienen más de 10 min.
+let lastFetchAt = 0;
+setInterval(() => {
+    if (document.visibilityState !== 'visible' || !window._lastFullData) return;
+    renderNowcast(window._lastFullData);
+}, 60000);
+const refreshIfStale = () => {
+    if (document.visibilityState === 'visible' && lastFetchAt && Date.now() - lastFetchAt > 10 * 60000) getWeather(currentId);
+};
+document.addEventListener('visibilitychange', refreshIfStale);
+setInterval(refreshIfStale, 60000);
 
 // ============================================================
 // 24. POLLEN, ALERTAS, LIFESTYLE
@@ -1150,6 +1273,12 @@ document.addEventListener('click', (e) => {
         case 'close-share':    closeShareModal(); break;
         case 'download-share': downloadShareCard(); break;
         case 'retry':          retryWeather(); break;
+        case 'goto-rain': {
+            const card = document.getElementById('rain-card');
+            const navH = document.querySelector('.nav-bar')?.offsetHeight || 0;
+            if (card) window.scrollTo({ top: card.getBoundingClientRect().top + window.pageYOffset - navH - 6, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+            break;
+        }
     }
 });
 
@@ -1281,7 +1410,7 @@ const renderWeather = (data, isOffline = false) => {
         document.getElementById('min-temp').classList.remove('skeleton');
     }
 
-    renderRainChart(data.nowcast, data.hourly, cur.time);
+    renderNowcast(data);
     const isHighPollen = renderPollen(data.pollen);
     renderLifestyle(cur, data.daily, data.hourly);
     renderAlerts(data.alerts, data.avisosOficiales);
@@ -1399,6 +1528,7 @@ async function getWeather(id) {
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         localStorage.setItem('aeris_offline_data', JSON.stringify({ data, timestamp: Date.now() }));
+        lastFetchAt = Date.now();
         renderWeather(data, false);
         if (Notification.permission === 'granted') registerPush(true);
     } catch (e) {

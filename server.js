@@ -491,11 +491,13 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
                 };
             });
 
+        // Nowcast: tramos de 15 min desde ahora. Bastan 4 h (16 tramos): el
+        // cliente usa las 2 próximas y el resto cubre la caché de 5 min.
         let nowcast = { time: [], precipitation: [] };
         if (w.minutely_15) {
-            const indices = w.minutely_15.time.map((t, i) => ({ t, i })).filter(item => item.t >= currentTime).map(item => item.i);
+            const indices = w.minutely_15.time.map((t, i) => ({ t, i })).filter(item => item.t >= currentTime).map(item => item.i).slice(0, 16);
             nowcast.time = indices.map(i => w.minutely_15.time[i]);
-            nowcast.precipitation = indices.map(i => w.minutely_15.precipitation[i]);
+            nowcast.precipitation = indices.map(i => w.minutely_15.precipitation[i] || 0);
         }
 
         const pollenData = {
@@ -566,6 +568,34 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
     }
 });
 
+// Lluvia/nieve en la próxima hora a partir de minutely_15 de Open-Meteo.
+// minutely_15 empieza a las 00:00 del día, así que hay que localizar el tramo
+// actual. Cada valor es la precipitación de los 15 min ANTERIORES a su hora:
+// el tramo con hora t cubre (t-15, t]. Devuelve { title, body } o null.
+function imminentRainNotification(nowcast, current, city) {
+    if (!nowcast || !nowcast.time || !current || !current.time) return null;
+    let start = nowcast.time.findIndex(t => t > current.time);
+    if (start === -1) return null;
+    const slots = nowcast.precipitation.slice(start, start + 4).map(v => v || 0);
+    const rainSum = slots.reduce((a, b) => a + b, 0);
+    const firstWet = slots.findIndex(v => v >= 0.05);
+    if (rainSum <= 0.2 || firstWet === -1) return null;
+
+    const isSnow = current.temperature_2m <= 2;
+    const type = isSnow ? "Nieve" : "Lluvia";
+    const icon = isSnow ? "❄️" : "☔";
+    const mmh = Math.max(...slots) * 4;
+    const intensidad = mmh >= 10 ? 'fuerte' : mmh >= 2 ? 'moderada' : 'débil';
+    const startMs = Date.parse(nowcast.time[start + firstWet] + ':00Z') - 15 * 60000;
+    const minutos = Math.max(0, Math.round((startMs - Date.parse(current.time + ':00Z')) / 60000 / 5) * 5);
+    const yaEsta = firstWet === 0 || minutos === 0;
+    const timeMsg = yaEsta ? "ahora mismo" : `en unos ${minutos} min`;
+    return {
+        title: `${icon} ${type} ${yaEsta ? 'ya' : timeMsg} en ${city}`,
+        body: `${type} ${intensidad} ${timeMsg}. ${isSnow ? 'Abrígate y cuidado con el suelo.' : 'Ten el paraguas a mano.'}`
+    };
+}
+
 // --- CRON JOB (protegido con secret) ---
 app.get('/api/cron/check-rain', async (req, res) => {
     const secret = process.env.CRON_SECRET;
@@ -623,29 +653,15 @@ app.get('/api/cron/check-rain', async (req, res) => {
                 // --- Resto de comprobaciones propias (cooldown normal de 1h) ---
                 if (new Date() - new Date(user.lastNotification) < 60 * 60 * 1000) continue;
 
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m&forecast_days=1&timezone=auto`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${user.lat}&longitude=${user.lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m&forecast_days=2&timezone=auto`;
                 const response = await http.get(url);
                 const nowcast = response.data.minutely_15;
                 const current = response.data.current;
 
                 let notif = null;
 
-                // 1. Lluvia / Nieve inminente
-                let rainSum = 0; let startMin = 0; let found = false;
-                if (nowcast) {
-                    for (let i = 0; i < 4; i++) {
-                        const val = nowcast.precipitation[i] || 0;
-                        rainSum += val;
-                        if (val > 0 && !found) { startMin = i * 15; found = true; }
-                    }
-                }
-                if (rainSum > 0.2) {
-                    const isSnow = current.temperature_2m <= 2;
-                    const type = isSnow ? "Nieve" : "Lluvia";
-                    const icon = isSnow ? "❄️" : "☔";
-                    const timeMsg = startMin === 0 ? "ahora mismo" : `en ${startMin} minutos`;
-                    notif = { title: `${icon} ${type} en ${user.city}`, body: `Se espera ${type.toLowerCase()} ${timeMsg}.` };
-                }
+                // 1. Lluvia / Nieve inminente (próxima hora)
+                notif = imminentRainNotification(nowcast, current, user.city);
 
                 // 2. Calor extremo
                 if (!notif && current.temperature_2m >= 36) {
