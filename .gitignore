@@ -1,0 +1,21 @@
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+
+# Base de datos SQLite (suscripciones push de usuarios)
+data/
+*.db
+
+# Herramientas locales de IA / editor
+.claude/
+.agents/
+skills-lock.json
+.vscode/
+.idea/
+
+# Sistema y logs
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
