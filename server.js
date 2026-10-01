@@ -383,20 +383,29 @@ app.post('/api/subscribe', subscribeLimiter, async (req, res) => {
         else await Subscription.create({ endpoint: subscription.endpoint, ...fields, lastNotification: new Date(0) });
 
         // Notificación de bienvenida al activar: confirma al momento que toda
-        // la cadena (claves VAPID, service worker, permiso) funciona.
+        // la cadena (claves VAPID, service worker, permiso) funciona. El
+        // resultado vuelve al cliente para poder diagnosticar desde el móvil.
+        let push = 'skipped';
         if (welcome && publicVapidKey && privateVapidKey) {
             try {
-                await webpush.sendNotification(
+                const r = await webpush.sendNotification(
                     { endpoint: subscription.endpoint, keys: subscription.keys },
                     JSON.stringify({
                         title: '✅ Avisos de AERIS activados',
                         body: `Te avisaremos de lluvia, tormentas y calor extremo en ${fields.city || 'tu zona'}.`,
                         icon: '/logo.png', badge: '/logo.png'
-                    })
+                    }),
+                    { TTL: 3600, urgency: 'high' }
                 );
-            } catch (e) { log('error', 'push bienvenida:', e.statusCode || e.message); }
+                push = `sent:${r.statusCode}`;
+            } catch (e) {
+                const detail = (e.body && String(e.body).slice(0, 120)) || e.message;
+                push = `error:${e.statusCode || 'x'}:${detail}`;
+                log('error', 'push bienvenida:', e.statusCode, detail);
+            }
         }
-        res.status(201).json({ ok: true });
+        const host = (() => { try { return new URL(subscription.endpoint).host; } catch { return '?'; } })();
+        res.status(201).json({ ok: true, push, host });
     } catch (e) {
         log('error', 'subscribe', e.message);
         res.status(500).json({ error: 'No se pudo guardar la suscripción.' });
@@ -685,7 +694,8 @@ async function sendPush(user, payload) {
     try {
         await webpush.sendNotification(
             { endpoint: user.endpoint, keys: user.keys },
-            JSON.stringify({ icon: '/logo.png', badge: '/logo.png', ...payload })
+            JSON.stringify({ icon: '/logo.png', badge: '/logo.png', ...payload }),
+            { TTL: 3600, urgency: 'high' } // un aviso de lluvia de hace horas ya no sirve
         );
         return true;
     } catch (err) {

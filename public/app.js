@@ -1364,9 +1364,17 @@ async function registerPush(silent = false) {
             })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = await res.json().catch(() => ({}));
         localStorage.setItem('aeris_push_on', '1');
         updateBellUI();
-        say(`Avisos activados para ${currentCityInfo.name || 'tu zona'}. Te llegará una notificación de prueba.`, 'ok');
+        if (silent) return;
+        // El servidor nos dice si Apple/Google aceptaron la notificación de prueba
+        if (result.push && result.push.startsWith('error')) {
+            const [, code, detail] = result.push.split(':');
+            showToast(`Suscrito, pero ${result.host || 'el servicio push'} rechazó la notificación de prueba (código ${code}${detail ? ': ' + detail.trim() : ''}).`, 'warn');
+        } else {
+            showToast(`Avisos activados para ${currentCityInfo.name || 'tu zona'}. Te debería llegar una notificación de prueba ahora.`, 'ok');
+        }
     } catch (e) {
         console.error('push:', e);
         say('No se pudieron activar los avisos. Inténtalo de nuevo.', 'warn');
@@ -1375,10 +1383,20 @@ async function registerPush(silent = false) {
 
 // Campana del hero: forma permanente de activar los avisos (el modal solo
 // sale una vez y no aparece en iPhone sin instalar ni si se pulsó "Ahora no").
-function updateBellUI() {
+// "Activados" = permiso concedido Y suscripción real en este dispositivo
+// (no basta una marca en localStorage: quien se suscribió con una versión
+// anterior no la tiene, y una suscripción puede caducar).
+async function updateBellUI() {
     const btn = document.getElementById('bellBtn');
     if (!btn) return;
-    const on = notifPermission() === 'granted' && localStorage.getItem('aeris_push_on') === '1';
+    let on = false;
+    if (pushSupported() && notifPermission() === 'granted') {
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            on = !!(await reg.pushManager.getSubscription());
+        } catch (e) { on = false; }
+    }
+    if (on) localStorage.setItem('aeris_push_on', '1'); else localStorage.removeItem('aeris_push_on');
     btn.classList.toggle('is-on', on);
     btn.querySelector('i').className = on ? 'bi bi-bell-fill' : 'bi bi-bell';
     btn.setAttribute('aria-label', on ? 'Avisos activados' : 'Activar avisos del tiempo');
@@ -1398,11 +1416,9 @@ document.getElementById('bellBtn')?.addEventListener('click', () => {
     if (perm === 'denied') {
         return showToast('Las notificaciones están bloqueadas para esta web. Actívalas en los ajustes del navegador (icono del candado junto a la dirección).', 'warn');
     }
-    if (perm === 'granted' && localStorage.getItem('aeris_push_on') === '1') {
-        registerPush(true); // re-sincroniza la ciudad sin molestar
-        return showToast(`Los avisos ya están activados para ${currentCityInfo.name || 'tu zona'}.`, 'ok');
-    }
-    registerPush(false); // pide el permiso aquí mismo, dentro del toque
+    // Si ya están activos, tocarla vuelve a sincronizar la ciudad y manda
+    // otra notificación de prueba: sirve para comprobar que siguen llegando.
+    registerPush(false); // pide el permiso aquí mismo si hace falta, dentro del toque
 });
 
 // Toast mínimo: entra y sale por abajo (mismo camino), transición y no

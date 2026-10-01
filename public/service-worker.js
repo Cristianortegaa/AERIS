@@ -1,9 +1,9 @@
-const CACHE_NAME = 'aeris-v16';
+const CACHE_NAME = 'aeris-v17';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
-    '/styles.css?v=7',
-    '/app.js?v=7',
+    '/styles.css?v=8',
+    '/app.js?v=8',
     '/logo.png',
     '/icono-clima.png',
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
@@ -50,16 +50,20 @@ self.addEventListener('fetch', (event) => {
 
 // --- NOTIFICACIONES PUSH ---
 self.addEventListener('push', function (event) {
-    const data = event.data ? event.data.json() : { title: "Aeris", body: "Alerta meteorológica" };
+    // Siempre hay que mostrar una notificación: iOS retira el permiso a las
+    // webs que reciben pushes "silenciosos". Si el contenido no se puede leer,
+    // mostramos uno genérico en vez de nada.
+    let data = { title: 'AERIS', body: 'Nuevo aviso del tiempo' };
+    try { if (event.data) data = { ...data, ...event.data.json() }; }
+    catch (e) { try { data.body = event.data.text() || data.body; } catch (e2) {} }
     const options = {
         body: data.body,
-        icon: '/logo.png',
-        badge: '/logo.png',
+        icon: data.icon || '/logo.png',
+        badge: data.badge || '/logo.png',
         vibrate: [200, 100, 200],
         tag: 'aeris-alert',
         renotify: true,
-        data: { url: '/' },
-        actions: [{ action: 'open', title: '👀 Ver Detalles' }]
+        data: { url: '/' }
     };
     event.waitUntil(self.registration.showNotification(data.title, options));
 });
@@ -69,7 +73,7 @@ self.addEventListener('notificationclick', function (event) {
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
             for (const client of windowClients) {
-                if (client.url === '/' && 'focus' in client) return client.focus();
+                if (new URL(client.url).origin === self.location.origin && 'focus' in client) return client.focus();
             }
             if (clients.openWindow) return clients.openWindow('/');
         })
