@@ -94,7 +94,17 @@ let lastPressure      = null;
 let weatherAnimFrame  = null;
 let weatherParticles  = [];
 let currentWeatherType = 'clear';
-let lastHeroKey       = null; // para animar el hero solo cuando cambia de verdad
+let lastHero          = {};   // para animar cada pieza del hero solo cuando cambia de verdad
+let lastRenderedPlace = null; // para animar los datos solo al cambiar de sitio, no en cada refresco
+
+// Reescribe el HTML solo si cambia. Así lo que tiene animación de entrada
+// (alertas, barras) no se vuelve a animar en cada refresco sin novedades.
+const setHTMLIfChanged = (el, html) => {
+    if (el._html === html) return false;
+    el._html = html;
+    el.innerHTML = html;
+    return true;
+};
 
 // El splash se va en cuanto hay datos pintados (o tras un máximo), no tras
 // una espera fija: la app se siente tan rápida como realmente es.
@@ -213,8 +223,8 @@ const blurIn = (el) => {
     el.animate(
         reduce
             ? [{ opacity: 0 }, { opacity: 1 }]
-            : [{ opacity: 0, filter: 'blur(8px)', transform: 'translateY(6px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }],
-        { duration: reduce ? 200 : 450, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }
+            : [{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(4px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }],
+        { duration: reduce ? 150 : 280, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }
     );
 };
 
@@ -569,7 +579,7 @@ function updatePressureTrend(pressure) {
 // 15. GRÁFICO TEMPERATURA 7 DÍAS
 // ============================================================
 let tempChart7Instance = null;
-async function renderTempChart(daily) {
+async function renderTempChart(daily, placeChanged = true) {
     const card = document.getElementById('temp-chart-card');
     if (!card || !daily || daily.length < 3) { if (card) card.style.display = 'none'; return; }
     card.style.display = 'block';
@@ -580,7 +590,16 @@ async function renderTempChart(daily) {
     if (!cCtx) return;
     await ensureChartJS();
     applyChartDefaults();
-    if (tempChart7Instance) tempChart7Instance.destroy();
+    // Ya existe: se actualiza. Con ciudad nueva los puntos se desplazan a sus
+    // valores nuevos; en un refresco o al cambiar de unidades, sin animación.
+    if (tempChart7Instance) {
+        tempChart7Instance.data.labels = labels;
+        tempChart7Instance.data.datasets[0].data = maxTemps;
+        tempChart7Instance.data.datasets[1].data = minTemps;
+        tempChart7Instance.options.animation.duration = prefersReducedMotion() ? 0 : 400;
+        tempChart7Instance.update(placeChanged ? undefined : 'none');
+        return;
+    }
     tempChart7Instance = new Chart(cCtx, {
         type: 'line',
         data: {
@@ -598,7 +617,7 @@ async function renderTempChart(daily) {
                 x: { grid: { display: false }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 11, weight: '500' } } },
                 y: { grid: { color: 'rgba(255,255,255,0.08)' }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 11 }, maxTicksLimit: 5, callback: v => v + '°' } }
             },
-            animation: { duration: prefersReducedMotion() ? 0 : 800, easing: 'easeOutQuart' }
+            animation: { duration: prefersReducedMotion() ? 0 : 500, easing: 'easeOutQuart' }
         }
     });
 }
@@ -1092,15 +1111,19 @@ function renderNowcast(data) {
         `${nc.isSnow ? 'Nieve' : 'Lluvia'} ${nc.mode === 'minutely' ? 'próximas 2 h' : 'próximas horas'}`;
     document.getElementById('rain-summary').textContent = nc.summary;
     // Texto montado aquí con números y horas propias: no lleva datos externos sin escapar
-    document.getElementById('nowcast-text').innerHTML = nc.text;
+    setHTMLIfChanged(document.getElementById('nowcast-text'), nc.text);
 
+    // Las barras solo crecen al llegar a un sitio nuevo; el repintado de cada
+    // minuto (para las cuentas atrás) no las vuelve a animar
     const chart = document.getElementById('nowcast-chart');
-    chart.innerHTML = nc.bars.map((b, i) => {
+    const barsHtml = nc.bars.map((b, i) => {
         const cls = !b.wet ? '' : (nc.isSnow ? 'snow' : intensityOf(b.mmh));
-        return `<span class="nc-bar ${cls}${b.isNow ? ' is-now' : ''}"><i style="height:${(barHeight(b.mmh, b.wet) * 100).toFixed(1)}%;animation-delay:${i * 25}ms"></i></span>`;
+        return `<span class="nc-bar ${cls}${b.isNow ? ' is-now' : ''}"><i style="height:${(barHeight(b.mmh, b.wet) * 100).toFixed(1)}%;animation-delay:${i * 20}ms"></i></span>`;
     }).join('');
-    document.getElementById('nowcast-axis').innerHTML =
-        nc.axis.map(([label, pct]) => `<span style="left:${pct.toFixed(1)}%">${label}</span>`).join('');
+    if (setHTMLIfChanged(chart, barsHtml)) chart.classList.toggle('is-animated', chart._place !== currentId);
+    chart._place = currentId;
+    setHTMLIfChanged(document.getElementById('nowcast-axis'),
+        nc.axis.map(([label, pct]) => `<span style="left:${pct.toFixed(1)}%">${label}</span>`).join(''));
     const legend = card.querySelector('.nowcast-legend');
     if (legend) legend.style.display = nc.isSnow ? 'none' : '';
 
@@ -1185,11 +1208,14 @@ const renderPollen = (pollen) => {
     if (activeTypes.length === 0) { card.style.display = 'none'; return false; }
     card.style.display = 'block';
     let isHigh = false;
-    list.innerHTML = activeTypes.map(t => {
+    const html = activeTypes.map(t => {
         const val = pollen[t.k] || 0, percent = Math.min((val / 100) * 100, 100);
         if (val > 50) isHigh = true;
         return `<div class="pollen-item"><span class="pollen-name">${t.n}</span><div class="pollen-bar-bg"><div class="pollen-bar-fill" style="width:${percent}%;background-color:${t.color}"></div></div><span class="pollen-val">${val}</span></div>`;
     }).join('');
+    // Igual que el nowcast: las barras se revelan al cambiar de sitio, no en cada refresco
+    if (setHTMLIfChanged(list, html)) list.classList.toggle('is-animated', list._place !== currentId);
+    list._place = currentId;
     return isHigh;
 };
 
@@ -1220,7 +1246,7 @@ const renderAlerts = (alerts, avisosOficiales) => {
     const container = document.getElementById('alerts-container');
     const propias = (!alerts || alerts.length === 0) ? '' :
         alerts.map(a => `<div class="alert-card ${a.level}"><i class="bi bi-exclamation-triangle-fill alert-icon"></i><div><div class="fw-bold">${a.title}</div><div class="small opacity-75">${a.msg}</div></div></div>`).join('');
-    container.innerHTML = renderAemetAvisos(avisosOficiales) + propias;
+    setHTMLIfChanged(container, renderAemetAvisos(avisosOficiales) + propias);
 };
 
 const renderLifestyle = (cur, daily, hourly) => {
@@ -1243,7 +1269,7 @@ const renderLifestyle = (cur, daily, hourly) => {
         { id: 'beach', name: 'Playa',         icon: 'fa-solid fa-umbrella-beach', check: () => { if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad'; if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair'; return 'good'; } },
         { id: 'drive', name: 'Conducir',      icon: 'fa-solid fa-road',           check: () => { if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad'; if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair'; return 'good'; } }
     ];
-    list.innerHTML = activities.map(act => {
+    setHTMLIfChanged(list, activities.map(act => {
         const status  = act.check();
         const window  = getBestWindows(act.id, hourly);
         // Si el estado actual es malo pero hay ventana, mostrarla como "rescue window"
@@ -1257,7 +1283,7 @@ const renderLifestyle = (cur, daily, hourly) => {
             <span class="activity-name">${act.name}</span>
             <span class="activity-time${status === 'bad' && window ? ' activity-time--rescue' : ''}">${timeLabel}</span>
         </div>`;
-    }).join('');
+    }).join(''));
 };
 
 // ============================================================
@@ -1479,6 +1505,8 @@ function showToast(message, type = 'ok') {
 const renderWeather = (data) => {
     window._lastFullData   = data;
     const cur = data.current, loc = data.location;
+    const placeChanged = lastRenderedPlace !== currentId;
+    lastRenderedPlace = currentId;
 
     currentCityInfo = { id: currentId, name: loc.name, region: loc.region, lat: loc.lat, lon: loc.lon };
     lastWeatherData = cur;
@@ -1500,11 +1528,13 @@ const renderWeather = (data) => {
     // Temperatura con unidades (el ° va en su propio span para afinar la tipografía)
     const tempEl = document.getElementById('temp');
     tempEl.innerHTML = `${fmtTemp(cur.temp)}<span class="deg">°${useFahrenheit ? '<small>F</small>' : ''}</span>`;
-    const heroKey = `${loc.name}|${cur.temp}|${cur.desc}|${useFahrenheit}`;
-    if (lastHeroKey !== null && heroKey !== lastHeroKey) {
-        ['temp', 'desc', 'weather-icon-container', 'city'].forEach(id => blurIn(document.getElementById(id)));
-    }
-    lastHeroKey = heroKey;
+    // Solo se funde la pieza que cambió (si solo sube un grado, no se
+    // desenfocan también la ciudad y el icono)
+    const heroParts = { city: loc.name, temp: `${cur.temp}|${useFahrenheit}`, desc: cur.desc, 'weather-icon-container': cur.icon };
+    Object.entries(heroParts).forEach(([id, v]) => {
+        if (lastHero[id] !== undefined && lastHero[id] !== v) blurIn(document.getElementById(id));
+        lastHero[id] = v;
+    });
     document.getElementById('feels-like').innerText = fmtTemp(cur.feelsLike);
     document.getElementById('desc').innerText      = cur.desc;
     document.getElementById('hum').innerText       = cur.humidity;
@@ -1558,7 +1588,7 @@ const renderWeather = (data) => {
     updateAIText(cur, isHighPollen);
     setDynamicBackground(cur);
     renderComfort(cur.temp, cur.humidity, cur.windSpeed, cur.uv, cur.desc);
-    renderTempChart(data.daily);
+    renderTempChart(data.daily, placeChanged);
 
     // Solar + luna + hora local + tema auto
     if (data.daily && data.daily[0]) {
@@ -1579,15 +1609,16 @@ const renderWeather = (data) => {
     // Hourly
     const hCont = document.getElementById('hourly');
     if (hCont) {
-        hCont.innerHTML = data.hourly.map(h =>
+        const changed = setHTMLIfChanged(hCont, data.hourly.map(h =>
             `<div class="hourly-item" role="listitem">
                 <span class="h-time">${h.displayTime}</span>
                 <span class="h-icon">${renderIcon(h.icon, "")}</span>
                 <span class="h-rain">${h.rainProb > 0 ? h.rainProb + '%' : ''}</span>
                 <span class="h-temp">${fmtTemp(h.temp)}°</span>
             </div>`
-        ).join('');
-        hCont.scrollLeft = 0;
+        ).join(''));
+        // Vuelve al principio al cambiar de sitio, no si el usuario la había movido
+        if (changed && placeChanged) hCont.scrollLeft = 0;
     }
 
     // Daily: barras de rango sobre la escala de toda la semana (estilo iOS)
@@ -1600,7 +1631,7 @@ const renderWeather = (data) => {
         const todayStr = new Date().toLocaleDateString('sv-SE');
         const openDays = new Set([...dCont.querySelectorAll('.day-item.open')].map(el => el.id));
 
-        dCont.innerHTML = data.daily.map((d, index) => {
+        setHTMLIfChanged(dCont, data.daily.map((d, index) => {
             const date = new Date(d.fecha.replace(/-/g, '/'));
             const isToday = d.fecha === todayStr;
             const dayName = isToday ? 'Hoy' : date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
@@ -1634,7 +1665,7 @@ const renderWeather = (data) => {
                     </div></div>
                 </div>
             </div>`;
-        }).join('');
+        }).join(''));
     }
 
     // Animación clima
@@ -1668,6 +1699,14 @@ async function fetchWeatherData(url) {
 // Cada petición lleva un número: si mientras tanto se pide otra ciudad, la
 // respuesta vieja se descarta en vez de pisar a la nueva.
 let weatherReqSeq = 0;
+// Último tiempo guardado de ese sitio (null si no hay o es de otro sitio)
+function readSavedWeather(id) {
+    try {
+        const saved = JSON.parse(localStorage.getItem('aeris_offline_data') || 'null');
+        return saved && saved.id === id && saved.data ? saved : null;
+    } catch (e) { return null; }
+}
+
 let weatherRetryTimer = null;
 let shownWeatherId = null;
 
@@ -1692,9 +1731,8 @@ async function getWeather(id) {
         weatherRetryTimer = setTimeout(() => getWeather(id), 30000);
         // Si ya se ve el tiempo de este sitio, se deja tal cual: sin avisos
         if (shownWeatherId === id) return;
-        let saved = null;
-        try { saved = JSON.parse(localStorage.getItem('aeris_offline_data') || 'null'); } catch (e2) {}
-        if (saved && saved.id === id && saved.data) {
+        const saved = readSavedWeather(id);
+        if (saved) {
             renderWeather(saved.data);
             shownWeatherId = id;
             return;
@@ -1820,6 +1858,14 @@ window.addEventListener('load', () => {
     // En cargas posteriores respetamos la última ciudad vista/favorita;
     // el botón de geolocalización manual sigue disponible para actualizar.
     const shouldAutoGeolocate = !hadStoredCity && !cameFromSharedLink && !!navigator.geolocation;
+    // Si hay datos recientes guardados de este sitio se pintan ya, sin esperar
+    // a la red con el splash delante; lo que llegue después los actualiza
+    // (y solo se anima lo que haya cambiado).
+    const saved = shouldAutoGeolocate ? null : readSavedWeather(currentId);
+    if (saved && Date.now() - saved.timestamp < 6 * 3600e3) {
+        renderWeather(saved.data);
+        shownWeatherId = currentId;
+    }
     if (shouldAutoGeolocate) {
         locateUser(4000, () => getWeather(currentId));
     } else {
