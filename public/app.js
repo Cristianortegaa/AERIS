@@ -1894,19 +1894,52 @@ const renderWeather = (data) => {
 // ha recuperado la red, un tropiezo de Open-Meteo...) no debe dejar al
 // usuario sin datos. Los errores del cliente (ciudad no encontrada) no se
 // reintentan; el 429 sí, porque es pasajero.
-async function fetchWeatherData(url) {
+async function fetchWeatherData(url, id) {
     let lastErr;
     for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt) await new Promise(r => setTimeout(r, attempt * 2000));
         try {
-            const res = await fetch(url, { cache: 'no-store' });
+            // 12 s como mucho: si el servidor está arrancando (Render lo duerme)
+            // se piden los datos directamente en vez de esperar un minuto
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 12000);
+            const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal }).finally(() => clearTimeout(timer));
             const data = await res.json().catch(() => ({}));
             if (res.ok && !data.error) return data;
+            // El servidor se ha quedado sin cupo de Open-Meteo: lo pedimos nosotros
+            if (data.fallback === 'client' && data.location) return await clientWeather(data.location, data.avisosOficiales);
             lastErr = new Error(data.error || `HTTP ${res.status}`);
             if (res.status >= 400 && res.status < 500 && res.status !== 429) break;
-        } catch (e) { lastErr = e; }
+        } catch (e) {
+            lastErr = e;
+            if (e.name === 'AbortError') break;
+        }
+    }
+    // Sin servidor: si sabemos las coordenadas, directamente a Open-Meteo
+    // (sin avisos de AEMET, que solo los da el servidor)
+    const coords = String(id || '').split(',').map(Number);
+    if (coords.length === 2 && coords.every(Number.isFinite) && navigator.onLine !== false) {
+        try {
+            return await clientWeather({ lat: coords[0], lon: coords[1], name: localStorage.getItem('lastName') || '', region: localStorage.getItem('lastRegion') || '' }, null);
+        } catch (e) { console.error(e); }
     }
     throw lastErr;
+}
+
+// Previsión pedida desde el navegador, con su propio cupo de Open-Meteo.
+// Se procesa con el mismo código que el servidor (weather-core.js).
+async function clientWeather(loc, avisos) {
+    if (typeof WeatherCore === 'undefined') throw new Error('Sin WeatherCore');
+    const get = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(`Open-Meteo ${r.status}`); return r.json(); };
+    const [w, a] = await Promise.all([
+        get(WeatherCore.forecastUrl(loc.lat, loc.lon)),
+        get(WeatherCore.airUrl(loc.lat, loc.lon)).catch(() => null)
+    ]);
+    const data = WeatherCore.buildPayload({ w, a, lat: loc.lat, lon: loc.lon, name: loc.name, region: loc.region, avisosOficiales: avisos || [] });
+    data.source = avisos ? 'client' : 'client-sin-avisos';
+    // Sin avisos de AEMET, se conservan los últimos que se vieron de este sitio
+    if (!avisos && window._lastFullData && shownWeatherId === `${loc.lat},${loc.lon}`) data.avisosOficiales = window._lastFullData.avisosOficiales || [];
+    return data;
 }
 
 // Cada petición lleva un número: si mientras tanto se pide otra ciudad, la
@@ -1936,7 +1969,7 @@ async function getWeather(id) {
 
     let data;
     try {
-        data = await fetchWeatherData(url);
+        data = await fetchWeatherData(url, id);
     } catch (e) {
         if (reqId !== weatherReqSeq) return;
         console.error(e);

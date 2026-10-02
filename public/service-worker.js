@@ -1,12 +1,13 @@
-const CACHE_NAME = 'aeris-v28';
+const CACHE_NAME = 'aeris-v29';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=19',
-    '/app.js?v=19',
+    '/styles.css?v=20',
+    '/app.js?v=20',
     '/vendor/bootstrap-reboot.min.css',
     '/vendor/suncalc.js',
+    '/weather-core.js?v=1',
     '/logo.png',
     '/icono-clima.png',
     '/apple-touch-icon.png',
