@@ -1,12 +1,16 @@
-const CACHE_NAME = 'aeris-v22';
+const CACHE_NAME = 'aeris-v24';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=13',
-    '/app.js?v=13',
+    '/styles.css?v=15',
+    '/app.js?v=15',
     '/logo.png',
-    '/icono-clima.png'
+    '/icono-clima.png',
+    '/apple-touch-icon.png',
+    '/icon-192.png',
+    '/icon-512.png',
+    '/icon-maskable-512.png'
 ];
 // Lo de CDNs es un extra para el modo sin conexión: si alguno no se puede
 // guardar, se ignora. (Antes un solo fallo aquí tumbaba la instalación entera

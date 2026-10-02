@@ -11,6 +11,19 @@ document.addEventListener('touchstart', () => {}, { passive: true });
 // estas, que se muestran con style.display, usan la clase is-locked.
 const lockScroll = (on) => document.documentElement.classList.toggle('is-locked', on);
 
+// Radar: el mapa se queda con cualquier arrastre y la página no se mueve.
+// Hasta que se toca, la tapa deja pasar el scroll; al salir de pantalla
+// se vuelve a tapar.
+(function () {
+    const card = document.getElementById('section-mapa');
+    const cover = card && card.querySelector('.radar-cover');
+    if (!cover) return;
+    cover.addEventListener('click', () => card.classList.add('is-live'));
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(([e]) => { if (!e.isIntersecting) card.classList.remove('is-live'); }).observe(card);
+    }
+})();
+
 // ============================================================
 // 1. PWA INSTALL (consolidado)
 // ============================================================
@@ -106,11 +119,18 @@ const setHTMLIfChanged = (el, html) => {
     return true;
 };
 
-// El splash se va en cuanto hay datos pintados (o tras un máximo), no tras
-// una espera fija: la app se siente tan rápida como realmente es.
+// El splash se ve al menos 3 s desde que se abre la app (mientras, los datos
+// se pintan por detrás) y se va en cuanto hay datos, o tras un máximo.
+const SPLASH_MIN_MS = 3000;
 let splashHidden = false;
+let splashTimer = null;
 function hideSplash() {
     if (splashHidden) return;
+    const wait = SPLASH_MIN_MS - performance.now();
+    if (wait > 0) {
+        if (!splashTimer) splashTimer = setTimeout(() => { splashTimer = null; hideSplash(); }, wait);
+        return;
+    }
     splashHidden = true;
     const splash = document.getElementById('splash-screen');
     if (splash) {
@@ -309,64 +329,81 @@ const setDynamicBackground = (cur) => {
 // ============================================================
 const canvas = document.getElementById('weather-canvas');
 const ctx2d  = canvas ? canvas.getContext('2d') : null;
+// Gama baja: menos partículas y ~30 fps. Va debajo de muchas capas con
+// backdrop-filter, y cada frame del canvas obliga a volver a desenfocarlas.
+const LOW_END = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+let canvasW = 0, canvasH = 0, canvasDpr = 0;
 
+// A la resolución real de la pantalla (si no, en el iPhone se ve borroso).
+// Solo se redimensiona si cambia el ancho: la barra de URL del móvil cambia
+// la altura al hacer scroll y no queremos rehacer el lienzo a cada momento.
 function resizeCanvas() {
     if (!canvas) return;
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const w = canvas.clientWidth || window.innerWidth;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (w === canvasW && dpr === canvasDpr) return;
+    canvasW = w; canvasDpr = dpr;
+    canvasH = Math.max(window.innerHeight, screen.height || 0);
+    canvas.style.height = canvasH + 'px'; // más alto que la pantalla: no hay hueco al esconderse la barra de URL
+    canvas.width  = Math.round(canvasW * dpr);
+    canvas.height = Math.round(canvasH * dpr);
+    ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
+// La lluvia va en 3 niveles de opacidad: así se traza un path por nivel
+// (3 stroke por frame) en vez de uno por gota
+const RAIN_ALPHAS = [0.2, 0.3, 0.4];
 function createParticles(type) {
     weatherParticles = [];
-    const count = type === 'rain' ? 120 : type === 'snow' ? 60 : type === 'sun' ? 30 : 0;
+    const count = type === 'rain' ? (LOW_END ? 60 : 100) : type === 'snow' ? (LOW_END ? 30 : 60) : 0;
     for (let i = 0; i < count; i++) {
         if (type === 'rain') {
-            weatherParticles.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight - window.innerHeight, speed: 8 + Math.random() * 6, len: 15 + Math.random() * 20, opacity: 0.15 + Math.random() * 0.3 });
+            weatherParticles.push({ x: Math.random() * canvasW, y: Math.random() * canvasH - canvasH, speed: 8 + Math.random() * 6, len: 15 + Math.random() * 20, layer: i % RAIN_ALPHAS.length });
         } else if (type === 'snow') {
-            weatherParticles.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, speed: 0.5 + Math.random() * 1, r: 2 + Math.random() * 4, drift: Math.random() * 2 - 1, opacity: 0.4 + Math.random() * 0.5, phase: Math.random() * Math.PI * 2 });
-        } else if (type === 'sun') {
-            weatherParticles.push({ x: window.innerWidth * 0.8, y: window.innerHeight * 0.1, angle: (i / count) * Math.PI * 2, len: 60 + Math.random() * 80, opacity: 0.03 + Math.random() * 0.05, speed: 0.003 + Math.random() * 0.005 });
+            weatherParticles.push({ x: Math.random() * canvasW, y: Math.random() * canvasH, speed: 0.5 + Math.random() * 1, r: 2 + Math.random() * 4, opacity: 0.4 + Math.random() * 0.5, phase: Math.random() * Math.PI * 2 });
         }
     }
 }
 
-function animateWeather() {
+// Con delta-time: la lluvia cae igual de rápido a 30, 60 o 120 Hz
+let lastFrameT = 0;
+function animateWeather(now) {
     if (!ctx2d || !canvas) return;
-    ctx2d.clearRect(0, 0, canvas.width, canvas.height);
-    const t = Date.now() * 0.001;
+    weatherAnimFrame = requestAnimationFrame(animateWeather);
+    if (!lastFrameT) lastFrameT = now;
+    const elapsed = now - lastFrameT;
+    if (LOW_END && elapsed < 32) return;
+    const k = Math.min(elapsed, 50) / 16.667; // normalizado a 60 fps, con tope tras una pausa
+    lastFrameT = now;
+    ctx2d.clearRect(0, 0, canvasW, canvasH);
 
     if (currentWeatherType === 'rain') {
-        ctx2d.strokeStyle = 'rgba(147,197,253,0.4)';
+        ctx2d.strokeStyle = 'rgb(147,197,253)';
         ctx2d.lineWidth = 1;
-        weatherParticles.forEach(p => {
-            p.y += p.speed; p.x -= p.speed * 0.1;
-            if (p.y > canvas.height) { p.y = -p.len; p.x = Math.random() * canvas.width; }
-            ctx2d.globalAlpha = p.opacity;
-            ctx2d.beginPath(); ctx2d.moveTo(p.x, p.y); ctx2d.lineTo(p.x - 1, p.y + p.len); ctx2d.stroke();
+        RAIN_ALPHAS.forEach((alpha, layer) => {
+            ctx2d.globalAlpha = alpha;
+            ctx2d.beginPath();
+            weatherParticles.forEach(p => {
+                if (p.layer !== layer) return;
+                p.y += p.speed * k; p.x -= p.speed * 0.1 * k;
+                if (p.y > canvasH) { p.y = -p.len; p.x = Math.random() * canvasW; }
+                ctx2d.moveTo(p.x, p.y); ctx2d.lineTo(p.x - 1, p.y + p.len);
+            });
+            ctx2d.stroke();
         });
     } else if (currentWeatherType === 'snow') {
+        const t = now * 0.001;
+        ctx2d.fillStyle = 'white';
         weatherParticles.forEach(p => {
-            p.y += p.speed; p.x += Math.sin(t + p.phase) * 0.5;
-            if (p.y > canvas.height) { p.y = -5; p.x = Math.random() * canvas.width; }
+            p.y += p.speed * k; p.x += Math.sin(t + p.phase) * 0.5 * k;
+            if (p.y > canvasH) { p.y = -5; p.x = Math.random() * canvasW; }
             ctx2d.globalAlpha = p.opacity;
-            ctx2d.fillStyle = 'white';
             ctx2d.beginPath(); ctx2d.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx2d.fill();
-        });
-    } else if (currentWeatherType === 'sun') {
-        weatherParticles.forEach(p => {
-            p.angle += p.speed;
-            const x2 = p.x + Math.cos(p.angle) * p.len;
-            const y2 = p.y + Math.sin(p.angle) * p.len;
-            ctx2d.globalAlpha = p.opacity * (0.7 + 0.3 * Math.sin(t));
-            ctx2d.strokeStyle = '#fbbf24';
-            ctx2d.lineWidth = 2;
-            ctx2d.beginPath(); ctx2d.moveTo(p.x, p.y); ctx2d.lineTo(x2, y2); ctx2d.stroke();
         });
     }
     ctx2d.globalAlpha = 1;
-    weatherAnimFrame = requestAnimationFrame(animateWeather);
 }
 
 const prefersReducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -378,16 +415,16 @@ function startWeatherAnimation(type) {
     if (prefersReducedMotion()) type = 'none';
     currentWeatherType = type;
     if (weatherAnimFrame) cancelAnimationFrame(weatherAnimFrame);
-    if (type === 'none') { if (ctx2d) ctx2d.clearRect(0, 0, canvas.width, canvas.height); return; }
+    if (type === 'none') { if (ctx2d) ctx2d.clearRect(0, 0, canvasW, canvasH); return; }
     createParticles(type);
-    animateWeather();
+    lastFrameT = 0;
+    weatherAnimFrame = requestAnimationFrame(animateWeather);
 }
 
 function getAnimationType(desc, isDay) {
     const d = desc.toLowerCase();
     if (d.includes('lluvia') || d.includes('llovizna') || d.includes('tormenta') || d.includes('chubasco')) return 'rain';
     if (d.includes('nieve') || d.includes('granizo') || d.includes('aguanieve')) return 'snow';
-    if ((d.includes('despejado') || d.includes('sol')) && isDay) return 'sun';
     return 'none';
 }
 
@@ -422,9 +459,12 @@ function renderSolarClock(sunrise, sunset, timezone) {
     requestAnimationFrame(() => {
         const W = sCanvas.offsetWidth || sCanvas.parentElement?.offsetWidth || 300;
         if (W < 10) return; // card aún no tiene dimensiones
-        sCanvas.width  = W;
-        sCanvas.height = 80;
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        sCanvas.width  = Math.round(W * dpr);
+        sCanvas.height = 80 * dpr;
+        sCanvas.style.height = '80px';
         const sCtx = sCanvas.getContext('2d');
+        sCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
         const H = 80, pad = 20;
 
         sCtx.clearRect(0, 0, W, H);
