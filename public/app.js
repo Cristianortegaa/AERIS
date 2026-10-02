@@ -139,6 +139,7 @@ function hideSplash() {
         setTimeout(() => { splash.style.display = 'none'; }, 500);
     }
     document.body.classList.add('is-ready');
+    syncThemeColor();
     setTimeout(initOnboarding, 500);
 }
 
@@ -299,11 +300,13 @@ const ensureHtml2Canvas = () => (typeof html2canvas !== 'undefined')
 const BG_CLASSES = ['bg-hot', 'bg-rain', 'bg-snow', 'bg-cloudy-day', 'bg-cloudy-night', 'bg-clear-day', 'bg-clear-night'];
 
 // La barra de estado / chrome del navegador toma el color del cielo actual
+// (mientras se ve el splash, el azul de la marca, como el propio splash)
+const SPLASH_COLOR = '#1554c0';
 const syncThemeColor = () => {
     const color = getComputedStyle(document.body).getPropertyValue('--theme').trim();
     if (!color) return;
     const meta = document.getElementById('meta-theme-color');
-    if (meta) meta.setAttribute('content', color);
+    if (meta) meta.setAttribute('content', splashHidden ? color : SPLASH_COLOR);
     document.documentElement.style.backgroundColor = color;
     try { localStorage.setItem('aeris_theme_color', color); } catch (e) {}
 };

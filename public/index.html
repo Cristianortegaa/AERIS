@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=15">
+    <link rel="stylesheet" href="styles.css?v=16">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -51,11 +51,10 @@
                     document.documentElement.setAttribute('data-bs-theme', t);
                     document.documentElement.setAttribute('data-theme', t);
                 }
+                // La barra de estado se queda en el azul del splash; el color
+                // del cielo se aplica al quitarse el splash
                 var c = localStorage.getItem('aeris_theme_color');
-                if (c) {
-                    document.getElementById('meta-theme-color').setAttribute('content', c);
-                    document.documentElement.style.backgroundColor = c;
-                }
+                if (c) document.documentElement.style.backgroundColor = c;
             } catch (e) {}
         })();
     </script>
@@ -538,7 +537,7 @@
 </nav>
 
 <!-- APP JS -->
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 
 </body>
 </html>

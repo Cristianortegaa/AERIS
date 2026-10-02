@@ -268,9 +268,8 @@ body.is-scrolled .topbar-scrim { opacity: 1; }
     align-items: center;
     justify-content: center;
     gap: 18px;
-    background: color-mix(in srgb, var(--theme) 55%, rgba(4, 8, 20, 0.6));
-    -webkit-backdrop-filter: blur(40px) saturate(150%);
-    backdrop-filter: blur(40px) saturate(150%);
+    /* Siempre el azul de la marca, haga el tiempo que haga detrás */
+    background: linear-gradient(180deg, #1554c0 0%, #2f7fe0 55%, #5ea6ec 100%);
     transition: opacity 450ms var(--ease-out), visibility 0s linear 450ms;
 }
 #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
