@@ -14,6 +14,10 @@ const tarStream = require('tar-stream');
 const { XMLParser } = require('fast-xml-parser');
 
 const app = express();
+// La app corre detrás del proxy del hosting: sin esto todas las peticiones
+// llegan con la IP del proxy y el límite por IP se comparte entre TODOS los
+// usuarios (al pasarse, la app recibía 429 y parecía que no había conexión).
+app.set('trust proxy', 1);
 
 // --- Cliente HTTP con timeout para APIs externas (evita peticiones colgadas) ---
 const http = axios.create({ timeout: 8000 });
@@ -503,6 +507,13 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
             const errorReal = wRes.reason;
             const detalles = errorReal.response ? errorReal.response.data : errorReal.message;
             log('error', 'Open-Meteo:', JSON.stringify(detalles));
+            // Mejor datos de hace un rato que un error: si hay caché, aunque
+            // haya caducado, se sirve.
+            if (cache) {
+                const data = JSON.parse(cache.data);
+                if (forcedName && forcedName !== "Tu ubicacion") data.location.name = forcedName;
+                return res.json(data);
+            }
             throw new Error(`Fallo API Clima: ${errorReal.message}`);
         }
 
@@ -619,6 +630,7 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
 
     } catch (e) {
         log('error', 'weather API', e.message);
+        if (e.message === "Ciudad no encontrada") return res.status(404).json({ error: "Ciudad no encontrada." });
         res.status(500).json({ error: "Error interno al obtener el tiempo." });
     }
 });

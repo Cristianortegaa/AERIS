@@ -1510,20 +1510,6 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 }
 @keyframes alertIn { from { opacity: 0; transform: translateY(-8px) scale(0.98); } }
 
-#offline-banner {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-    padding: 11px 16px;
-    border-radius: 99px;
-    background: rgba(249, 115, 22, 0.92);
-    color: #fff;
-    font-size: 0.84rem;
-    font-weight: 600;
-    box-shadow: 0 14px 30px -16px rgba(0, 0, 0, 0.6);
-    animation: alertIn 400ms var(--ease-out) backwards;
-}
 #error-banner {
     display: none;
     align-items: flex-start;
@@ -2160,7 +2146,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
     .sky-blob, .icon-float, .live-dot::after, .ios-arrow-hint, .splash-bar span { animation: none !important; }
     .layout .glass-card, .alert-card, .persona-modal.show .persona-option,
-    .onboarding-card, .onboarding-slide.active, #offline-banner, #error-banner,
+    .onboarding-card, .onboarding-slide.active, #error-banner,
     .splash-mark, .splash-title, .splash-bar, .ios-content, #installBtn {
         animation-name: fadeIn !important;
     }

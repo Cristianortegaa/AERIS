@@ -131,7 +131,7 @@ if (unitsBtn) {
         useFahrenheit = !useFahrenheit;
         localStorage.setItem('aeris_units', useFahrenheit ? 'F' : 'C');
         updateUnitsUI();
-        if (lastWeatherData) renderWeather(window._lastFullData, window._lastIsOffline);
+        if (lastWeatherData) renderWeather(window._lastFullData);
     });
 }
 
@@ -1466,9 +1466,8 @@ function showToast(message, type = 'ok') {
 // ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
-const renderWeather = (data, isOffline = false) => {
+const renderWeather = (data) => {
     window._lastFullData   = data;
-    window._lastIsOffline  = isOffline;
     const cur = data.current, loc = data.location;
 
     currentCityInfo = { id: currentId, name: loc.name, region: loc.region, lat: loc.lat, lon: loc.lon };
@@ -1626,16 +1625,6 @@ const renderWeather = (data, isOffline = false) => {
         }).join('');
     }
 
-    // Offline banner
-    const offlineBanner = document.getElementById('offline-banner');
-    if (offlineBanner) offlineBanner.style.display = isOffline ? 'flex' : 'none';
-    if (isOffline) {
-        const offlineData = JSON.parse(localStorage.getItem('aeris_offline_data') || '{}');
-        const minutesAgo = offlineData.timestamp ? Math.round((Date.now() - offlineData.timestamp) / 60000) : '?';
-        const msg = document.getElementById('offline-msg');
-        if (msg) msg.innerText = `Sin conexión — datos de hace ${minutesAgo} min`;
-    }
-
     // Animación clima
     startWeatherAnimation(getAnimationType(cur.desc, cur.isDay));
 
@@ -1645,34 +1634,78 @@ const renderWeather = (data, isOffline = false) => {
 // ============================================================
 // 28. FETCH PRINCIPAL
 // ============================================================
-async function getWeather(id) {
-    document.getElementById('error-banner').style.display = 'none';
-    try {
-        let storedName = localStorage.getItem('lastName');
-        const badNames = ['Ubicación', 'Ubicacion', 'Tu ubicación', 'Tu ubicacion', 'Ubicación detectada', ''];
-        if (badNames.includes(storedName)) storedName = null;
-        const storedRegion = localStorage.getItem('lastRegion') || '';
-        let url = `/api/weather/${id}?region=${encodeURIComponent(storedRegion)}`;
-        if (storedName) url += `&name=${encodeURIComponent(storedName)}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        localStorage.setItem('aeris_offline_data', JSON.stringify({ data, timestamp: Date.now() }));
-        lastFetchAt = Date.now();
-        renderWeather(data, false);
-        if (notifPermission() === 'granted') registerPush(true);
-    } catch (e) {
-        console.error(e);
-        const offlineRaw = localStorage.getItem('aeris_offline_data');
-        if (offlineRaw) { renderWeather(JSON.parse(offlineRaw).data, true); }
-        else {
-            document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
-            const errorBanner = document.getElementById('error-banner');
-            if (errorBanner) errorBanner.style.display = 'flex';
-            hideSplash();
-        }
+// Hasta 3 intentos: un fallo puntual (el móvil recién despierto que aún no
+// ha recuperado la red, un tropiezo de Open-Meteo...) no debe dejar al
+// usuario sin datos. Los errores del cliente (ciudad no encontrada) no se
+// reintentan; el 429 sí, porque es pasajero.
+async function fetchWeatherData(url) {
+    let lastErr;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt) await new Promise(r => setTimeout(r, attempt * 2000));
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && !data.error) return data;
+            lastErr = new Error(data.error || `HTTP ${res.status}`);
+            if (res.status >= 400 && res.status < 500 && res.status !== 429) break;
+        } catch (e) { lastErr = e; }
     }
+    throw lastErr;
 }
+
+// Cada petición lleva un número: si mientras tanto se pide otra ciudad, la
+// respuesta vieja se descarta en vez de pisar a la nueva.
+let weatherReqSeq = 0;
+let weatherRetryTimer = null;
+let shownWeatherId = null;
+
+async function getWeather(id) {
+    const reqId = ++weatherReqSeq;
+    clearTimeout(weatherRetryTimer);
+    weatherRetryTimer = null;
+    let storedName = localStorage.getItem('lastName');
+    const badNames = ['Ubicación', 'Ubicacion', 'Tu ubicación', 'Tu ubicacion', 'Ubicación detectada', ''];
+    if (badNames.includes(storedName)) storedName = null;
+    const storedRegion = localStorage.getItem('lastRegion') || '';
+    let url = `/api/weather/${id}?region=${encodeURIComponent(storedRegion)}`;
+    if (storedName) url += `&name=${encodeURIComponent(storedName)}`;
+
+    let data;
+    try {
+        data = await fetchWeatherData(url);
+    } catch (e) {
+        if (reqId !== weatherReqSeq) return;
+        console.error(e);
+        // Se vuelve a intentar solo en un rato (o en cuanto vuelva la red)
+        weatherRetryTimer = setTimeout(() => getWeather(id), 30000);
+        // Si ya se ve el tiempo de este sitio, se deja tal cual: sin avisos
+        if (shownWeatherId === id) return;
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem('aeris_offline_data') || 'null'); } catch (e2) {}
+        if (saved && saved.id === id && saved.data) {
+            renderWeather(saved.data);
+            shownWeatherId = id;
+            return;
+        }
+        document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
+        const errorBanner = document.getElementById('error-banner');
+        if (errorBanner) errorBanner.style.display = 'flex';
+        hideSplash();
+        return;
+    }
+    if (reqId !== weatherReqSeq) return;
+    document.getElementById('error-banner').style.display = 'none';
+    try { localStorage.setItem('aeris_offline_data', JSON.stringify({ id, data, timestamp: Date.now() })); } catch (e) {}
+    lastFetchAt = Date.now();
+    shownWeatherId = id;
+    renderWeather(data);
+    if (notifPermission() === 'granted') registerPush(true);
+}
+
+// Al recuperar la red, si había un reintento pendiente se hace ya
+window.addEventListener('online', () => {
+    if (weatherRetryTimer) getWeather(currentId);
+});
 
 // Localizar: icono girando mientras el GPS responde; si falla, se
 // restaura lo que había en vez de dejar los esqueletos para siempre.
@@ -1703,7 +1736,7 @@ if (geoBtn) {
         document.querySelectorAll('#city, #desc, #temp').forEach(el => el.classList.add('skeleton'));
         window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
         locateUser(8000, () => {
-            if (window._lastFullData) renderWeather(window._lastFullData, window._lastIsOffline);
+            if (window._lastFullData) renderWeather(window._lastFullData);
             else document.querySelectorAll('#city, #desc, #temp').forEach(el => el.classList.remove('skeleton'));
         });
     });

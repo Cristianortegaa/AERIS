@@ -1,10 +1,10 @@
-const CACHE_NAME = 'aeris-v19';
+const CACHE_NAME = 'aeris-v20';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=10',
-    '/app.js?v=10',
+    '/styles.css?v=11',
+    '/app.js?v=11',
     '/logo.png',
     '/icono-clima.png'
 ];
@@ -50,13 +50,12 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(caches.match(req).then(r => r || fetch(req)));
         return;
     }
-    // Red primero para navegación y API; si no hay red, lo guardado
-    if (req.mode === 'navigate' || url.pathname.startsWith('/api/')) {
-        event.respondWith(
-            fetch(req).catch(() =>
-                caches.match(req).then(r => r || (req.mode === 'navigate' ? caches.match('/index.html') : undefined))
-            )
-        );
+    // La API va directa a la red: la app ya gestiona los fallos y guarda
+    // los últimos datos ella misma.
+    if (url.pathname.startsWith('/api/')) return;
+    // Red primero para navegación; si no hay red, lo guardado
+    if (req.mode === 'navigate') {
+        event.respondWith(fetch(req).catch(() => caches.match('/index.html')));
         return;
     }
     // Caché primero para los assets estáticos propios
