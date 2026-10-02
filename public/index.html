@@ -18,20 +18,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Base: solo el reboot de Bootstrap (servido desde la app). El resto de
+         Bootstrap (230 KB entre CSS y JS) se usaba para un modal y 10 utilidades -->
+    <link rel="stylesheet" href="vendor/bootstrap-reboot.min.css">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=16">
+    <link rel="stylesheet" href="styles.css?v=17">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -126,8 +123,11 @@
 
 <!-- MODAL INSTALACIÓN iOS -->
 <div id="iosInstallModal" role="dialog" aria-modal="true" aria-label="Instrucciones de instalación">
-    <div class="ios-content">
-        <div class="sheet-grabber"></div>
+    <div class="ios-content" id="iosSheet">
+        <div class="ios-drag-zone" id="iosDragZone">
+            <div class="sheet-grabber"></div>
+            <button type="button" class="btn-icon sm ios-close" id="closeIosModal" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+        </div>
         <img src="logo.png" class="ios-logo" alt="Aeris">
         <div id="tiktok-instructions" style="display:none;">
             <h4 class="ios-title warn">⚠️ Estás en TikTok</h4>
@@ -497,17 +497,17 @@
 </main><!-- /container -->
 
 <!-- MODAL NOTIFICACIONES -->
-<div class="modal fade" id="notificationModal" tabindex="-1" aria-hidden="true" style="z-index:10000;">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content sheet-surface">
-            <div class="modal-body notif-body">
+<div class="share-modal notif-modal" id="notificationModal" role="dialog" aria-modal="true" aria-labelledby="notifTitle">
+    <div class="share-dialog notif-dialog">
+        <div class="sheet-surface">
+            <div class="notif-body">
                 <div class="notif-icon">
                     <i class="bi bi-bell-fill"></i>
                 </div>
-                <h5>¿Quieres alertas del tiempo?</h5>
+                <h5 id="notifTitle">¿Quieres alertas del tiempo?</h5>
                 <p>Aeris puede avisarte si va a llover, nevar o si hay calor extremo en tu zona, incluso con la app cerrada. También recibirás el resumen del tiempo cada mañana.</p>
                 <div class="notif-actions">
-                    <button type="button" class="btn-pill ghost" data-bs-dismiss="modal">Ahora no</button>
+                    <button type="button" class="btn-pill ghost" data-action="close-notif">Ahora no</button>
                     <button type="button" class="btn-pill solid" id="enableNotifBtn">Sí, activar</button>
                 </div>
             </div>
@@ -537,7 +537,7 @@
 </nav>
 
 <!-- APP JS -->
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 
 </body>
 </html>

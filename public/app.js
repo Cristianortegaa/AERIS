@@ -41,8 +41,15 @@ const lockScroll = (on) => document.documentElement.classList.toggle('is-locked'
     }
 
     window.addEventListener('load', () => { updateInstallModal(); setTimeout(updateInstallModal, 300); setTimeout(updateInstallModal, 1000); });
-    window.closeIosModal = () => { if (iosModal) iosModal.style.display = 'none'; lockScroll(false); };
-    window.openIosModal  = () => { updateInstallModal(); if (iosModal) { iosModal.style.display = 'flex'; lockScroll(true); } };
+    window.closeIosModal = () => {
+        if (!iosModal) return;
+        iosModal.classList.remove('show');
+        const sheet = document.getElementById('iosSheet');
+        if (sheet) { sheet.style.transform = ''; sheet.style.transition = ''; }
+        lockScroll(false);
+    };
+    window.openIosModal  = () => { updateInstallModal(); if (iosModal) { iosModal.classList.add('show'); lockScroll(true); } };
+    document.getElementById('closeIosModal')?.addEventListener('click', window.closeIosModal);
 
     const isIos = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
     const isInStandaloneMode = ('standalone' in navigator) && navigator.standalone;
@@ -695,16 +702,45 @@ document.getElementById('share-modal')?.addEventListener('click', (e) => {
     if (e.target.id === 'share-modal') closeShareModal();
 });
 
-window.downloadShareCard = async () => {
+// Botón ocupado: se ve que está trabajando y no admite un segundo toque
+const setBusy = (btn, busy) => {
+    if (!btn) return;
+    const icon = btn.querySelector('i');
+    if (icon) {
+        if (busy) { icon.dataset.icon = icon.className; icon.className = 'bi bi-arrow-repeat'; }
+        else if (icon.dataset.icon) { icon.className = icon.dataset.icon; delete icon.dataset.icon; }
+    }
+    btn.classList.toggle('is-loading', busy);
+    btn.disabled = busy;
+    if (busy) btn.setAttribute('aria-busy', 'true'); else btn.removeAttribute('aria-busy');
+};
+
+// En el móvil se abre la hoja de compartir del sistema (Fotos, WhatsApp,
+// Instagram...); si el navegador no puede compartir archivos, se descarga.
+window.downloadShareCard = async (btn) => {
     const card = document.getElementById('share-card-render');
-    if (!card) return;
-    await ensureHtml2Canvas();
-    html2canvas(card, { scale: 3, backgroundColor: null, useCORS: true }).then(canvas => {
+    if (!card || (btn && btn.disabled)) return;
+    setBusy(btn, true);
+    try {
+        await ensureHtml2Canvas();
+        const canvas = await html2canvas(card, { scale: 3, backgroundColor: null, useCORS: true });
+        const blob = await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob')), 'image/png'));
+        const file = new File([blob], `aeris-${(currentCityInfo.name || 'weather').toLowerCase()}.png`, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try { await navigator.share({ files: [file], title: 'El tiempo en AERIS' }); return; }
+            catch (e) { if (e.name === 'AbortError') return; } // cancelado por el usuario: nada más
+        }
         const link = document.createElement('a');
-        link.download = `aeris-${(currentCityInfo.name || 'weather').toLowerCase()}.png`;
-        link.href = canvas.toDataURL();
+        link.download = file.name;
+        link.href = URL.createObjectURL(blob);
         link.click();
-    }).catch(() => alert('No se pudo generar la imagen'));
+        setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+    } catch (e) {
+        console.error(e);
+        showToast('No se pudo generar la imagen. Inténtalo de nuevo.', 'warn');
+    } finally {
+        setBusy(btn, false);
+    }
 };
 
 function openShareCard(data) {
@@ -757,8 +793,8 @@ const updateAIText = (cur, highPollen = false) => {
     const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, cur.uv);
     const clothingContainer = document.getElementById('clothing-advice');
     if (clothingContainer) {
-        const iconCls = (ic) => ic.startsWith('fa') ? ic : `bi ${ic}`;
-        const tag = (i, kind) => `<span class="clothing-tag ${kind}"><i class="${iconCls(i.icon)}" aria-hidden="true"></i>${i.text}</span>`;
+        // Solo texto: un icono que no representa la prenda solo añade ruido
+        const tag = (i, kind) => `<span class="clothing-tag ${kind}">${i.text}</span>`;
         let html =
             `<div class="outfit-group"><span class="outfit-group-label">Ellos</span><div class="outfit-tags">${clothes.boys.map(i => tag(i, 'boy')).join('')}</div></div>` +
             `<div class="outfit-group"><span class="outfit-group-label">Ellas</span><div class="outfit-tags">${clothes.girls.map(i => tag(i, 'girl')).join('')}</div></div>`;
@@ -768,24 +804,24 @@ const updateAIText = (cur, highPollen = false) => {
 };
 
 const getClothingList = (temp, desc, wind, uv) => {
-    const item = (icon, text) => ({ icon, text });
+    const item = (text) => ({ text });
     let boys = [], girls = [], tip = null;
     desc = desc.toLowerCase();
     const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
     const isSnow = desc.includes('nieve') || desc.includes('nevada');
     const isClear = desc.includes('despejado') || desc.includes('sol');
-    if (temp >= 30)      { boys.push(item('bi-brightness-high','Tirantes')); girls.push(item('bi-brightness-high','Top/Vestido')); boys.push(item('bi-emoji-sunglasses','Shorts')); girls.push(item('bi-emoji-sunglasses','Shorts')); boys.push(item('bi-fan','Abanico')); girls.push(item('bi-fan','Abanico')); }
-    else if (temp >= 25) { boys.push(item('fa-solid fa-shirt','Camiseta')); girls.push(item('fa-solid fa-shirt','Blusa')); boys.push(item('bi-emoji-smile','Chino corto')); girls.push(item('bi-emoji-smile','Falda')); }
-    else if (temp >= 20) { boys.push(item('fa-solid fa-shirt','Polo')); girls.push(item('fa-solid fa-shirt','Camiseta')); boys.push(item('bi-person','Jeans')); girls.push(item('bi-person','Culotte')); }
-    else if (temp >= 15) { boys.push(item('bi-person','Camisa')); girls.push(item('bi-person','Cardigan')); boys.push(item('bi-person','Chinos')); girls.push(item('bi-person','Jeans')); boys.push(item('bi-layers','Chaleco')); girls.push(item('bi-layers','Blazer')); }
-    else if (temp >= 10) { boys.push(item('fa-solid fa-vest','Sudadera')); girls.push(item('fa-solid fa-vest','Jersey')); boys.push(item('bi-layers','Cazadora')); girls.push(item('bi-layers','Trench')); }
-    else if (temp >= 5)  { boys.push(item('bi-person-fill','Jersey Lana')); girls.push(item('bi-person-fill','Jersey Grueso')); boys.push(item('bi-bricks','Abrigo')); girls.push(item('bi-bricks','Abrigo')); }
-    else                 { boys.push(item('bi-snow2','Térmica')); girls.push(item('bi-snow2','Térmica')); boys.push(item('bi-person-fill','Plumífero')); girls.push(item('bi-person-fill','Plumífero')); }
-    if (temp < 10 || (wind > 20 && temp < 15)) { boys.push(item('bi-emoji-dizzy','Bufanda')); girls.push(item('bi-emoji-dizzy','Bufanda')); }
-    if (temp < 5)  { boys.push(item('fa-solid fa-mitten','Gorro')); girls.push(item('fa-solid fa-mitten','Gorro')); }
-    if (isRain)    { boys.push(item('bi-umbrella','Paraguas')); girls.push(item('bi-umbrella','Paraguas')); boys.push(item('bi-cloud-rain','Impermeable')); girls.push(item('bi-cloud-rain','Gabardina')); if (temp < 15) { boys.push(item('fa-solid fa-shoe-prints','Botas Agua')); girls.push(item('fa-solid fa-shoe-prints','Botas Agua')); } }
-    if (isSnow)    { boys.push(item('bi-snow','Botas Nieve')); girls.push(item('bi-snow','Botas Nieve')); boys.push(item('bi-hand-index-thumb','Guantes')); girls.push(item('bi-hand-index-thumb','Guantes')); }
-    if (uv > 5 && isClear) { boys.push(item('bi-sunglasses','Gafas Sol')); girls.push(item('bi-sunglasses','Gafas Sol')); boys.push(item('bi-capslock','Gorra')); girls.push(item('bi-capslock','Sombrero')); }
+    if (temp >= 30)      { boys.push(item('Tirantes')); girls.push(item('Top/Vestido')); boys.push(item('Shorts')); girls.push(item('Shorts')); boys.push(item('Abanico')); girls.push(item('Abanico')); }
+    else if (temp >= 25) { boys.push(item('Camiseta')); girls.push(item('Blusa')); boys.push(item('Chino corto')); girls.push(item('Falda')); }
+    else if (temp >= 20) { boys.push(item('Polo')); girls.push(item('Camiseta')); boys.push(item('Jeans')); girls.push(item('Culotte')); }
+    else if (temp >= 15) { boys.push(item('Camisa')); girls.push(item('Cardigan')); boys.push(item('Chinos')); girls.push(item('Jeans')); boys.push(item('Chaleco')); girls.push(item('Blazer')); }
+    else if (temp >= 10) { boys.push(item('Sudadera')); girls.push(item('Jersey')); boys.push(item('Cazadora')); girls.push(item('Trench')); }
+    else if (temp >= 5)  { boys.push(item('Jersey Lana')); girls.push(item('Jersey Grueso')); boys.push(item('Abrigo')); girls.push(item('Abrigo')); }
+    else                 { boys.push(item('Térmica')); girls.push(item('Térmica')); boys.push(item('Plumífero')); girls.push(item('Plumífero')); }
+    if (temp < 10 || (wind > 20 && temp < 15)) { boys.push(item('Bufanda')); girls.push(item('Bufanda')); }
+    if (temp < 5)  { boys.push(item('Gorro')); girls.push(item('Gorro')); }
+    if (isRain)    { boys.push(item('Paraguas')); girls.push(item('Paraguas')); boys.push(item('Impermeable')); girls.push(item('Gabardina')); if (temp < 15) { boys.push(item('Botas Agua')); girls.push(item('Botas Agua')); } }
+    if (isSnow)    { boys.push(item('Botas Nieve')); girls.push(item('Botas Nieve')); boys.push(item('Guantes')); girls.push(item('Guantes')); }
+    if (uv > 5 && isClear) { boys.push(item('Gafas Sol')); girls.push(item('Gafas Sol')); boys.push(item('Gorra')); girls.push(item('Sombrero')); }
     // Un consejo práctico según el tiempo (sin enlaces: la app no es comercial)
     if (isRain && wind > 25) tip = { text: 'Viento y lluvia: mejor un paraguas antiviento o chubasquero', icon: 'bi-umbrella-fill' };
     else if (isRain)    tip = { text: 'Lleva paraguas: hoy toca mojarse', icon: 'bi-umbrella-fill' };
@@ -833,12 +869,11 @@ document.getElementById('ai-toggle').addEventListener('click', openPersonaModal)
 document.getElementById('closePersonaModal').addEventListener('click', closePersonaModal);
 modal.addEventListener('click', (e) => { if (e.target === modal) closePersonaModal(); });
 
-// Arrastrar hacia abajo para cerrar el sheet (solo en móvil, donde es un sheet).
-// Se sigue el dedo 1:1; un gesto rápido (velocidad > 0.11 px/ms) basta aunque
-// sea corto, y hacia arriba hay fricción en vez de un tope seco.
-(function initSheetDrag() {
-    const zone = document.getElementById('personaDragZone');
-    if (!zone || !personaSheet) return;
+// Arrastrar hacia abajo para cerrar un sheet (solo en móvil, donde es un sheet).
+// El sheet sigue al dedo 1:1, con resistencia hacia arriba; se cierra si se
+// arrastra lo bastante o con un gesto rápido.
+function initSheetDrag(zone, sheet, onClose) {
+    if (!zone || !sheet) return;
     const isSheet = () => !window.matchMedia('(min-width: 640px)').matches;
     let startY = 0, startT = 0, dy = 0, dragging = false, pointerId = null;
 
@@ -847,25 +882,27 @@ modal.addEventListener('click', (e) => { if (e.target === modal) closePersonaMod
         dragging = true; pointerId = e.pointerId;
         startY = e.clientY; startT = performance.now(); dy = 0;
         zone.setPointerCapture(e.pointerId);
-        personaSheet.style.transition = 'none';
+        sheet.style.transition = 'none';
     });
     zone.addEventListener('pointermove', (e) => {
         if (!dragging || e.pointerId !== pointerId) return;
         const raw = e.clientY - startY;
         dy = raw >= 0 ? raw : -Math.pow(-raw, 0.6); // resistencia hacia arriba
-        personaSheet.style.transform = `translateY(${dy}px)`;
+        sheet.style.transform = `translateY(${dy}px)`;
     });
     const end = (e) => {
         if (!dragging || e.pointerId !== pointerId) return;
         dragging = false;
         const velocity = dy / Math.max(1, performance.now() - startT);
-        personaSheet.style.transition = '';
-        if (dy > 120 || velocity > 0.11) closePersonaModal();
-        else personaSheet.style.transform = '';
+        sheet.style.transition = '';
+        if (dy > 120 || velocity > 0.11) onClose();
+        else sheet.style.transform = '';
     };
     zone.addEventListener('pointerup', end);
     zone.addEventListener('pointercancel', end);
-})();
+}
+initSheetDrag(document.getElementById('personaDragZone'), personaSheet, closePersonaModal);
+initSheetDrag(document.getElementById('iosDragZone'), document.getElementById('iosSheet'), () => window.closeIosModal());
 
 // ============================================================
 // 19. TEMA (automático por hora de sol — sin botón manual)
@@ -952,6 +989,8 @@ document.getElementById('favList').addEventListener('keydown', (e) => {
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (modal.classList.contains('show')) closePersonaModal();
+    else if (document.getElementById('iosInstallModal')?.classList.contains('show')) closeIosModal();
+    else if (document.getElementById('notificationModal')?.classList.contains('show')) closeNotifModal();
     else if (document.getElementById('share-modal').classList.contains('show')) closeShareModal();
     else if (document.getElementById('favSidebar').classList.contains('open')) closeSidebar();
     else if (suggestionsList && suggestionsList.classList.contains('show')) suggestionsList.classList.remove('show');
@@ -1292,6 +1331,24 @@ const renderAlerts = (alerts, avisosOficiales) => {
     setHTMLIfChanged(container, renderAemetAvisos(avisosOficiales) + propias);
 };
 
+// Iconos de actividades: Font Awesome Free 6.5.1 (iconos CC BY 4.0,
+// https://fontawesome.com/license/free) en línea, para no cargar la
+// librería entera (CSS + fuente) por 8 iconos. [viewBox, path]
+const ACTIVITY_ICONS = {
+    run: ['0 0 448 512', 'M320 48a48 48 0 1 0 -96 0 48 48 0 1 0 96 0zM125.7 175.5c9.9-9.9 23.4-15.5 37.5-15.5c1.9 0 3.8 .1 5.6 .3L137.6 254c-9.3 28 1.7 58.8 26.8 74.5l86.2 53.9-25.4 88.8c-4.9 17 5 34.7 22 39.6s34.7-5 39.6-22l28.7-100.4c5.9-20.6-2.6-42.6-20.7-53.9L238 299l30.9-82.4 5.1 12.3C289 264.7 323.9 288 362.7 288H384c17.7 0 32-14.3 32-32s-14.3-32-32-32H362.7c-12.9 0-24.6-7.8-29.5-19.7l-6.3-15c-14.6-35.1-44.1-61.9-80.5-73.1l-48.7-15c-11.1-3.4-22.7-5.2-34.4-5.2c-31 0-60.8 12.3-82.7 34.3L57.4 153.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l23.1-23.1zM91.2 352H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h69.6c19 0 36.2-11.2 43.9-28.5L157 361.6l-9.5-6c-17.5-10.9-30.5-26.8-37.9-44.9L91.2 352z'],
+    cycle: ['0 0 640 512', 'M312 32c-13.3 0-24 10.7-24 24s10.7 24 24 24h25.7l34.6 64H222.9l-27.4-38C191 99.7 183.7 96 176 96H120c-13.3 0-24 10.7-24 24s10.7 24 24 24h43.7l22.1 30.7-26.6 53.1c-10-2.5-20.5-3.8-31.2-3.8C57.3 224 0 281.3 0 352s57.3 128 128 128c65.3 0 119.1-48.9 127-112h49c8.5 0 16.3-4.5 20.7-11.8l84.8-143.5 21.7 40.1C402.4 276.3 384 312 384 352c0 70.7 57.3 128 128 128s128-57.3 128-128s-57.3-128-128-128c-13.5 0-26.5 2.1-38.7 6L375.4 48.8C369.8 38.4 359 32 347.2 32H312zM458.6 303.7l32.3 59.7c6.3 11.7 20.9 16 32.5 9.7s16-20.9 9.7-32.5l-32.3-59.7c3.6-.6 7.4-.9 11.2-.9c39.8 0 72 32.2 72 72s-32.2 72-72 72s-72-32.2-72-72c0-18.6 7-35.5 18.6-48.3zM133.2 368h65c-7.3 32.1-36 56-70.2 56c-39.8 0-72-32.2-72-72s32.2-72 72-72c1.7 0 3.4 .1 5.1 .2l-24.2 48.5c-9 18.1 4.1 39.4 24.3 39.4zm33.7-48l50.7-101.3 72.9 101.2-.1 .1H166.8zm90.6-128H365.9L317 274.8 257.4 192z'],
+    bbq: ['0 0 512 512', 'M61.1 224C45 224 32 211 32 194.9c0-1.9 .2-3.7 .6-5.6C37.9 168.3 78.8 32 256 32s218.1 136.3 223.4 157.3c.5 1.9 .6 3.7 .6 5.6c0 16.1-13 29.1-29.1 29.1H61.1zM144 128a16 16 0 1 0 -32 0 16 16 0 1 0 32 0zm240 16a16 16 0 1 0 0-32 16 16 0 1 0 0 32zM272 96a16 16 0 1 0 -32 0 16 16 0 1 0 32 0zM16 304c0-26.5 21.5-48 48-48H448c26.5 0 48 21.5 48 48s-21.5 48-48 48H64c-26.5 0-48-21.5-48-48zm16 96c0-8.8 7.2-16 16-16H464c8.8 0 16 7.2 16 16v16c0 35.3-28.7 64-64 64H96c-35.3 0-64-28.7-64-64V400z'],
+    car: ['0 0 640 512', 'M171.3 96H224v96H111.3l30.4-75.9C146.5 104 158.2 96 171.3 96zM272 192V96h81.2c9.7 0 18.9 4.4 25 12l67.2 84H272zm256.2 1L428.2 68c-18.2-22.8-45.8-36-75-36H171.3c-39.3 0-74.6 23.9-89.1 60.3L40.6 196.4C16.8 205.8 0 228.9 0 256V368c0 17.7 14.3 32 32 32H65.3c7.6 45.4 47.1 80 94.7 80s87.1-34.6 94.7-80H385.3c7.6 45.4 47.1 80 94.7 80s87.1-34.6 94.7-80H608c17.7 0 32-14.3 32-32V320c0-65.2-48.8-119-111.8-127zM434.7 368a48 48 0 1 1 90.5 32 48 48 0 1 1 -90.5-32zM160 336a48 48 0 1 1 0 96 48 48 0 1 1 0-96z'],
+    star: ['0 0 576 512', 'M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z'],
+    dog: ['0 0 576 512', 'M309.6 158.5L332.7 19.8C334.6 8.4 344.5 0 356.1 0c7.5 0 14.5 3.5 19 9.5L392 32h52.1c12.7 0 24.9 5.1 33.9 14.1L496 64h56c13.3 0 24 10.7 24 24v24c0 44.2-35.8 80-80 80H464 448 426.7l-5.1 30.5-112-64zM416 256.1L416 480c0 17.7-14.3 32-32 32H352c-17.7 0-32-14.3-32-32V364.8c-24 12.3-51.2 19.2-80 19.2s-56-6.9-80-19.2V480c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32V249.8c-28.8-10.9-51.4-35.3-59.2-66.5L1 167.8c-4.3-17.1 6.1-34.5 23.3-38.8s34.5 6.1 38.8 23.3l3.9 15.5C70.5 182 83.3 192 98 192h30 16H303.8L416 256.1zM464 80a16 16 0 1 0 -32 0 16 16 0 1 0 32 0z'],
+    beach: ['0 0 576 512', 'M346.3 271.8l-60.1-21.9L214 448H32c-17.7 0-32 14.3-32 32s14.3 32 32 32H544c17.7 0 32-14.3 32-32s-14.3-32-32-32H282.1l64.1-176.2zm121.1-.2l-3.3 9.1 67.7 24.6c18.1 6.6 38-4.2 39.6-23.4c6.5-78.5-23.9-155.5-80.8-208.5c2 8 3.2 16.3 3.4 24.8l.2 6c1.8 57-7.3 113.8-26.8 167.4zM462 99.1c-1.1-34.4-22.5-64.8-54.4-77.4c-.9-.4-1.9-.7-2.8-1.1c-33-11.7-69.8-2.4-93.1 23.8l-4 4.5C272.4 88.3 245 134.2 226.8 184l-3.3 9.1L434 269.7l3.3-9.1c18.1-49.8 26.6-102.5 24.9-155.5l-.2-6zM107.2 112.9c-11.1 15.7-2.8 36.8 15.3 43.4l71 25.8 3.3-9.1c19.5-53.6 49.1-103 87.1-145.5l4-4.5c6.2-6.9 13.1-13 20.5-18.2c-79.6 2.5-154.7 42.2-201.2 108z'],
+    drive: ['0 0 576 512', 'M256 32H181.2c-27.1 0-51.3 17.1-60.3 42.6L3.1 407.2C1.1 413 0 419.2 0 425.4C0 455.5 24.5 480 54.6 480H256V416c0-17.7 14.3-32 32-32s32 14.3 32 32v64H521.4c30.2 0 54.6-24.5 54.6-54.6c0-6.2-1.1-12.4-3.1-18.2L455.1 74.6C446 49.1 421.9 32 394.8 32H320V96c0 17.7-14.3 32-32 32s-32-14.3-32-32V32zm64 192v64c0 17.7-14.3 32-32 32s-32-14.3-32-32V224c0-17.7 14.3-32 32-32s32 14.3 32 32z']
+};
+const activityIcon = (id) => {
+    const [vb, d] = ACTIVITY_ICONS[id];
+    return `<svg class="activity-icon" viewBox="${vb}" aria-hidden="true" focusable="false"><path fill="currentColor" d="${d}"/></svg>`;
+};
+
 const renderLifestyle = (cur, daily, hourly) => {
     const list = document.getElementById('lifestyle-list');
     if (!list || !daily) return;
@@ -1303,14 +1360,14 @@ const renderLifestyle = (cur, daily, hourly) => {
     const probToday    = daily[0] ? (daily[0].rainProbMax || 0) : 0;
     const probTomorrow = daily[1] ? (daily[1].rainProbMax || 0) : 0;
     const activities = [
-        { id: 'run',   name: 'Running',       icon: 'fa-solid fa-person-running', check: () => { if (isRain || isSnow || cur.temp > 32 || cur.temp < -5 || cur.windSpeed > 35) return 'bad'; if (probToday > 50 || cur.temp > 26 || cur.temp < 5 || cur.windSpeed > 20) return 'fair'; return 'good'; } },
-        { id: 'cycle', name: 'Ciclismo',      icon: 'fa-solid fa-bicycle',        check: () => { if (isRain || isSnow || cur.windSpeed > 30 || cur.temp > 35) return 'bad'; if (cur.windSpeed > 15 || cur.temp < 5 || cur.temp > 28) return 'fair'; return 'good'; } },
-        { id: 'bbq',   name: 'Barbacoa',      icon: 'fa-solid fa-burger',         check: () => { if (isRain || isSnow || probToday > 30 || cur.windSpeed > 25) return 'bad'; if (cur.temp < 15 || probToday > 10 || cur.windSpeed > 15) return 'fair'; return 'good'; } },
-        { id: 'car',   name: 'Lavar Coche',   icon: 'fa-solid fa-car-side',       check: () => { if (isRain || isSnow || probToday >= 10 || probTomorrow >= 10) return 'bad'; if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair'; return 'good'; } },
-        { id: 'star',  name: 'Estrellas',     icon: 'fa-solid fa-star',           check: () => { if (cur.isDay || cur.cloudCover > 50 || isRain || isSnow) return 'bad'; if (cur.cloudCover > 20) return 'fair'; return 'good'; } },
-        { id: 'dog',   name: 'Paseo Perro',   icon: 'fa-solid fa-dog',            check: () => { if (isStorm || isRain || cur.temp > 30 || cur.temp < -10) return 'bad'; if (probToday > 50 || cur.temp > 25 || cur.temp < 5) return 'fair'; return 'good'; } },
-        { id: 'beach', name: 'Playa',         icon: 'fa-solid fa-umbrella-beach', check: () => { if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad'; if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair'; return 'good'; } },
-        { id: 'drive', name: 'Conducir',      icon: 'fa-solid fa-road',           check: () => { if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad'; if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair'; return 'good'; } }
+        { id: 'run',   name: 'Running',       check: () => { if (isRain || isSnow || cur.temp > 32 || cur.temp < -5 || cur.windSpeed > 35) return 'bad'; if (probToday > 50 || cur.temp > 26 || cur.temp < 5 || cur.windSpeed > 20) return 'fair'; return 'good'; } },
+        { id: 'cycle', name: 'Ciclismo',      check: () => { if (isRain || isSnow || cur.windSpeed > 30 || cur.temp > 35) return 'bad'; if (cur.windSpeed > 15 || cur.temp < 5 || cur.temp > 28) return 'fair'; return 'good'; } },
+        { id: 'bbq',   name: 'Barbacoa',      check: () => { if (isRain || isSnow || probToday > 30 || cur.windSpeed > 25) return 'bad'; if (cur.temp < 15 || probToday > 10 || cur.windSpeed > 15) return 'fair'; return 'good'; } },
+        { id: 'car',   name: 'Lavar Coche',   check: () => { if (isRain || isSnow || probToday >= 10 || probTomorrow >= 10) return 'bad'; if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair'; return 'good'; } },
+        { id: 'star',  name: 'Estrellas',     check: () => { if (cur.isDay || cur.cloudCover > 50 || isRain || isSnow) return 'bad'; if (cur.cloudCover > 20) return 'fair'; return 'good'; } },
+        { id: 'dog',   name: 'Paseo Perro',   check: () => { if (isStorm || isRain || cur.temp > 30 || cur.temp < -10) return 'bad'; if (probToday > 50 || cur.temp > 25 || cur.temp < 5) return 'fair'; return 'good'; } },
+        { id: 'beach', name: 'Playa',         check: () => { if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad'; if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair'; return 'good'; } },
+        { id: 'drive', name: 'Conducir',      check: () => { if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad'; if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair'; return 'good'; } }
     ];
     setHTMLIfChanged(list, activities.map(act => {
         const status  = act.check();
@@ -1321,7 +1378,7 @@ const renderLifestyle = (cur, daily, hourly) => {
             : (status === 'bad' ? 'Hoy no' : '');
         const ariaLabel = `${act.name}: ${status === 'good' ? 'Ideal' : status === 'fair' ? 'Regular' : 'Malo'}${timeLabel ? '. ' + timeLabel : ''}`;
         return `<div class="activity-item" role="img" aria-label="${ariaLabel}">
-            <i class="${act.icon} activity-icon"></i>
+            ${activityIcon(act.id)}
             <div class="status-dot status-${status}"></div>
             <span class="activity-name">${act.name}</span>
             <span class="activity-time${status === 'bad' && window ? ' activity-time--rescue' : ''}">${timeLabel}</span>
@@ -1350,7 +1407,8 @@ document.addEventListener('click', (e) => {
     switch (el.dataset.action) {
         case 'toggle-day':     toggleDay(Number(el.dataset.day)); break;
         case 'close-share':    closeShareModal(); break;
-        case 'download-share': downloadShareCard(); break;
+        case 'close-notif':    closeNotifModal(); break;
+        case 'download-share': downloadShareCard(el); break;
         case 'retry':          retryWeather(); break;
         case 'goto-rain': {
             const card = document.getElementById('rain-card');
@@ -1359,6 +1417,22 @@ document.addEventListener('click', (e) => {
             break;
         }
     }
+});
+
+// Modal de pedir avisos
+const notifModal = document.getElementById('notificationModal');
+// Se pregunta una sola vez: después queda la campana del hero
+function openNotifModal() {
+    if (!notifModal || notifPermission() !== 'default') return;
+    try { if (localStorage.getItem('aeris_notif_asked')) return; localStorage.setItem('aeris_notif_asked', '1'); } catch (e) {}
+    notifModal.classList.add('show');
+    document.getElementById('enableNotifBtn')?.focus({ preventScroll: true });
+}
+function closeNotifModal() { notifModal?.classList.remove('show'); }
+notifModal?.addEventListener('click', (e) => { if (e.target === notifModal) closeNotifModal(); });
+document.getElementById('enableNotifBtn')?.addEventListener('click', () => {
+    closeNotifModal();
+    registerPush(false); // dentro del toque: Safari solo pide el permiso así
 });
 
 // Modal iOS: tocar el fondo cierra; tocar la hoja no
@@ -1495,7 +1569,8 @@ async function updateBellUI() {
     }
     if (on) localStorage.setItem('aeris_push_on', '1'); else localStorage.removeItem('aeris_push_on');
     btn.classList.toggle('is-on', on);
-    btn.querySelector('i').className = on ? 'bi bi-bell-fill' : 'bi bi-bell';
+    // Mientras está ocupada lleva el icono de carga; se pone al terminar
+    if (!btn.classList.contains('is-loading')) btn.querySelector('i').className = on ? 'bi bi-bell-fill' : 'bi bi-bell';
     btn.setAttribute('aria-label', on ? 'Avisos activados' : 'Activar avisos del tiempo');
 }
 document.getElementById('bellBtn')?.addEventListener('click', () => {
@@ -1515,7 +1590,11 @@ document.getElementById('bellBtn')?.addEventListener('click', () => {
     }
     // Si ya están activos, tocarla vuelve a sincronizar la ciudad y manda
     // otra notificación de prueba: sirve para comprobar que siguen llegando.
-    registerPush(false); // pide el permiso aquí mismo si hace falta, dentro del toque
+    const btn = document.getElementById('bellBtn');
+    if (btn.disabled) return;
+    setBusy(btn, true);
+    // pide el permiso aquí mismo si hace falta, dentro del toque
+    registerPush(false).finally(() => { setBusy(btn, false); updateBellUI(); });
 });
 
 // Toast mínimo: entra y sale por abajo (mismo camino), transición y no
@@ -1838,11 +1917,17 @@ if (geoBtn) {
 // ============================================================
 // 30. ONBOARDING
 // ============================================================
+// Lo que tiene que esperar a que se cierre la bienvenida (p. ej. pedir avisos)
+let onboardingOpen = false;
+const afterOnboardingQueue = [];
+const afterOnboarding = (fn) => { if (onboardingOpen) afterOnboardingQueue.push(fn); else fn(); };
+
 function initOnboarding() {
     if (localStorage.getItem('aeris_onboarding_done')) return;
     const overlay = document.getElementById('onboarding-overlay');
     if (!overlay) return;
     overlay.style.display = 'flex';
+    onboardingOpen = true;
     lockScroll(true);
     let slide = 0;
     const slides = document.querySelectorAll('.onboarding-slide');
@@ -1861,6 +1946,8 @@ function initOnboarding() {
         localStorage.setItem('aeris_onboarding_done', '1');
         overlay.classList.add('is-leaving');
         lockScroll(false);
+        onboardingOpen = false;
+        afterOnboardingQueue.splice(0).forEach(fn => fn());
         setTimeout(() => { overlay.style.display = 'none'; overlay.classList.remove('is-leaving'); }, 230);
     };
     next.addEventListener('click', () => {
@@ -1880,16 +1967,13 @@ window.addEventListener('load', () => {
 
     // Modal notificaciones: solo si el navegador puede recibirlas y el
     // servidor puede enviarlas (no pedimos un permiso que no sirve de nada)
+    // Sale un poco después de quitarse el splash, y si está la bienvenida
+    // abierta, al cerrarla (antes salían las dos a la vez, una encima de otra).
     if (pushSupported() && notifPermission() === 'default') {
         setTimeout(async () => {
             if (!(await getVapidKey())) return;
-            const modalEl = document.getElementById('notificationModal');
-            if (modalEl && window.bootstrap) {
-                const bsModal = new bootstrap.Modal(modalEl);
-                bsModal.show();
-                document.getElementById('enableNotifBtn').onclick = () => { bsModal.hide(); registerPush(false); };
-            }
-        }, 3500);
+            afterOnboarding(() => setTimeout(openNotifModal, 600));
+        }, SPLASH_MIN_MS + 1500);
     }
 
     renderFavorites();

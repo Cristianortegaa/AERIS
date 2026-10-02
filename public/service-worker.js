@@ -1,10 +1,11 @@
-const CACHE_NAME = 'aeris-v25';
+const CACHE_NAME = 'aeris-v26';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=16',
-    '/app.js?v=16',
+    '/styles.css?v=17',
+    '/app.js?v=17',
+    '/vendor/bootstrap-reboot.min.css',
     '/logo.png',
     '/icono-clima.png',
     '/apple-touch-icon.png',
@@ -16,10 +17,7 @@ const CORE_ASSETS = [
 // guardar, se ignora. (Antes un solo fallo aquí tumbaba la instalación entera
 // y el service worker nunca se activaba: sin él no hay notificaciones.)
 const EXTRA_ASSETS = [
-    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
-    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
     'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
     'https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400..600&display=swap'
 ];
 

@@ -132,6 +132,19 @@ body.bg-hot .sky { --sky-top: #a8290a; --sky-mid: #d9520e; --sky-bottom: #ee8b25
 /* ------------------------------------------------------------
    3. BASE + CAPA NATIVA MÓVIL
    ------------------------------------------------------------ */
+/* Lo poco de Bootstrap que se usaba (el reboot va aparte, en vendor/) */
+.container { width: 100%; margin-right: auto; margin-left: auto; }
+.small { font-size: 0.875em; }
+.fw-bold { font-weight: 700 !important; }
+.text-center { text-align: center !important; }
+.text-uppercase { text-transform: uppercase !important; }
+.w-100 { width: 100% !important; }
+.opacity-50 { opacity: 0.5 !important; }
+.opacity-75 { opacity: 0.75 !important; }
+.ms-1 { margin-left: 0.25rem !important; }
+.me-2 { margin-right: 0.5rem !important; }
+.mt-2 { margin-top: 0.5rem !important; }
+
 html {
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
@@ -435,7 +448,9 @@ body:not(.is-ready) .alert-card { animation-play-state: paused; }
 .btn-icon:active { transform: scale(0.92); }
 .btn-icon.sm { width: 38px; height: 38px; box-shadow: none; background: var(--fill-1); border-color: var(--hairline); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .btn-icon.sm i { font-size: 0.95rem; }
-.btn-icon.is-loading i { animation: spin 0.9s linear infinite; }
+.btn-icon.is-loading i,
+.btn-pill.is-loading i { display: inline-block; animation: spin 0.9s linear infinite; }
+.btn-pill:disabled { opacity: 0.75; cursor: default; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .btn-icon i { display: inline-block; }
 
@@ -1335,7 +1350,7 @@ body:not(.is-ready) .alert-card { animation-play-state: paused; }
     border: 1px solid var(--hairline);
     text-align: center;
 }
-.activity-icon { font-size: 1.3rem; color: var(--text); margin-bottom: 2px; }
+.activity-icon { width: 1.3rem; height: 1.3rem; color: var(--text); margin-bottom: 2px; }
 .activity-item:has(.status-bad) .activity-icon { opacity: 0.45; }
 .activity-item .status-dot { position: absolute; top: 8px; right: 8px; }
 .activity-name { font-size: 0.68rem; font-weight: 600; line-height: 1.2; color: var(--text); }
@@ -1951,10 +1966,9 @@ body:not(.is-ready) .alert-card { animation-play-state: paused; }
 @keyframes fadeIn  { from { opacity: 0; } }
 @keyframes slideIn { from { opacity: 0; transform: translateX(18px); filter: blur(4px); } }
 
-/* Modal de notificaciones (Bootstrap) */
-.modal.fade .modal-dialog { transform: scale(0.96); transition: transform 250ms var(--ease-out); }
-.modal.show .modal-dialog { transform: none; }
-.modal-backdrop.show { opacity: 0.55; }
+/* Modal de notificaciones: mismo sistema que el de compartir */
+.notif-modal { z-index: 10000; background: rgba(2, 6, 18, 0.55); }
+.notif-dialog { max-width: 420px; }
 .sheet-surface {
     border-radius: 30px !important;
     border: 1px solid var(--stroke) !important;
@@ -2006,15 +2020,26 @@ body:not(.is-ready) .alert-card { animation-play-state: paused; }
 #installBtn:active { transform: translateX(-50%) scale(0.96); }
 @keyframes installIn { from { opacity: 0; transform: translate(-50%, 16px); } }
 
+/* Igual que el sheet de personalidades: entra y sale por el mismo camino
+   (transiciones, no keyframes) y se puede arrastrar para cerrar */
 #iosInstallModal {
     position: fixed;
     inset: 0;
     z-index: 10000;
-    display: none;
+    display: flex;
     align-items: flex-end;
     justify-content: center;
     background: rgba(2, 6, 18, 0.7);
-    animation: fadeIn 250ms ease backwards;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 250ms var(--ease-out), visibility 0s linear 300ms;
+}
+#iosInstallModal.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 250ms var(--ease-out), visibility 0s;
 }
 .ios-content {
     position: relative;
@@ -2027,9 +2052,12 @@ body:not(.is-ready) .alert-card { animation-play-state: paused; }
     border-bottom: 0;
     color: #fff;
     text-align: center;
-    animation: sheetUp 420ms var(--ease-drawer) backwards;
+    transform: translateY(100%);
+    transition: transform 300ms var(--ease-drawer);
 }
-@keyframes sheetUp { from { transform: translateY(100%); } }
+#iosInstallModal.show .ios-content { transform: none; transition: transform 420ms var(--ease-drawer); }
+.ios-drag-zone { position: relative; margin: 0 -22px; padding: 0 22px 2px; touch-action: none; cursor: grab; }
+.ios-close { position: absolute; top: 4px; right: 14px; }
 .ios-logo { width: 64px; border-radius: 16px; margin: 6px 0 14px; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
 .ios-title { margin: 0 0 4px; font-size: 1.3rem; font-weight: 600; letter-spacing: -0.025em; }
 .ios-title.warn { color: #ff8a8a; }
@@ -2191,7 +2219,7 @@ body:not(.is-ready) .alert-card { animation-play-state: paused; }
     .sky-blob, .icon-float, .live-dot::after, .ios-arrow-hint, .splash-bar span { animation: none !important; }
     .layout .glass-card, .alert-card, .persona-modal.show .persona-option,
     .onboarding-card, .onboarding-slide.active, #error-banner,
-    .splash-mark, .splash-title, .splash-bar, .ios-content, #installBtn {
+    .splash-mark, .splash-title, .splash-bar, #installBtn {
         animation-name: fadeIn !important;
     }
     #pollen-list .pollen-bar-fill, .nowcast-chart .nc-bar i { animation: none !important; }
@@ -2199,8 +2227,9 @@ body:not(.is-ready) .alert-card { animation-play-state: paused; }
     .sky { transition: none; }
     .fav-sidebar { transform: none; opacity: 0; transition: opacity 200ms ease, visibility 0s linear 200ms; }
     .fav-sidebar.open { opacity: 1; transition: opacity 200ms ease, visibility 0s; }
-    .persona-content, .persona-modal.show .persona-content { transform: none; }
-    .share-dialog, .modal.fade .modal-dialog { transform: none; }
+    .persona-content, .persona-modal.show .persona-content,
+    .ios-content, #iosInstallModal.show .ios-content { transform: none; }
+    .share-dialog { transform: none; }
     .suggestions-list { transform: none; }
     .bnav-indicator { transition-duration: 0ms; }
     .day-detail, .day-detail-body { transition: none; transform: none; }
