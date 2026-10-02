@@ -820,7 +820,16 @@ const updateAIText = (cur, highPollen = false) => {
     else if (t < 12) key = 'cold';
     else if (d.includes('nublado') || d.includes('cubierto') || d.includes('nubes') || d.includes('niebla')) key = 'cloudy';
     const frases = p.tips[key] || p.tips['nice'];
-    document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)];
+    // Con un aviso naranja o rojo la personalidad no bromea: tono neutro
+    const serious = seriousAviso(window._lastFullData);
+    const chip = document.getElementById('ai-toggle');
+    if (chip) { chip.classList.toggle('is-serious', !!serious); chip.dataset.level = serious ? serious.level : ''; }
+    if (serious) {
+        document.getElementById('tip-icon').innerText = '⚠️';
+        document.getElementById('tip-text').innerText = serious.text;
+    } else {
+        document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)];
+    }
     // Para la ropa cuenta el UV máximo del día, no el de este momento
     const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, Math.round(cur.uvMax ?? cur.uv));
     const clothingContainer = document.getElementById('clothing-advice');
@@ -1182,7 +1191,9 @@ function buildNowcast(data) {
     }
 
     // --- Sin lluvia en 2 h: ¿la hay en las próximas horas? (modo horario) ---
-    const hourly = (data.hourly || []).slice(0, 6);
+    // Cada valor horario es la lluvia de la hora ANTERIOR ("23:00" =
+    // 22:00–23:00): solo cuentan los tramos que aún no han terminado
+    const hourly = upcomingHours(data).slice(0, 6);
     const hTotal = hourly.reduce((a, h) => a + (h.precip || 0), 0);
     if (hourly.length && hTotal >= 0.1) {
         // El valor horario es lo que cae en la hora ANTERIOR: "14:00" = 13:00–14:00
@@ -1258,6 +1269,8 @@ let lastFetchAt = 0;
 setInterval(() => {
     if (document.visibilityState !== 'visible' || !window._lastFullData) return;
     renderNowcast(window._lastFullData);
+    renderFreshness();
+    updateLivePill();
 }, 60000);
 const refreshIfStale = () => {
     if (document.visibilityState === 'visible' && lastFetchAt && Date.now() - lastFetchAt > 10 * 60000) getWeather(currentId);
@@ -1314,25 +1327,30 @@ function getBestWindows(activityId, hourly) {
 const renderPollen = (pollen) => {
     const card = document.getElementById('pollen-card'), list = document.getElementById('pollen-list');
     if (!pollen || Object.values(pollen).every(v => v === 0)) { card.style.display = 'none'; return false; }
+    // Las 6 especies que da Open-Meteo (CAMS). No incluye cupresáceas ni
+    // plátano de sombra: se dice en la tarjeta.
     const types = [
         { k: 'grass', n: 'Gramíneas', color: '#84cc16' }, { k: 'olive', n: 'Olivo', color: '#eab308' },
         { k: 'birch', n: 'Abedul', color: '#f97316' }, { k: 'ragweed', n: 'Ambrosía', color: '#ef4444' },
-        { k: 'alder', n: 'Aliso', color: '#a855f7' }, { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' },
-        { k: 'oak', n: 'Roble', color: '#854d0e' }, { k: 'pine', n: 'Pino', color: '#166534' },
-        { k: 'cypress', n: 'Ciprés', color: '#14b8a6' }, { k: 'hazel', n: 'Avellano', color: '#d97706' },
-        { k: 'plane', n: 'P. Sombra', color: '#86efac' }, { k: 'poplar', n: 'Chopo', color: '#cbd5e1' },
-        { k: 'ash', n: 'Fresno', color: '#64748b' }
+        { k: 'alder', n: 'Aliso', color: '#a855f7' }, { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' }
     ];
     types.sort((a, b) => (pollen[b.k] || 0) - (pollen[a.k] || 0));
     const activeTypes = types.filter(t => pollen[t.k] > 5).slice(0, 4);
     if (activeTypes.length === 0) { card.style.display = 'none'; return false; }
     card.style.display = 'block';
     let isHigh = false;
+    // Pico de los próximos días por especie ("mañana alto")
+    const days = (window._lastFullData?.airDaily || []).slice(1, 4);
+    const peak = (k) => {
+        const d = days.find(d => (d[k] || 0) > 50);
+        return d ? new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '') : '';
+    };
     const html = activeTypes.map(t => {
         const val = pollen[t.k] || 0, percent = Math.min((val / 100) * 100, 100);
         if (val > 50) isHigh = true;
-        return `<div class="pollen-item"><span class="pollen-name">${t.n}</span><div class="pollen-bar-bg"><div class="pollen-bar-fill" style="width:${percent}%;background-color:${t.color}"></div></div><span class="pollen-val">${val}</span></div>`;
-    }).join('');
+        const p = peak(t.k);
+        return `<div class="pollen-item"><span class="pollen-name">${t.n}${p ? `<small>alto el ${p}</small>` : ''}</span><div class="pollen-bar-bg"><div class="pollen-bar-fill" style="width:${percent}%;background-color:${t.color}"></div></div><span class="pollen-val">${val}</span></div>`;
+    }).join('') + '<p class="pollen-note">No incluye cupresáceas ni plátano de sombra.</p>';
     // Igual que el nowcast: las barras se revelan al cambiar de sitio, no en cada refresco
     if (setHTMLIfChanged(list, html)) list.classList.toggle('is-animated', list._place !== currentId);
     list._place = currentId;
@@ -1701,6 +1719,157 @@ function showToast(message, type = 'ok') {
 }
 
 // ============================================================
+// 26b. CONFIANZA Y CONTEXTO (resumen, aire, frescura, modo serio)
+// ============================================================
+
+// Aviso que manda ahora: naranja o rojo oficial activo o que empieza en
+// menos de 12 h, o una alerta propia roja. Con él, las personalidades no bromean.
+function seriousAviso(data) {
+    if (!data) return null;
+    const soon = Date.now() + 12 * 3600e3;
+    const oficial = groupAvisos((data.avisosOficiales || []).filter(a =>
+        (a.nivel === 'rojo' || a.nivel === 'naranja') && (!a.onset || new Date(a.onset).getTime() <= soon)))[0];
+    if (oficial) {
+        const fen = joinEs(oficial.fenomenos.map(f => f.toLowerCase()));
+        const rango = avisoRango(oficial.onset, oficial.expires, data.location?.timezone);
+        return { level: oficial.nivel, text: `Aviso ${oficial.nivel} por ${fen}${rango ? ' · ' + rango : ''}. Toma precauciones.` };
+    }
+    const propia = (data.alerts || []).find(a => a.level === 'red');
+    return propia ? { level: 'rojo', text: `${propia.title}. ${propia.msg}` } : null;
+}
+
+// Horas cuyo tramo aún no ha terminado (la lluvia de "15:00" es la de 14–15 h)
+function upcomingHours(data) {
+    const nowKey = data.location?.timezone ? localNowKey(data.location.timezone) : null;
+    const all = data.hourly || [];
+    return nowKey ? all.filter(x => !x.fullDate || x.fullDate > nowKey) : all.slice(1);
+}
+
+// Una frase con lo que viene en las próximas 12 h (sin LLM: reglas sobre
+// los datos horarios). Mejor prudente que precisa de más.
+function buildDaySummary(data) {
+    // La lluvia de cada hora es la de la hora ANTERIOR ("15:00" = 14–15 h):
+    // se salta la que ya ha pasado y se habla del inicio de cada tramo
+    const h = upcomingHours(data).slice(0, 13);
+    if (h.length < 4) return '';
+    const hh = (x) => `${String(x.hour).padStart(2, '0')}:00`;
+    const hhStart = (x) => `${String((x.hour + 23) % 24).padStart(2, '0')}:00`;
+    const wet = (x) => (x.precip || 0) >= 0.2 || (x.rainProb || 0) >= 60;
+    const isSnow = /nieve|nevada/i.test(data.current?.desc || '');
+    const noun = isSnow ? 'Nieve' : 'Lluvia';
+    const parts = [];
+    const firstWet = h.findIndex(wet);
+    // Lo de los tramos de 15 min manda para "ahora" (es más fino que lo horario)
+    const ncNow = (data.nowcast?.precipitation || []).slice(0, 2).some(v => (v || 0) >= NC_WET);
+    if (firstWet === -1 && ncNow) {
+        parts.push(`${noun} ahora; después, sin ${noun.toLowerCase()} en las próximas horas`);
+    } else if (firstWet === -1) {
+        const maybe = h.some(x => (x.rainProb || 0) >= 35);
+        parts.push(maybe ? 'Algún chubasco posible, pero lo más probable es que no llueva' : 'Sin lluvia en las próximas horas');
+    } else if (ncNow && firstWet > 0) {
+        parts.push(`${noun} ahora y otra vez a partir de las ${hhStart(h[firstWet])}`);
+    } else {
+        let end = firstWet;
+        while (end + 1 < h.length && wet(h[end + 1])) end++;
+        const stops = end + 1 < h.length ? h[end + 1] : null;
+        if (firstWet === 0) parts.push(stops ? `${noun} hasta las ${hhStart(stops)}` : `${noun} durante las próximas horas`);
+        else parts.push(`${noun} a partir de las ${hhStart(h[firstWet])}${stops && end - firstWet < 8 ? `, hasta las ${hhStart(stops)}` : ''}`);
+    }
+    // Temperatura: la máxima si aún está por llegar; si no, la mínima de la noche
+    const temps = [data.current?.temp ?? h[0].temp, ...h.map(x => x.temp)];
+    const at = (i) => h[i - 1];
+    const iMax = temps.indexOf(Math.max(...temps)), iMin = temps.indexOf(Math.min(...temps));
+    if (iMax >= 2 && temps[iMax] - temps[0] >= 2) parts.push(`máxima de ${fmtTemp(temps[iMax])}° hacia las ${hh(at(iMax))}`);
+    else if (iMin >= 2 && temps[0] - temps[iMin] >= 3) parts.push(`bajará a ${fmtTemp(temps[iMin])}° hacia las ${hh(at(iMin))}`);
+    const gust = Math.max(...h.map(x => x.gust || 0));
+    if (gust >= 50) parts.push(`rachas de hasta ${fmtWind(gust)} ${windUnit()}`);
+    return parts.join('; ') + '.';
+}
+
+// Calidad del aire con el índice europeo / ICA español (antes, el de EE. UU.)
+const ICA_LEVELS = [
+    [20, 'Buena', '#50f0e6'], [40, 'Razonablemente buena', '#50ccaa'], [60, 'Regular', '#f0e641'],
+    [80, 'Desfavorable', '#ff5050'], [100, 'Muy desfavorable', '#c8507a'], [Infinity, 'Extremadamente desfavorable', '#a0508c']
+];
+const icaLevel = (v) => ICA_LEVELS.find(([max]) => v <= max) || ICA_LEVELS[ICA_LEVELS.length - 1];
+// Polvo en suspensión (calima): µg/m³ de CAMS
+const dustLevel = (d) => d >= 100 ? 'intensa' : d >= 50 ? 'moderada' : d >= 25 ? 'leve' : null;
+
+function renderAir(data) {
+    const cur = data.current;
+    const eaqi = cur.eaqi;
+    if (eaqi == null) return false; // sin datos: se queda lo que hay
+    const [, label, color] = icaLevel(eaqi);
+    document.getElementById('aqi-val').innerText = Math.round(eaqi);
+    const txt = document.getElementById('aqi-text');
+    txt.innerText = label;
+    txt.style.setProperty('--tone', color);
+    document.getElementById('aqi-dot').style.transform = `translateX(${Math.min(eaqi, 100)}cqw)`;
+    const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+    document.getElementById('pm25').innerText = `${fmt1.format(cur.pm25)} µg/m³`;
+    document.getElementById('pm10').innerText = `${fmt1.format(cur.pm10)} µg/m³`;
+
+    // Calima ahora y en los próximos días, con "lluvia de barro" si coincide con lluvia
+    const calimaEl = document.getElementById('calima-row');
+    const days = (data.airDaily || []).slice(0, 4);
+    const lvlNow = dustLevel(cur.dust || 0);
+    const nextDusty = days.slice(1).find(d => dustLevel(d.dust || 0) === 'moderada' || dustLevel(d.dust || 0) === 'intensa');
+    if (calimaEl) {
+        let html = '';
+        if (lvlNow || nextDusty) {
+            const today = data.daily && data.daily[0];
+            const barro = lvlNow && lvlNow !== 'leve' && today && ((today.precipSum || 0) >= 0.5 || (today.rainProbMax || 0) >= 50);
+            const dayName = (f) => new Date(f.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'long' });
+            const main = lvlNow ? `Calima ${lvlNow} · ${Math.round(cur.dust)} µg/m³` : `Calima ${dustLevel(nextDusty.dust)} el ${dayName(nextDusty.fecha)}`;
+            const tip = barro ? 'Posible lluvia de barro: mejor no tender ni lavar el coche.'
+                : (lvlNow === 'moderada' || lvlNow === 'intensa') ? 'Si tienes asma o alergia, evita el ejercicio intenso fuera.' : '';
+            html = `<i class="bi bi-wind" aria-hidden="true"></i><div><b>${escapeHTML(main)}</b>${tip ? `<span>${escapeHTML(tip)}</span>` : ''}</div>`;
+        }
+        setHTMLIfChanged(calimaEl, html);
+        calimaEl.hidden = !html;
+    }
+    // Próximos días: un punto de color por día
+    const fc = document.getElementById('aqi-forecast');
+    if (fc) {
+        setHTMLIfChanged(fc, days.length > 1 ? days.map((d, i) => {
+            const [, l, c] = icaLevel(d.eaqi ?? 0);
+            const name = i === 0 ? 'Hoy' : new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
+            return `<span class="aqi-day" title="${escapeHTML(l)}"><i style="background:${c}"></i>${escapeHTML(name)}</span>`;
+        }).join('') : '');
+    }
+    return true;
+}
+
+// "Actualizado hace 14 min" cuando los datos tienen ya un rato, y de dónde salen
+function renderFreshness() {
+    const el = document.getElementById('freshness');
+    const data = window._lastFullData;
+    if (!el || !data) return;
+    const ts = Date.parse(data.updatedAt || '') || (lastFetchAt || 0);
+    const mins = ts ? Math.round((Date.now() - ts) / 60000) : 0;
+    let txt = '';
+    if (mins >= 10) {
+        txt = mins < 60 ? `Actualizado hace ${mins} min`
+            : `Datos de las ${new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    el.textContent = txt;
+    el.hidden = !txt;
+}
+
+// Píldora de lluvia que se queda arriba al hacer scroll (como un Live Activity)
+let livePillDismissed = false;
+function updateLivePill() {
+    const pill = document.getElementById('live-pill');
+    const src = document.getElementById('nowcast-pill');
+    if (!pill || !src) return;
+    const active = !src.hidden;
+    if (!active) livePillDismissed = false; // terminó el episodio: el siguiente se vuelve a mostrar
+    pill.querySelector('.live-pill-text').textContent = document.getElementById('nowcast-pill-text')?.textContent || '';
+    pill.classList.toggle('is-snow', src.classList.contains('is-snow'));
+    document.body.classList.toggle('has-live-pill', active && !livePillDismissed);
+}
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -1775,6 +1944,7 @@ const renderWeather = (data) => {
     document.getElementById('pm10').innerText = cur.pm10 !== undefined ? cur.pm10 + (typeof cur.pm10 === 'number' ? ' µg/m³' : '') : '--';
     // transform en vez de left: el punto se desliza sin recalcular layout
     document.getElementById('aqi-dot').style.transform = `translateX(${Math.min((aqi / 300) * 100, 100)}cqw)`;
+    renderAir(data);
 
     // Max/Min
     if (data.daily && data.daily.length > 0) {
@@ -1788,6 +1958,9 @@ const renderWeather = (data) => {
     const isHighPollen = renderPollen(data.pollen);
     renderLifestyle(cur, data.daily, data.hourly);
     renderAlerts(data.alerts, data.avisosOficiales);
+    setHTMLIfChanged(document.getElementById('day-summary'), escapeHTML(buildDaySummary(data)));
+    renderFreshness();
+    updateLivePill();
     updateAIText(cur, isHighPollen);
     setDynamicBackground(cur);
     renderComfort(cur.temp, cur.humidity, cur.windSpeed, cur.uv, cur.desc);
@@ -1827,8 +2000,9 @@ const renderWeather = (data) => {
     // Daily: barras de rango sobre la escala de toda la semana (estilo iOS)
     const dCont = document.getElementById('daily');
     if (dCont && data.daily && data.daily.length) {
-        const weekMin = Math.min(...data.daily.map(d => d.tempMin));
-        const weekMax = Math.max(...data.daily.map(d => d.tempMax));
+        const y = data.yesterday;
+        const weekMin = Math.min(...data.daily.map(d => d.tempMin), ...(y ? [y.tempMin] : []));
+        const weekMax = Math.max(...data.daily.map(d => d.tempMax), ...(y ? [y.tempMax] : []));
         const span = Math.max(1, weekMax - weekMin);
         const pos = (t) => Math.max(0, Math.min(100, ((t - weekMin) / span) * 100));
         const todayStr = new Date().toLocaleDateString('sv-SE');
@@ -1840,7 +2014,9 @@ const renderWeather = (data) => {
             const dayName = isToday ? 'Hoy' : date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
             const dayNum = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '');
             const l = pos(d.tempMin), r = 100 - pos(d.tempMax);
-            const nowDot = isToday ? `<span class="day-now" style="left:${pos(cur.temp)}%"></span>` : '';
+            const y = data.yesterday;
+            const ydMarks = isToday && y ? `<span class="day-yday" style="left:${pos(y.tempMin)}%"></span><span class="day-yday" style="left:${pos(y.tempMax)}%"></span>` : '';
+            const nowDot = isToday ? `${ydMarks}<span class="day-now" style="left:${pos(cur.temp)}%"></span>` : '';
             const hourlyHtml = d.dayHours && d.dayHours.length > 0
                 ? d.dayHours.map(h => {
                     const hour = parseInt(h.time.split(':')[0]);
@@ -1875,7 +2051,7 @@ const renderWeather = (data) => {
     startWeatherAnimation(getAnimationType(cur.desc, cur.isDay));
 
     if (pendingSection) {
-        const target = { lluvia: 'rain-card', avisos: 'alerts-container' }[pendingSection];
+        const target = { lluvia: 'rain-card', avisos: 'alerts-container', radar: 'section-mapa', aire: 'section-ambiente' }[pendingSection];
         pendingSection = null;
         const el = target && document.getElementById(target);
         if (el && el.offsetParent !== null) setTimeout(() => {
@@ -1997,6 +2173,28 @@ async function getWeather(id) {
     renderWeather(data);
     if (notifPermission() === 'granted') registerPush(true);
 }
+
+// La píldora de lluvia se queda arriba cuando el hero sale de pantalla
+(function initLivePill() {
+    const hero = document.getElementById('capture-card');
+    const pill = document.getElementById('live-pill');
+    if (!hero || !pill || !('IntersectionObserver' in window)) return;
+    const navH = () => document.querySelector('.nav-bar')?.offsetHeight || 64;
+    new IntersectionObserver(([e]) => document.body.classList.toggle('hero-out', !e.isIntersecting),
+        { rootMargin: `-${navH()}px 0px 0px 0px`, threshold: 0 }).observe(hero);
+    pill.querySelector('.live-pill-close')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        livePillDismissed = true;
+        document.body.classList.remove('has-live-pill');
+    });
+})();
+
+// Toque en "Actualizado hace…": de dónde salen los datos
+document.getElementById('freshness')?.addEventListener('click', () => {
+    const d = window._lastFullData;
+    const t = d && d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
+    showToast(`Previsión de Open-Meteo (el mejor modelo para tu zona)${t ? `, actualizada a las ${t}` : ''}. Avisos oficiales de AEMET.`, 'ok');
+});
 
 // Al recuperar la red, si había un reintento pendiente se hace ya
 window.addEventListener('online', () => {

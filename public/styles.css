@@ -2289,3 +2289,112 @@ html:has(.fav-sidebar.open, .persona-modal.show, .share-modal.show) {
         transition: opacity 150ms ease, transform 200ms var(--ease-out);
     }
 }
+
+/* ============================================================
+   CONFIANZA Y CONTEXTO
+   ============================================================ */
+/* Modo serio: con aviso naranja o rojo, tono neutro y aro del nivel */
+.ai-chip.is-serious { box-shadow: inset 0 0 0 1px rgba(255, 160, 60, 0.75); }
+.ai-chip.is-serious[data-level="rojo"] { box-shadow: inset 0 0 0 1px rgba(255, 90, 90, 0.85); }
+
+/* "Actualizado hace 14 min": discreto, junto a la hora */
+.hero-fresh {
+    display: inline-block;
+    margin-top: 2px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    cursor: pointer;
+}
+.hero-fresh[hidden] { display: none; }
+
+/* Resumen en una frase */
+.day-summary { margin: -4px 0 12px; font-size: 0.86rem; line-height: 1.4; color: var(--text-2); }
+.day-summary:empty { display: none; }
+
+/* Aire: previsión por días y calima */
+.aqi-forecast { display: flex; gap: 14px; margin-top: 14px; font-size: 0.75rem; color: var(--text-2); text-transform: capitalize; }
+.aqi-forecast:empty { display: none; }
+.aqi-day { display: inline-flex; align-items: center; gap: 6px; }
+.aqi-day i { width: 8px; height: 8px; border-radius: 50%; }
+.calima-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(240, 190, 90, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(240, 190, 90, 0.35);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+.calima-row[hidden] { display: none; }
+.calima-row > i { font-size: 1rem; color: #f3cf7a; margin-top: 1px; }
+.calima-row b { display: block; font-weight: 600; }
+.calima-row span { display: block; color: var(--text-2); }
+
+/* Polen */
+.pollen-name small { display: block; font-size: 0.68rem; color: #fbbf77; font-weight: 600; }
+.pollen-note { margin: 8px 0 0; font-size: 0.72rem; color: var(--text-3); }
+
+/* Hoy: marcas de la mínima y máxima de ayer sobre la barra */
+.day-yday {
+    position: absolute;
+    top: 50%;
+    width: 2px; height: 12px;
+    border-radius: 1px;
+    background: rgba(255, 255, 255, 0.45);
+    transform: translate(-50%, -50%);
+}
+
+/* Píldora de lluvia fija bajo la barra superior */
+.live-pill {
+    position: fixed;
+    left: 50%;
+    top: calc(env(safe-area-inset-top, 0px) + 74px);
+    z-index: 450;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 32px);
+    padding: 8px 8px 8px 14px;
+    border: 0;
+    border-radius: 99px;
+    background: var(--glass-strong);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: inset 0 0 0 1px var(--stroke), 0 14px 30px -14px rgba(0, 0, 0, 0.6);
+    color: var(--text);
+    font-size: 0.84rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate(-50%, -6px) scale(0.98);
+    transition: opacity 160ms ease, transform 160ms var(--ease-out), visibility 0s linear 160ms;
+}
+body.hero-out.has-live-pill .live-pill {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+    transition: opacity 220ms ease, transform 220ms var(--ease-out), visibility 0s;
+}
+.live-pill-icon { color: #8fd3ff; }
+.live-pill.is-snow .live-pill-icon::before { content: "\f56a"; } /* bi-snow2 */
+.live-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-pill-close {
+    display: grid;
+    place-items: center;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--fill-1);
+    color: var(--text-2);
+}
+@media (prefers-reduced-motion: reduce) {
+    .live-pill, body.hero-out.has-live-pill .live-pill { transform: translate(-50%, 0); }
+}
