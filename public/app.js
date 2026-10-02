@@ -2,6 +2,15 @@
    AERIS WEATHER — app.js  (v2)
    ============================================================ */
 
+// iOS Safari no aplica :active (la respuesta al pulsar) si no hay ningún
+// listener de touchstart en la página.
+document.addEventListener('touchstart', () => {}, { passive: true });
+
+// Con una capa abierta, el fondo no se desplaza (ni dispara el
+// pull-to-refresh de Android). Las capas con clase lo hacen por CSS (:has);
+// estas, que se muestran con style.display, usan la clase is-locked.
+const lockScroll = (on) => document.documentElement.classList.toggle('is-locked', on);
+
 // ============================================================
 // 1. PWA INSTALL (consolidado)
 // ============================================================
@@ -19,14 +28,14 @@
     }
 
     window.addEventListener('load', () => { updateInstallModal(); setTimeout(updateInstallModal, 300); setTimeout(updateInstallModal, 1000); });
-    window.closeIosModal = () => { if (iosModal) iosModal.style.display = 'none'; };
-    window.openIosModal  = () => { updateInstallModal(); if (iosModal) iosModal.style.display = 'flex'; };
+    window.closeIosModal = () => { if (iosModal) iosModal.style.display = 'none'; lockScroll(false); };
+    window.openIosModal  = () => { updateInstallModal(); if (iosModal) { iosModal.style.display = 'flex'; lockScroll(true); } };
 
     const isIos = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
     const isInStandaloneMode = ('standalone' in navigator) && navigator.standalone;
     if (isIos && !isInStandaloneMode && installBtn) {
         installBtn.style.display = 'flex';
-        installBtn.addEventListener('click', () => { updateInstallModal(); if (iosModal) iosModal.style.display = 'flex'; });
+        installBtn.addEventListener('click', window.openIosModal);
     }
 
     let deferredPrompt;
@@ -40,7 +49,7 @@
                     const { outcome } = await deferredPrompt.userChoice;
                     if (outcome === 'accepted') installBtn.style.display = 'none';
                     deferredPrompt = null;
-                } else { updateInstallModal(); if (iosModal) iosModal.style.display = 'flex'; }
+                } else window.openIosModal();
             };
         }
     });
@@ -538,7 +547,7 @@ function renderComfort(temp, humidity, windSpeed, uv, desc) {
     // clip-path en vez de width: no provoca layout y el degradado no se deforma
     setTimeout(() => { if (bar) bar.style.clipPath = `inset(0 ${100 - score}% 0 0 round 99px)`; }, 200);
     if (scoreEl) { scoreEl.textContent = score; scoreEl.style.color = color; }
-    if (labelEl) { labelEl.textContent = label; labelEl.style.color = color; }
+    if (labelEl) labelEl.textContent = label;
 }
 
 // ============================================================
@@ -1454,6 +1463,7 @@ function showToast(message, type = 'ok') {
         el.innerHTML = '<i class="bi" aria-hidden="true"></i><span></span>';
         el.addEventListener('click', () => el.classList.remove('show'));
         document.body.appendChild(el);
+        void el.offsetWidth; // fija el estado inicial: si no, el primer toast aparece de golpe
     }
     el.querySelector('i').className = `bi ${type === 'ok' ? 'bi-check-circle-fill' : 'bi-info-circle-fill'}`;
     el.querySelector('span').textContent = message;
@@ -1525,7 +1535,9 @@ const renderWeather = (data) => {
     else if (aqi > 50)  { aqiText = "Moderada"; aqiColor = "#eab308"; }
     document.getElementById('aqi-val').innerText  = aqi;
     document.getElementById('aqi-text').innerText = aqiText;
-    document.getElementById('aqi-text').style.color = aqiColor;
+    // El color va en un punto, no en el texto: sobre el cristal el texto de
+    // color no llega al contraste mínimo
+    document.getElementById('aqi-text').style.setProperty('--tone', aqiColor);
     document.getElementById('pm25').innerText = cur.pm25 !== undefined ? cur.pm25 + (typeof cur.pm25 === 'number' ? ' µg/m³' : '') : '--';
     document.getElementById('pm10').innerText = cur.pm10 !== undefined ? cur.pm10 + (typeof cur.pm10 === 'number' ? ' µg/m³' : '') : '--';
     // transform en vez de left: el punto se desliza sin recalcular layout
@@ -1750,6 +1762,7 @@ function initOnboarding() {
     const overlay = document.getElementById('onboarding-overlay');
     if (!overlay) return;
     overlay.style.display = 'flex';
+    lockScroll(true);
     let slide = 0;
     const slides = document.querySelectorAll('.onboarding-slide');
     const dots   = document.querySelectorAll('.ob-dot');
@@ -1766,6 +1779,7 @@ function initOnboarding() {
     const finish = () => {
         localStorage.setItem('aeris_onboarding_done', '1');
         overlay.classList.add('is-leaving');
+        lockScroll(false);
         setTimeout(() => { overlay.style.display = 'none'; overlay.classList.remove('is-leaving'); }, 230);
     };
     next.addEventListener('click', () => {

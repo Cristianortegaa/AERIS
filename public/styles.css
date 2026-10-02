@@ -46,7 +46,7 @@
 
     --text: #ffffff;
     --text-2: rgba(255, 255, 255, 0.76);
-    --text-3: rgba(255, 255, 255, 0.54);
+    --text-3: rgba(255, 255, 255, 0.66);
     --accent: #cdeaff;
 
     --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 24px 48px -28px rgba(0, 12, 40, 0.65);
@@ -90,7 +90,8 @@ body.bg-clear-night .sky { --sky-top: #070b1f; --sky-mid: #121a46; --sky-bottom:
 body.bg-cloudy-day {
     --theme: #3f5068;
     --blob-1: rgba(255, 255, 255, 0.24); --blob-2: rgba(170, 192, 220, 0.34); --blob-3: rgba(110, 130, 165, 0.32);
-    --glass: rgba(18, 28, 46, 0.28); --glass-strong: rgba(20, 28, 44, 0.78);
+    --glass: rgba(18, 28, 46, 0.42); --glass-strong: rgba(20, 28, 44, 0.78);
+    --text-2: rgba(255, 255, 255, 0.88); --text-3: rgba(255, 255, 255, 0.74);
     --accent: #e3ecf7;
 }
 body.bg-cloudy-day .sky { --sky-top: #3f5068; --sky-mid: #627790; --sky-bottom: #8a9fb6; }
@@ -114,7 +115,8 @@ body.bg-rain .sky { --sky-top: #101824; --sky-mid: #1f2f45; --sky-bottom: #3a4f6
 body.bg-snow {
     --theme: #3f5f88;
     --blob-1: rgba(255, 255, 255, 0.34); --blob-2: rgba(200, 225, 255, 0.40); --blob-3: rgba(140, 175, 220, 0.30);
-    --glass: rgba(18, 38, 70, 0.32); --glass-strong: rgba(18, 34, 62, 0.80);
+    --glass: rgba(18, 34, 62, 0.44); --glass-strong: rgba(18, 34, 62, 0.80);
+    --text-2: rgba(255, 255, 255, 0.88); --text-3: rgba(255, 255, 255, 0.74);
     --accent: #eaf4ff;
 }
 body.bg-snow .sky { --sky-top: #3f5f88; --sky-mid: #6584ab; --sky-bottom: #92abc8; }
@@ -568,7 +570,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 .suggestion-item:active { background: var(--fill-2); }
 .history-header {
     padding: 8px 14px 4px;
-    font-size: 0.62rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.09em;
     color: var(--text-3);
@@ -752,7 +754,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 }
 .stat-label {
     grid-area: label;
-    font-size: 0.62rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -782,7 +784,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 }
 .stat-sub {
     margin-top: 1px;
-    font-size: 0.62rem;
+    font-size: 0.6875rem;
     font-weight: 500;
     color: var(--text-3);
     white-space: nowrap;
@@ -807,7 +809,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
     border: 1px solid var(--hairline);
 }
 .comfort-title {
-    font-size: 0.6rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -837,7 +839,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
-#comfort-label { min-width: 64px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+#comfort-label { min-width: 64px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; color: var(--text-2); }
 
 /* Pie del hero: favorito + IA */
 .hero-footer {
@@ -1241,6 +1243,16 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
     font-variant-numeric: tabular-nums;
 }
 .aqi-text { font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em; text-align: right; }
+.aqi-text::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 7px;
+    border-radius: 50%;
+    vertical-align: 0.1em;
+    background: var(--tone, transparent);
+}
 .aqi-bar {
     position: relative;
     height: 6px;
@@ -1327,7 +1339,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 .activity-time {
     min-height: 0.8rem;
     font-family: var(--font-mono);
-    font-size: 0.6rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.2;
@@ -1359,7 +1371,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 .outfit-group-label {
     display: block;
     margin-bottom: 8px;
-    font-size: 0.6rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.09em;
     text-transform: uppercase;
@@ -1441,7 +1453,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     color: #fff;
-    font-size: 0.6rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     pointer-events: none;
@@ -1504,7 +1516,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
     padding: 3px 8px;
     border-radius: 99px;
     background: rgba(0, 0, 0, 0.18);
-    font-size: 0.56rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.1em;
 }
@@ -1957,7 +1969,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
     cursor: pointer;
     transform: translateX(-50%);
     animation: installIn 500ms var(--ease-out) backwards;
-    transition: transform 160ms var(--ease-out);
+    transition: transform 160ms var(--ease-out), opacity 200ms ease;
 }
 #installBtn:active { transform: translateX(-50%) scale(0.96); }
 @keyframes installIn { from { opacity: 0; transform: translate(-50%, 16px); } }
@@ -2034,7 +2046,7 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
     border: 1px solid var(--stroke);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 22px 50px -18px rgba(0, 0, 0, 0.7);
     transform: translateX(-50%);
-    transition: background-color 600ms ease;
+    transition: background-color 600ms ease, opacity 200ms ease, transform 250ms var(--ease-out);
 }
 .bnav-indicator {
     position: absolute;
@@ -2178,4 +2190,28 @@ body:not(.is-ready) .layout .glass-card { animation-play-state: paused; }
 
 @media (prefers-contrast: more) {
     body, body[class] { --stroke: rgba(255, 255, 255, 0.5); --hairline: rgba(255, 255, 255, 0.32); --text-2: rgba(255, 255, 255, 0.9); --text-3: rgba(255, 255, 255, 0.78); }
+}
+
+/* ============================================================
+   CAPAS ABIERTAS Y TECLADO
+   ============================================================ */
+/* Sin pull-to-refresh (en la PWA de Android recargaba la app entera con
+   splash); se mantiene el rebote propio de la página. */
+html { overscroll-behavior-y: contain; }
+/* Con el sidebar, una sheet o un modal abiertos, el fondo no se mueve */
+html.is-locked,
+html:has(.fav-sidebar.open, .persona-modal.show, .share-modal.show) {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+/* Android sube lo fijado abajo con el teclado: mientras se busca, la barra
+   inferior y el botón de instalar se apartan para no tapar las sugerencias */
+@media (pointer: coarse) {
+    body:has(.search-input:focus) .bottom-nav,
+    body:has(.search-input:focus) #installBtn {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%) translateY(calc(100% + 24px));
+        transition: opacity 150ms ease, transform 200ms var(--ease-out);
+    }
 }
