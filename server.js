@@ -759,9 +759,10 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
         res.json(finalData);
 
     } catch (e) {
-        log('error', 'weather API', e.message);
+        log('error', 'weather API', e.stack || e.message);
         if (e.message === "Ciudad no encontrada") return res.status(404).json({ error: "Ciudad no encontrada." });
-        res.status(500).json({ error: "Error interno al obtener el tiempo." });
+        // El motivo (sin datos sensibles) ayuda a diagnosticar sin acceso a los logs
+        res.status(500).json({ error: "Error interno al obtener el tiempo.", code: String(e.message || '').slice(0, 160) });
     }
 });
 
