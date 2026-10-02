@@ -110,7 +110,6 @@ let tempChartInstance = null;
 let lastWeatherData   = null;
 let currentPersona    = localStorage.getItem('aeris_persona') || 'normal';
 let useFahrenheit     = localStorage.getItem('aeris_units') === 'F';
-let lastPressure      = null;
 let weatherAnimFrame  = null;
 let weatherParticles  = [];
 let currentWeatherType = 'clear';
@@ -216,6 +215,7 @@ const showSearchHistory = () => {
 // 7. URL COMPARTIBLE (?ciudad=nombre o ?lat=,lon=)
 // ============================================================
 let cameFromSharedLink = false;
+let pendingSection = null;
 (function handleURLParams() {
     const params = new URLSearchParams(window.location.search);
     const ciudad = params.get('ciudad');
@@ -228,9 +228,15 @@ let cameFromSharedLink = false;
     } else if (lat && lon) {
         currentId = `${lat},${lon}`;
         localStorage.setItem('lastId', currentId);
+        const name = params.get('name');
+        if (name) { localStorage.setItem('lastName', name); localStorage.setItem('lastRegion', ''); }
         cameFromSharedLink = true;
     }
+    // ?ver=lluvia|avisos: al abrir desde una notificación, ir a esa sección
+    pendingSection = params.get('ver');
 })();
+// Al abrir la app se quita el globo del icono (avisos ya vistos)
+try { navigator.clearAppBadge && navigator.clearAppBadge().catch(() => {}); } catch (e) {}
 
 // ============================================================
 // 8. UTILIDADES
@@ -238,7 +244,7 @@ let cameFromSharedLink = false;
 const renderIcon = (iconName, size = "fs-4") => {
     if (iconName.includes('bi-cloud-sun') && !iconName.includes('moon')) {
         const big = size.includes("5.5rem") || size.includes("fs-1");
-        return `<img src="icono-clima.png" alt="Sol y Nube" class="${big ? 'icon-float' : ''}" style="width:${big ? '160px' : '48px'};height:auto;vertical-align:middle;">`;
+        return `<img src="icono-clima.png" alt="Sol y Nube" style="width:${big ? '160px' : '48px'};height:auto;vertical-align:middle;">`;
     }
     return `<i class="bi ${iconName} ${size}"></i>`;
 };
@@ -441,6 +447,13 @@ function getAnimationType(desc, isDay) {
 // ============================================================
 // 10. RELOJ SOLAR
 // ============================================================
+// Minutos desde medianoche en la zona horaria de la ciudad
+function cityNowMinutes(tz) {
+    const key = tz ? localNowKey(tz) : null; // "YYYY-MM-DDTHH:mm"
+    if (key) { const [h, m] = key.slice(11, 16).split(':').map(Number); return h * 60 + m; }
+    const d = new Date(); return d.getHours() * 60 + d.getMinutes();
+}
+
 function renderSolarClock(sunrise, sunset, timezone) {
     const solarCard = document.getElementById('solar-card');
     const sCanvas   = document.getElementById('solar-clock-canvas');
@@ -450,19 +463,18 @@ function renderSolarClock(sunrise, sunset, timezone) {
     document.getElementById('sunrise-time').textContent = sunrise;
     document.getElementById('sunset-time').textContent  = sunset;
 
-    const now = new Date();
     const [srH, srM] = sunrise.split(':').map(Number);
     const [ssH, ssM] = sunset.split(':').map(Number);
     const srMin  = srH * 60 + srM;
     const ssMin  = ssH * 60 + ssM;
-    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const nowMin = cityNowMinutes(timezone);
 
     const total = ssMin - srMin;
     const elapsed = Math.max(0, Math.min(nowMin - srMin, total));
     const pct = total > 0 ? elapsed / total : 0;
 
     const pctEl = document.getElementById('solar-pct');
-    if (pctEl) pctEl.textContent = now < new Date().setHours(srH, srM) ? 'Antes del amanecer' :
+    if (pctEl) pctEl.textContent = nowMin < srMin ? 'Antes del amanecer' :
         nowMin > ssMin ? 'Sol bajo el horizonte' : `${Math.round(pct * 100)}% del día transcurrido`;
 
     // Dibujar después de que el DOM actualice las dimensiones
@@ -524,21 +536,42 @@ function renderSolarClock(sunrise, sunset, timezone) {
 // ============================================================
 // 11. FASE LUNAR
 // ============================================================
-function getLunarPhase() {
-    const knownNew = new Date(2000, 0, 6, 18, 14, 0);
-    const synodicMonth = 29.53058867;
+// SunCalc (vendor/suncalc.js) da la fase y la iluminación reales y la
+// salida/puesta de la luna para ese sitio; antes era un emoji con un ciclo medio.
+const MOON_NAMES = ['Luna nueva', 'Creciente', 'Cuarto creciente', 'Gibosa creciente', 'Luna llena', 'Gibosa menguante', 'Cuarto menguante', 'Menguante'];
+const moonName = (phase) => MOON_NAMES[Math.round(phase * 8) % 8];
+
+// Dibujo de la fase: disco oscuro + parte iluminada (dos arcos)
+function moonSVG(phase, size = 22) {
+    const r = size / 2 - 1, c = size / 2;
+    const lit = Math.cos(phase * 2 * Math.PI);           // 1 nueva, -1 llena
+    const rx = Math.abs(lit) * r;
+    const waxing = phase < 0.5;
+    // Borde exterior iluminado: derecha si crece, izquierda si mengua
+    const outer = `M ${c} ${c - r} A ${r} ${r} 0 0 ${waxing ? 1 : 0} ${c} ${c + r}`;
+    const inner = `A ${rx} ${r} 0 0 ${(lit > 0) === waxing ? 0 : 1} ${c} ${c - r}`;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">`
+        + `<circle cx="${c}" cy="${c}" r="${r}" fill="rgba(255,255,255,0.14)"/>`
+        + `<path d="${outer} ${inner} Z" fill="#f4f1e6"/></svg>`;
+}
+
+function renderMoon(lat, lon, timezone) {
+    const el = document.getElementById('lunar-display');
+    if (!el || typeof SunCalc === 'undefined') return;
     const now = new Date();
-    const daysSince = (now - knownNew) / 86400000;
-    const phase = ((daysSince % synodicMonth) + synodicMonth) % synodicMonth;
-    const pct = phase / synodicMonth;
-    if (pct < 0.03 || pct > 0.97)  return '🌑';
-    if (pct < 0.22)                 return '🌒';
-    if (pct < 0.28)                 return '🌓';
-    if (pct < 0.47)                 return '🌔';
-    if (pct < 0.53)                 return '🌕';
-    if (pct < 0.72)                 return '🌖';
-    if (pct < 0.78)                 return '🌗';
-    return '🌘';
+    const ill = SunCalc.getMoonIllumination(now);
+    const pct = Math.round(ill.fraction * 100);
+    let times = '';
+    if (Number.isFinite(+lat) && Number.isFinite(+lon)) {
+        const t = SunCalc.getMoonTimes(now, +lat, +lon);
+        const fmt = (d) => d ? new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone || undefined }).format(d) : null;
+        const rise = fmt(t.rise), set = fmt(t.set);
+        times = [rise && `sale ${rise}`, set && `se pone ${set}`].filter(Boolean).join(' · ');
+    }
+    el.innerHTML = `${moonSVG(ill.phase)}<span>${moonName(ill.phase)} · ${pct}%</span>`;
+    el.title = times ? `${moonName(ill.phase)}, ${pct} % iluminada. ${times}` : `${moonName(ill.phase)}, ${pct} % iluminada`;
+    const timesEl = document.getElementById('moon-times');
+    if (timesEl) timesEl.textContent = times;
 }
 
 // ============================================================
@@ -613,16 +646,14 @@ function renderComfort(temp, humidity, windSpeed, uv, desc) {
 // ============================================================
 // 14. TENDENCIA DE PRESIÓN
 // ============================================================
-function updatePressureTrend(pressure) {
+// diff = presión ahora menos la de hace 3 h (viene del servidor)
+function updatePressureTrend(diff) {
     const trendEl = document.getElementById('pressure-trend');
     if (!trendEl) return;
-    if (lastPressure !== null) {
-        const diff = pressure - lastPressure;
-        if (diff > 1) { trendEl.textContent = '↑'; trendEl.className = 'ms-1 trend-up'; trendEl.title = 'Subiendo — puede mejorar'; }
-        else if (diff < -1) { trendEl.textContent = '↓'; trendEl.className = 'ms-1 trend-down'; trendEl.title = 'Bajando — puede empeorar'; }
-        else { trendEl.textContent = '→'; trendEl.className = 'ms-1 trend-stable'; trendEl.title = 'Estable'; }
-    } else { trendEl.textContent = ''; }
-    lastPressure = pressure;
+    if (diff == null) { trendEl.textContent = ''; return; }
+    if (diff > 1) { trendEl.textContent = '↑'; trendEl.className = 'ms-1 trend-up'; trendEl.title = 'Subiendo: puede mejorar'; }
+    else if (diff < -1) { trendEl.textContent = '↓'; trendEl.className = 'ms-1 trend-down'; trendEl.title = 'Bajando: puede empeorar'; }
+    else { trendEl.textContent = '→'; trendEl.className = 'ms-1 trend-stable'; trendEl.title = 'Estable'; }
 }
 
 // ============================================================
@@ -752,7 +783,7 @@ function openShareCard(data) {
     document.getElementById('share-desc').textContent      = cur.desc;
     document.getElementById('share-feels').textContent     = `💧 ${cur.humidity}%`;
     document.getElementById('share-wind').textContent      = `💨 ${fmtWind(cur.windSpeed)} ${windUnit()}`;
-    document.getElementById('share-uv').textContent        = `☀️ UV: ${cur.uv}`;
+    document.getElementById('share-uv').textContent        = `☀️ UV: ${Math.round(cur.uvMax ?? cur.uv)}`;
     // Fondo dinámico según clima
     const bg = document.getElementById('share-bg');
     if (bg) {
@@ -790,7 +821,8 @@ const updateAIText = (cur, highPollen = false) => {
     else if (d.includes('nublado') || d.includes('cubierto') || d.includes('nubes') || d.includes('niebla')) key = 'cloudy';
     const frases = p.tips[key] || p.tips['nice'];
     document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)];
-    const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, cur.uv);
+    // Para la ropa cuenta el UV máximo del día, no el de este momento
+    const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, Math.round(cur.uvMax ?? cur.uv));
     const clothingContainer = document.getElementById('clothing-advice');
     if (clothingContainer) {
         // Solo texto: un icono que no representa la prenda solo añade ruido
@@ -918,12 +950,11 @@ const applyTheme = (theme) => {
     try { localStorage.setItem('aeris_theme_pref', theme); } catch (e) {}
 };
 
-function autoThemeByTime(sunrise, sunset) {
+function autoThemeByTime(sunrise, sunset, timezone) {
     if (!sunrise || !sunset) return;
-    const now = new Date();
     const [srH, srM] = sunrise.split(':').map(Number);
     const [ssH, ssM] = sunset.split(':').map(Number);
-    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const nowMin = cityNowMinutes(timezone);
     const srMin  = srH * 60 + srM;
     const ssMin  = ssH * 60 + ssM;
     const isDaytime = nowMin >= srMin && nowMin <= ssMin;
@@ -1194,6 +1225,11 @@ function renderNowcast(data) {
     document.getElementById('rain-summary').textContent = nc.summary;
     // Texto montado aquí con números y horas propias: no lleva datos externos sin escapar
     setHTMLIfChanged(document.getElementById('nowcast-text'), nc.text);
+    // La cuenta atrás cambia cada minuto: a VoiceOver solo se le dice el cambio
+    // de estado (empieza / para / sin lluvia), no "24 min… 23 min…"
+    const live = document.getElementById('nowcast-live');
+    const state = nc.pill ? 'wet' : 'dry';
+    if (live && live.dataset.state !== state) { live.dataset.state = state; live.textContent = nc.summary || ''; }
 
     // Las barras solo crecen al llegar a un sitio nuevo; el repintado de cada
     // minuto (para las cuentas atrás) no las vuelve a animar
@@ -1251,8 +1287,10 @@ function getBestWindows(activityId, hourly) {
         beach: (h) => h.rainProb < 20 && h.temp >= 24 && !isRainyIcon(h.icon),
         drive: (h) => h.rainProb < 50 && !isRainyIcon(h.icon),
     };
-    const check = criteria[activityId];
-    if (!check) return null;
+    const rule = criteria[activityId];
+    if (!rule) return null;
+    // Solo horas razonables (7–22 h), salvo para ver estrellas
+    const check = activityId === 'star' ? rule : (h) => { const hr = getHour(h.displayTime); return hr >= 7 && hr <= 22 && rule(h); };
     // Índices de horas válidas
     const goodIdx = hourly.reduce((acc, h, i) => { if (check(h)) acc.push(i); return acc; }, []);
     if (goodIdx.length === 0) return null;
@@ -1305,20 +1343,61 @@ const renderPollen = (pollen) => {
 // de las alertas propias calculadas por umbrales. Vienen ya filtrados y
 // ordenados (rojo > naranja > amarillo) desde el servidor.
 const AEMET_NIVEL_CLASE = { rojo: '', naranja: 'orange', amarillo: 'yellow' };
+// "Hoy 14:00–23:59" / "Mañana 10:00–19:59" en la hora de la ciudad
+function avisoRango(onset, expires, tz) {
+    if (!onset) return '';
+    const opt = tz ? { timeZone: tz } : {};
+    try {
+        const day = (d) => new Intl.DateTimeFormat('sv-SE', { ...opt, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+        const hm = (d) => new Intl.DateTimeFormat('es-ES', { ...opt, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+        const a = new Date(onset), b = expires ? new Date(expires) : null;
+        const today = day(new Date()), tomorrow = day(new Date(Date.now() + 86400000));
+        const label = day(a) === today ? 'Hoy' : day(a) === tomorrow ? 'Mañana' : new Intl.DateTimeFormat('es-ES', { ...opt, weekday: 'long' }).format(a);
+        // Si ya ha empezado, lo que importa es hasta cuándo
+        if (a <= new Date() && b) return `Hasta las ${hm(b)}${day(b) !== today ? ' de ' + (day(b) === tomorrow ? 'mañana' : new Intl.DateTimeFormat('es-ES', { ...opt, weekday: 'long' }).format(b)) : ''}`;
+        return `${label} ${hm(a)}${b ? '–' + hm(b) : ''}`;
+    } catch (e) { return ''; }
+}
+
+// Mismo nivel, misma franja y misma zona = un solo aviso con los fenómenos
+// juntos ("Lluvias y tormentas"). Antes salía una tarjeta por fenómeno y la
+// zona repetida en el título y en el texto.
+const NIVEL_TXT = { rojo: 'rojo', naranja: 'naranja', amarillo: 'amarillo' };
+function groupAvisos(avisos) {
+    const groups = new Map();
+    for (const a of avisos) {
+        const k = `${a.nivel}|${a.onset}|${a.expires}|${(a.zonas || []).join(',')}`;
+        if (!groups.has(k)) groups.set(k, { ...a, fenomenos: [] });
+        const g = groups.get(k);
+        if (!g.fenomenos.includes(a.fenomeno)) g.fenomenos.push(a.fenomeno);
+        // Del texto de AEMET nos quedamos con los datos útiles (acumulados, rachas…)
+        if (a.descripcion && !(g.detalles || []).includes(a.descripcion)) g.detalles = [...(g.detalles || []), a.descripcion];
+    }
+    return [...groups.values()];
+}
+const joinEs = (arr) => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`;
+
 const renderAemetAvisos = (avisos) => {
     if (!avisos || avisos.length === 0) return '';
-    return avisos.map(a => {
-        const cls = AEMET_NIVEL_CLASE[a.nivel] || '';
-        const zonas = (a.zonas && a.zonas.length)
-            ? a.zonas.slice(0, 3).join(', ') + (a.zonas.length > 3 ? '…' : '')
-            : '';
-        const cuerpo = [a.descripcion, zonas].filter(Boolean).map(escapeHTML).join(' · ');
+    const tz = window._lastFullData?.location?.timezone;
+    return groupAvisos(avisos).map(g => {
+        const cls = AEMET_NIVEL_CLASE[g.nivel] || '';
+        const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
+        const titulo = `${fen.charAt(0).toUpperCase()}${fen.slice(1)} · nivel ${NIVEL_TXT[g.nivel] || g.nivel}`;
+        const zona = (g.zonas && g.zonas.length) ? g.zonas.slice(0, 2).join(', ') + (g.zonas.length > 2 ? '…' : '') : '';
+        const rango = avisoRango(g.onset, g.expires, tz);
+        // "Precipitación acumulada en una hora: 30 mm. Valle del…": sin la zona repetida
+        const detalle = (g.detalles || [])
+            .map(d => (g.zonas || []).reduce((t, z) => t.split(z).join(''), d).replace(/[\s.·,]+$/, '').trim())
+            .filter(Boolean).join(' · ');
+        const meta = [rango, zona].filter(Boolean).map(escapeHTML).join(' · ');
         return `<div class="alert-card ${cls}">
             <i class="bi bi-shield-fill-exclamation alert-icon"></i>
             <div>
                 <span class="aemet-badge">AEMET OFICIAL</span>
-                <div class="fw-bold">${escapeHTML(a.titular || a.fenomeno || 'Aviso meteorológico')}</div>
-                <div class="small opacity-75">${cuerpo}</div>
+                <div class="fw-bold">${escapeHTML(titulo)}</div>
+                <div class="small opacity-75">${meta}</div>
+                ${detalle ? `<div class="small opacity-75">${escapeHTML(detalle)}</div>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -1661,21 +1740,23 @@ const renderWeather = (data) => {
     document.getElementById('desc').innerText      = cur.desc;
     document.getElementById('hum').innerText       = cur.humidity;
     document.getElementById('wind').innerText      = fmtWind(cur.windSpeed);
-    document.getElementById('wind-dir').innerText  = cur.windDir || 'Viento';
-    document.getElementById('uv').innerText        = cur.uv;
+    // Dirección y rachas reales (antes ponía "Viento" si no había dirección)
+    const gustTxt = cur.windGust && cur.windGust > cur.windSpeed + 5 ? `rachas ${fmtWind(cur.windGust)}` : '';
+    document.getElementById('wind-dir').innerText  = [cur.windDir, gustTxt].filter(Boolean).join(' · ');
+    document.getElementById('uv').innerText        = Math.round(cur.uv);
     document.getElementById('compare-txt').innerText = cur.comparison || '';
     updateUnitsUI();
 
     // Presión + tendencia
     const pressureEl = document.getElementById('pressure');
     if (pressureEl) pressureEl.innerText = cur.pressure || '--';
-    updatePressureTrend(cur.pressure);
+    updatePressureTrend(cur.pressureTrend);
 
     // Icono grande
     const renderedIcon = renderIcon(cur.icon, "5.5rem");
     document.getElementById('weather-icon-container').innerHTML = renderedIcon.includes('<img')
         ? renderedIcon
-        : `<i class="bi ${cur.icon} icon-float" style="font-size:5.5rem;display:inline-block;"></i>`;
+        : `<i class="bi ${cur.icon}" style="font-size:5.5rem;display:inline-block;"></i>`;
 
     // AQI
     const aqi = cur.aqi || 0;
@@ -1716,8 +1797,8 @@ const renderWeather = (data) => {
     if (data.daily && data.daily[0]) {
         const sunrise = data.daily[0].sunrise, sunset = data.daily[0].sunset;
         renderSolarClock(sunrise, sunset, loc.timezone);
-        autoThemeByTime(sunrise, sunset);
-        document.getElementById('lunar-display').textContent = getLunarPhase();
+        autoThemeByTime(sunrise, sunset, loc.timezone);
+        renderMoon(loc.lat, loc.lon, loc.timezone);
     }
     if (loc.timezone) startLocalTime(loc.timezone);
 
@@ -1792,6 +1873,16 @@ const renderWeather = (data) => {
 
     // Animación clima
     startWeatherAnimation(getAnimationType(cur.desc, cur.isDay));
+
+    if (pendingSection) {
+        const target = { lluvia: 'rain-card', avisos: 'alerts-container' }[pendingSection];
+        pendingSection = null;
+        const el = target && document.getElementById(target);
+        if (el && el.offsetParent !== null) setTimeout(() => {
+            const navH = document.querySelector('.nav-bar')?.offsetHeight || 0;
+            window.scrollTo({ top: el.getBoundingClientRect().top + window.pageYOffset - navH - 8, behavior: 'auto' });
+        }, Math.max(0, SPLASH_MIN_MS - performance.now()) + 50);
+    }
 
     hideSplash();
 };
@@ -2026,7 +2117,6 @@ if ('serviceWorker' in navigator) {
             const y = btn.dataset.target === 'capture-card' ? 0 : el.getBoundingClientRect().top + window.pageYOffset - navH - 6;
             window.scrollTo({ top: y, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
             setActive(btn.dataset.target);
-            if (navigator.vibrate) navigator.vibrate(8);
 
             // Bloquear scroll handler mientras dura la animación suave (~600ms)
             suppressScroll = true;

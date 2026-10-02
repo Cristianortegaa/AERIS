@@ -11,22 +11,24 @@
 * **Diseño Bento Grid:** Interfaz modular y responsive inspirada en los widgets de iOS.
 * **Estética Glassmorphism:** Tarjetas translúcidas con efectos de desenfoque (`backdrop-filter`) en tiempo real.
 * **Fondos Vivos:** Animaciones *Mesh Gradient* que fluyen suavemente y cambian según el tema (Día/Noche).
-* **Gráficos Interactivos:** Visualización de tendencias con `Chart.js`, permitiendo "viajar en el tiempo" al hacer clic en días futuros.
-* **Interpolación Térmica:** Algoritmo propio para estimar la temperatura actual basándose en la hora del día.
-* **14 Personalidades de IA:** El robot que comenta el tiempo cambia de tono — desde Zen hasta Villano.
+* **Gráficos:** tendencia de máximas y mínimas de la semana con `Chart.js`.
+* **Lluvia en las próximas 2 h:** tramos de 15 min con intensidad y cuenta atrás.
+* **15 personalidades:** el comentario del tiempo cambia de tono, desde Zen hasta Villano.
+* **Aire y polen:** calidad del aire, polvo (calima) y polen por especie.
+* **Sol y luna:** reloj solar y fase real de la luna con su salida y puesta.
 
 ### ⚙️ Arquitectura Técnica
 * **Backend Node.js:** Servidor Express ligero y rápido, con `helmet` (cabeceras de seguridad) y `compression` (respuestas comprimidas).
 * **Caché Inteligente (SQLite):** Sistema de persistencia que almacena las peticiones por ubicación para evitar límites de la API y mejorar la velocidad de carga (Hit de caché < 10ms).
-* **Datos:** Integración directa con la API **Open-Meteo** (previsión, calidad del aire y polen), geocoding vía Open-Meteo/Nominatim, y **avisos oficiales de AEMET Meteoalerta** por comunidad autónoma.
+* **Datos:** Integración directa con la API **Open-Meteo** (previsión, calidad del aire y polen), búsqueda con el geocoding de Open-Meteo, nombre del sitio con Nominatim, y **avisos oficiales de AEMET Meteoalerta** filtrados por la zona de aviso de cada ubicación.
 * **Persistencia:** Recuerda tu última ubicación seleccionada mediante `localStorage`.
 * **Notificaciones Push:** Avisos de lluvia, calor extremo, viento y tormenta, más resumen matutino, vía `web-push` + cron.
 
-> **Nota sobre los datos:** la previsión, la calidad del aire y el polen vienen de Open-Meteo (motor principal). AEMET se usa solo para una cosa muy concreta: los avisos oficiales de Meteoalerta (amarillo/naranja/rojo) por comunidad autónoma, que se muestran junto a las alertas propias calculadas por umbrales.
+> **Nota sobre los datos:** la previsión, la calidad del aire y el polen vienen de Open-Meteo (motor principal). AEMET se usa para los avisos oficiales de Meteoalerta (amarillo/naranja/rojo): se descargan por comunidad y se filtran con el polígono de cada zona, y se muestran junto a las alertas propias calculadas por umbrales.
 
 ## 🛠️ Stack Tecnológico
 
-* **Frontend:** HTML5, CSS3 (Variables + Keyframes), Vanilla JS, Bootstrap 5.3.
+* **Frontend:** HTML5, CSS3 (variables + transiciones), Vanilla JS, Bootstrap Icons, reboot de Bootstrap 5.3, SunCalc.
 * **Backend:** Node.js, Express, Helmet, Compression.
 * **Base de Datos:** SQLite (vía Sequelize ORM).
 * **Librerías:** Chart.js (Gráficos), Bootstrap Icons, html2canvas (tarjetas para compartir).

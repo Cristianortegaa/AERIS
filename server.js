@@ -4,7 +4,7 @@ const axios = require('axios');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const webpush = require('web-push');
-const { Sequelize, DataTypes } = require('sequelize');
+const { Sequelize, DataTypes, Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
@@ -225,11 +225,17 @@ const getAemetAreaCode = (regionName) => {
     return null;
 };
 
-// Descomprime el .tar.gz que devuelve AEMET y extrae el texto de cada XML
-function extractXmlsFromTarGz(buffer) {
+// Extrae el texto de cada XML del paquete de avisos de AEMET. Antes venía
+// como .tar.gz y ahora llega como .tar sin comprimir: se aceptan los dos (y
+// un XML suelto, por si acaso).
+function extractXmlsFromTar(buffer) {
     return new Promise((resolve, reject) => {
-        let gunzipped;
-        try { gunzipped = zlib.gunzipSync(buffer); } catch (e) { return reject(e); }
+        let raw = buffer;
+        if (raw[0] === 0x1f && raw[1] === 0x8b) {
+            try { raw = zlib.gunzipSync(raw); } catch (e) { return reject(e); }
+        }
+        const head = raw.slice(0, 64).toString('utf-8').trimStart();
+        if (head.startsWith('<?xml') || head.startsWith('<alert')) return resolve([raw.toString('utf-8')]);
         const extract = tarStream.extract();
         const xmls = [];
         extract.on('entry', (header, stream, next) => {
@@ -244,9 +250,43 @@ function extractXmlsFromTarGz(buffer) {
         });
         extract.on('finish', () => resolve(xmls));
         extract.on('error', reject);
-        extract.end(gunzipped);
+        extract.end(raw);
     });
 }
+
+// Polígono CAP ("lat,lon lat,lon ...") → [[lat, lon], ...]
+const parseCapPolygon = (str) => String(str || '').trim().split(/\s+/)
+    .map(pair => pair.split(',').map(Number))
+    .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
+
+function pointInPolygon(lat, lon, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [yi, xi] = poly[i], [yj, xj] = poly[j];
+        if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+}
+// Distancia aproximada (en grados de latitud) del punto al borde del polígono
+function distToPolygon(lat, lon, poly) {
+    const k = Math.cos(lat * Math.PI / 180); // un grado de longitud mide menos que uno de latitud
+    let best = Infinity;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const ax = poly[j][1] * k, ay = poly[j][0], bx = poly[i][1] * k, by = poly[i][0], px = lon * k, py = lat;
+        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+        const t = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+        best = Math.min(best, Math.hypot(px - (ax + t * dx), py - (ay + t * dy)));
+    }
+    return best;
+}
+// ¿Afecta el aviso a este punto? Dentro de su zona o a menos de ~4 km del
+// borde (los polígonos de AEMET están simplificados). Sin polígono, sí.
+const avisoAfecta = (aviso, lat, lon) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !aviso.poligonos || !aviso.poligonos.length) return true;
+    return aviso.poligonos.some(p => p.length > 2 && (pointInPolygon(lat, lon, p) || distToPolygon(lat, lon, p) < 0.04));
+};
+// Lo que se manda al cliente (sin los polígonos, que pesan)
+const avisoPublico = ({ poligonos, ...a }) => a;
 
 const AEMET_NIVEL_ORDEN = { rojo: 0, naranja: 1, amarillo: 2, verde: 3 };
 const aemetAvisosCache = new Map(); // areaCode -> { data, ts }
@@ -273,7 +313,7 @@ async function fetchAemetAvisos(areaCode) {
             responseType: 'arraybuffer'
         });
 
-        const xmls = await extractXmlsFromTarGz(Buffer.from(tarRes.data));
+        const xmls = await extractXmlsFromTar(Buffer.from(tarRes.data));
         const parser = new XMLParser({ ignoreAttributes: false, textNodeName: '#text' });
         const now = Date.now();
         const seen = new Set();
@@ -303,11 +343,16 @@ async function fetchAemetAvisos(areaCode) {
 
             const areasRaw = Array.isArray(info.area) ? info.area : (info.area ? [info.area] : []);
             const zonas = areasRaw.map(a => a && a.areaDesc).filter(Boolean);
+            const poligonos = areasRaw.flatMap(a => [].concat((a && a.polygon) || [])).map(parseCapPolygon).filter(p => p.length > 2);
 
-            const fenomenoRaw = getParam('AEMET-Meteoalerta fenomeno') || '';
+            // El fenómeno viene en eventCode ("TO;Tormentas"); en versiones
+            // antiguas venía como parámetro
+            const codes = [].concat(info.eventCode || []);
+            const ec = codes.find(c => c && c.valueName === 'AEMET-Meteoalerta fenomeno');
+            const fenomenoRaw = (ec && String(ec.value)) || getParam('AEMET-Meteoalerta fenomeno') || '';
             const fenomeno = fenomenoRaw.includes(';') ? fenomenoRaw.split(';')[1] : fenomenoRaw;
 
-            const key = `${nivel}|${fenomeno}|${zonas.join(',')}`;
+            const key = `${nivel}|${fenomeno}|${zonas.join(',')}|${info.onset || ''}`;
             if (seen.has(key)) continue;
             seen.add(key);
 
@@ -316,19 +361,29 @@ async function fetchAemetAvisos(areaCode) {
                 fenomeno: fenomeno || 'Fenómeno adverso',
                 titular: info.headline || info.event || '',
                 descripcion: info.description || '',
+                consejo: info.instruction || '',
+                probabilidad: getParam('AEMET-Meteoalerta probabilidad') || '',
                 zonas,
                 onset: info.onset || null,
-                expires: info.expires || null
+                expires: info.expires || null,
+                poligonos
             });
         }
 
-        avisos.sort((a, b) => (AEMET_NIVEL_ORDEN[a.nivel] ?? 9) - (AEMET_NIVEL_ORDEN[b.nivel] ?? 9));
+        // Primero el más grave y, a igual nivel, el que empieza antes
+        avisos.sort((a, b) => ((AEMET_NIVEL_ORDEN[a.nivel] ?? 9) - (AEMET_NIVEL_ORDEN[b.nivel] ?? 9))
+            || String(a.onset).localeCompare(String(b.onset)));
         aemetAvisosCache.set(areaCode, { data: avisos, ts: Date.now() });
         return avisos;
     } catch (e) {
         log('error', 'AEMET avisos:', e.message);
         return cached ? cached.data : []; // si falla, mejor devolver lo último bueno que nada
     }
+}
+
+// Avisos de la comunidad que afectan a un punto concreto
+async function avisosParaPunto(areaCode, lat, lon) {
+    return (await fetchAemetAvisos(areaCode)).filter(a => avisoAfecta(a, Number(lat), Number(lon)));
 }
 
 const windDirectionText = (degrees) => {
@@ -338,24 +393,30 @@ const windDirectionText = (degrees) => {
 };
 
 // --- MOTOR DE ALERTAS ---
-const generateAlerts = (w) => {
+// Alertas propias por umbrales, complementarias a los avisos oficiales.
+// El viento va por RACHAS (antes se usaba el viento medio y casi nunca
+// saltaba) y la lluvia intensa por lo PREVISTO en las próximas 3 h (antes,
+// por lo que ya había caído).
+const generateAlerts = (w, startIndex = 0) => {
     const alerts = [];
-    const wind = w.current.wind_speed_10m;
-    const temp = w.current.temperature_2m;
-    const code = w.current.weather_code;
-    const rain = w.current.precipitation;
+    const c = w.current;
+    const gust = c.wind_gusts_10m ?? c.wind_speed_10m;
+    const temp = c.temperature_2m;
+    const code = c.weather_code;
+    const next3h = (w.hourly.precipitation || []).slice(startIndex, startIndex + 3).map(v => v || 0);
+    const rainPeak = next3h.length ? Math.max(...next3h) : 0;
 
-    if (wind >= 90) alerts.push({ level: 'red', title: 'Viento Huracanado', msg: 'Rachas extremas > 90 km/h. Peligro!' });
-    else if (wind >= 70) alerts.push({ level: 'orange', title: 'Viento Fuerte', msg: 'Rachas muy fuertes. Precaucion.' });
-    else if (wind >= 50) alerts.push({ level: 'yellow', title: 'Aviso Viento', msg: 'Rachas moderadas de viento.' });
+    if (gust >= 110) alerts.push({ level: 'red', title: 'Viento huracanado', msg: `Rachas de ${Math.round(gust)} km/h. Evita salir.` });
+    else if (gust >= 90) alerts.push({ level: 'orange', title: 'Viento muy fuerte', msg: `Rachas de ${Math.round(gust)} km/h. Cuidado con objetos sueltos.` });
+    else if (gust >= 70) alerts.push({ level: 'yellow', title: 'Rachas fuertes', msg: `Rachas de ${Math.round(gust)} km/h.` });
 
-    if (temp >= 40) alerts.push({ level: 'red', title: 'Calor Extremo', msg: 'Riesgo extremo para la salud.' });
-    else if (temp >= 36) alerts.push({ level: 'orange', title: 'Ola de Calor', msg: 'Temperaturas muy altas.' });
-    else if (temp <= -5) alerts.push({ level: 'orange', title: 'Ola de Frio', msg: 'Temperaturas bajo cero peligrosas.' });
+    if (temp >= 40) alerts.push({ level: 'red', title: 'Calor extremo', msg: 'Riesgo alto para la salud: agua, sombra y nada de esfuerzos.' });
+    else if (temp >= 36) alerts.push({ level: 'orange', title: 'Calor muy intenso', msg: 'Hidrátate y evita el sol en las horas centrales.' });
+    else if (temp <= -5) alerts.push({ level: 'orange', title: 'Frío intenso', msg: 'Temperaturas bajo cero peligrosas: abrígate bien.' });
 
-    if (code >= 95) alerts.push({ level: 'orange', title: 'Tormenta Electrica', msg: 'Actividad electrica detectada.' });
-    if (rain >= 10) alerts.push({ level: 'orange', title: 'Lluvia Torrencial', msg: 'Precipitacion intensa.' });
-    if (code === 75 || code === 86) alerts.push({ level: 'orange', title: 'Nevada Fuerte', msg: 'Acumulacion de nieve rapida.' });
+    if (code >= 95) alerts.push({ level: 'orange', title: 'Tormenta eléctrica', msg: 'Actividad eléctrica en la zona. Busca refugio.' });
+    if (rainPeak >= 10) alerts.push({ level: 'orange', title: 'Lluvia intensa prevista', msg: `Hasta ${Math.round(rainPeak)} mm en una hora en las próximas 3 h. No cruces zonas inundadas.` });
+    if (code === 75 || code === 86) alerts.push({ level: 'orange', title: 'Nevada fuerte', msg: 'Acumulación rápida de nieve.' });
 
     return alerts;
 };
@@ -398,9 +459,10 @@ app.post('/api/subscribe', subscribeLimiter, async (req, res) => {
                 const r = await webpush.sendNotification(
                     { endpoint: subscription.endpoint, keys: subscription.keys },
                     JSON.stringify({
+                        tag: 'aeris-bienvenida', url: '/',
                         title: '✅ Avisos de AERIS activados',
                         body: `Te avisaremos de lluvia, tormentas y calor extremo en ${fields.city || 'tu zona'}.`,
-                        icon: '/logo.png', badge: '/logo.png'
+                        icon: '/icon-192.png', badge: '/icon-192.png'
                     }),
                     { TTL: 3600, urgency: 'high' }
                 );
@@ -444,6 +506,55 @@ app.get('/api/search/:query', async (req, res) => {
 });
 
 // --- WEATHER API ---
+// Coordenadas redondeadas a ~1 km: la caché sirve a todos los que están cerca
+// (antes la clave era la coordenada exacta del GPS y casi nunca acertaba).
+const roundCoord = (v) => (Math.round(Number(v) * 100) / 100).toFixed(2);
+const WEATHER_CACHE_MS = 10 * 60 * 1000;
+
+// Purga de la caché: lo que tiene más de un día ya no sirve ni de respaldo
+setInterval(() => {
+    WeatherCache.destroy({ where: { updatedAt: { [Op.lt]: new Date(Date.now() - 24 * 3600 * 1000) } } })
+        .catch(e => log('error', 'purga caché:', e.message));
+}, 6 * 3600 * 1000).unref();
+
+// Nombre del sitio a partir de coordenadas. Nominatim pide como mucho 1
+// petición por segundo y no abusar: se recuerda por celda de ~1 km.
+const reverseCache = new Map();
+async function reverseGeocode(lat, lon) {
+    const k = `${roundCoord(lat)},${roundCoord(lon)}`;
+    if (reverseCache.has(k)) return reverseCache.get(k);
+    try {
+        const { data } = await http.get(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14&accept-language=es`, {
+            headers: { 'User-Agent': 'AerisWeatherApp/1.0 (contact: aerisweatherapp@gmail.com)' }
+        });
+        const a = data.address || {};
+        const place = a.suburb || a.neighbourhood || a.city || a.town || a.village || a.municipality;
+        const r = { name: place ? `Tu ubicacion (${place})` : 'Tu ubicacion', region: [a.state, a.country].filter(Boolean).join(', ') };
+        if (reverseCache.size > 5000) reverseCache.clear();
+        reverseCache.set(k, r);
+        return r;
+    } catch (e) {
+        return { name: 'Tu ubicacion', region: '' };
+    }
+}
+
+const POLLEN_TYPES = ['alder', 'birch', 'grass', 'mugwort', 'olive', 'ragweed']; // las que da Open-Meteo (CAMS Europa)
+
+// Máximo por día de unas series horarias ("YYYY-MM-DDTHH:mm")
+function dailyMax(times, series) {
+    const out = {};
+    (times || []).forEach((t, i) => {
+        const d = t.slice(0, 10);
+        for (const [k, arr] of Object.entries(series)) {
+            const v = arr && arr[i];
+            if (v == null) continue;
+            out[d] = out[d] || {};
+            out[d][k] = Math.max(out[d][k] ?? -Infinity, v);
+        }
+    });
+    return Object.entries(out).map(([fecha, v]) => ({ fecha, ...v }));
+}
+
 app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
     let locationId = req.params.id;
     let forcedName = req.query.name;
@@ -453,54 +564,48 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
         let lat, lon;
 
         if (locationId.includes(',')) {
-            [lat, lon] = locationId.split(',');
+            [lat, lon] = locationId.split(',').map(Number);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error("Ciudad no encontrada");
             const badNames = ['undefined', 'null', 'Ubicacion', 'Tu ubicacion', 'Ubicacion detectada', 'Ubicacion Detectada', '', 'My Location'];
-
             if (!forcedName || badNames.includes(forcedName)) {
-                try {
-                    const geoUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es&format=json`;
-                    const geoRes = await http.get(geoUrl);
-                    if (geoRes.data.results && geoRes.data.results.length > 0) {
-                        forcedName = `Tu ubicacion (${geoRes.data.results[0].name})`;
-                        const r = geoRes.data.results[0];
-                        forcedRegion = [r.admin1, r.country].filter(Boolean).join(', ');
-                    } else { throw new Error("OpenMeteo Empty"); }
-                } catch (err) {
-                    try {
-                        // Nominatim con zoom=14 para nombre de barrio/localidad
-                        const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14`;
-                        const nomRes = await http.get(nomUrl, { headers: { 'User-Agent': 'AerisWeatherApp/1.0 (contact: aerisweatherapp@gmail.com)' } });
-                        const a = nomRes.data.address;
-                        const place = a.suburb || a.neighbourhood || a.city || a.town || a.village || a.municipality;
-                        forcedName = place ? `Tu ubicacion (${place})` : "Tu ubicacion";
-                        forcedRegion = [a.state, a.country].filter(Boolean).join(', ');
-                    } catch (e2) { forcedName = "Tu ubicacion"; }
-                }
+                const r = await reverseGeocode(lat, lon);
+                forcedName = r.name;
+                if (!forcedRegion) forcedRegion = r.region;
             }
         } else {
             const geoRes = await http.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationId)}&count=1&language=es&format=json`);
             if (!geoRes.data.results) throw new Error("Ciudad no encontrada");
-            lat = geoRes.data.results[0].latitude;
-            lon = geoRes.data.results[0].longitude;
-            locationId = `${lat},${lon}`;
-            if (!forcedName) forcedName = geoRes.data.results[0].name;
+            const g = geoRes.data.results[0];
+            lat = g.latitude;
+            lon = g.longitude;
+            if (!forcedName) forcedName = g.name;
+            if (!forcedRegion) forcedRegion = [g.admin1, g.country].filter(Boolean).join(', ');
         }
+        const cacheKey = `${roundCoord(lat)},${roundCoord(lon)}`;
 
         // La caché es una optimización: si la BD falla, se sigue sirviendo el tiempo
-        const cache = await WeatherCache.findByPk(locationId).catch(e => { log('error', 'caché (lectura):', e.message); return null; });
-        if (cache && (new Date() - new Date(cache.updatedAt) < 5 * 60 * 1000)) {
+        const cache = await WeatherCache.findByPk(cacheKey).catch(e => { log('error', 'caché (lectura):', e.message); return null; });
+        if (cache && (new Date() - new Date(cache.updatedAt) < WEATHER_CACHE_MS)) {
             const data = JSON.parse(cache.data);
             if (forcedName && forcedName !== "Tu ubicacion") data.location.name = forcedName;
             return res.json(data);
         }
 
         const aemetAreaCode = getAemetAreaCode(forcedRegion);
+        const pollenVars = POLLEN_TYPES.map(t => `${t}_pollen`).join(',');
 
-        const [wRes, aRes, pRes, avisosRes] = await Promise.allSettled([
-            http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,cloud_cover,surface_pressure&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&minutely_15=precipitation&timezone=auto&past_days=1`),
-            http.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5&timezone=auto`),
-            http.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen,oak_pollen,pine_pollen,cypress_pollen,hazel_pollen,plane_tree_pollen,poplar_pollen,ash_pollen&timezone=auto`),
-            fetchAemetAvisos(aemetAreaCode)
+        const [wRes, aRes, avisosRes] = await Promise.allSettled([
+            http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+                + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,pressure_msl,dew_point_2m,uv_index,visibility`
+                + `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day,wind_gusts_10m,uv_index,pressure_msl`
+                + `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max,precipitation_sum,wind_gusts_10m_max`
+                + `&minutely_15=precipitation&timezone=auto&past_days=1`),
+            // Aire y polen en UNA llamada (antes eran dos y la del polen fallaba
+            // siempre: pedía especies que Open-Meteo no tiene)
+            http.get(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&timezone=auto&forecast_days=4`
+                + `&current=european_aqi,us_aqi,pm10,pm2_5,dust,${pollenVars}`
+                + `&hourly=european_aqi,dust,pm10,${pollenVars}`),
+            avisosParaPunto(aemetAreaCode, lat, lon)
         ]);
 
         if (wRes.status === 'rejected') {
@@ -516,15 +621,16 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
             }
             throw new Error(`Fallo API Clima: ${errorReal.message}`);
         }
+        if (aRes.status === 'rejected') log('error', 'Open-Meteo aire:', aRes.reason.message);
 
         const w = wRes.value.data;
-        const a = (aRes.status === 'fulfilled') ? aRes.value.data : { current: {} };
-        const p = (pRes.status === 'fulfilled') ? pRes.value.data : { current: {} };
-        const avisosOficiales = (avisosRes.status === 'fulfilled') ? avisosRes.value : [];
+        const a = (aRes.status === 'fulfilled') ? aRes.value.data : { current: {}, hourly: {} };
+        const avisosOficiales = (avisosRes.status === 'fulfilled') ? avisosRes.value.map(avisoPublico) : [];
 
         const currentWMO = decodeWMO(w.current.weather_code, w.current.is_day);
         const currentTime = w.current.time;
         const currentHourStr = currentTime.substring(0, 13);
+        const todayStr = currentTime.split('T')[0];
 
         let startIndex = w.hourly.time.findIndex(t => t.startsWith(currentHourStr));
         if (startIndex === -1) startIndex = 0;
@@ -532,14 +638,18 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
         let comparisonText = "";
         try {
             if (startIndex >= 24) {
-                const tempYesterday = w.hourly.temperature_2m[startIndex - 24];
-                const tempToday = w.hourly.temperature_2m[startIndex];
-                const diff = tempToday - tempYesterday;
+                const diff = w.hourly.temperature_2m[startIndex] - w.hourly.temperature_2m[startIndex - 24];
                 if (Math.abs(diff) < 1) comparisonText = "Misma temperatura que ayer";
-                else if (diff > 0) comparisonText = `${Math.round(diff)}° mas calor que ayer`;
-                else comparisonText = `${Math.abs(Math.round(diff))}° mas frio que ayer`;
+                else if (diff > 0) comparisonText = `${Math.round(diff)}° más calor que ayer`;
+                else comparisonText = `${Math.abs(Math.round(diff))}° más frío que ayer`;
             }
         } catch (err) { comparisonText = ""; }
+
+        // Tendencia de presión: ahora frente a hace 3 h (antes se comparaba con
+        // la última consulta, que podía ser de otra ciudad)
+        const pr = w.hourly.pressure_msl || [];
+        const pressureTrend = (startIndex >= 3 && pr[startIndex] != null && pr[startIndex - 3] != null)
+            ? Math.round((pr[startIndex] - pr[startIndex - 3]) * 10) / 10 : null;
 
         const hourly = w.hourly.time
             .slice(startIndex, startIndex + 24)
@@ -552,12 +662,14 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
                     temp: Math.round(w.hourly.temperature_2m[realIndex]),
                     rainProb: w.hourly.precipitation_probability[realIndex],
                     precip: w.hourly.precipitation[realIndex],
+                    gust: Math.round(w.hourly.wind_gusts_10m?.[realIndex] ?? 0),
+                    uv: Math.round((w.hourly.uv_index?.[realIndex] ?? 0) * 10) / 10,
                     icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon
                 };
             });
 
         // Nowcast: tramos de 15 min desde ahora. Bastan 4 h (16 tramos): el
-        // cliente usa las 2 próximas y el resto cubre la caché de 5 min.
+        // cliente usa las 2 próximas y el resto cubre la caché.
         let nowcast = { time: [], precipitation: [] };
         if (w.minutely_15) {
             const indices = w.minutely_15.time.map((t, i) => ({ t, i })).filter(item => item.t >= currentTime).map(item => item.i).slice(0, 16);
@@ -565,41 +677,55 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
             nowcast.precipitation = indices.map(i => w.minutely_15.precipitation[i] || 0);
         }
 
-        const pollenData = {
-            alder: p.current.alder_pollen || 0, birch: p.current.birch_pollen || 0,
-            grass: p.current.grass_pollen || 0, mugwort: p.current.mugwort_pollen || 0,
-            olive: p.current.olive_pollen || 0, ragweed: p.current.ragweed_pollen || 0,
-            oak: p.current.oak_pollen || 0, pine: p.current.pine_pollen || 0,
-            cypress: p.current.cypress_pollen || 0, hazel: p.current.hazel_pollen || 0,
-            plane: p.current.plane_tree_pollen || 0, poplar: p.current.poplar_pollen || 0,
-            ash: p.current.ash_pollen || 0
-        };
+        const ac = a.current || {}, ah = a.hourly || {};
+        const pollenData = Object.fromEntries(POLLEN_TYPES.map(t => [t, Math.round(ac[`${t}_pollen`] || 0)]));
+        // Previsión por día (máximos): polen, AQI europeo y polvo (calima)
+        const airDaily = dailyMax(ah.time, {
+            eaqi: ah.european_aqi, dust: ah.dust, pm10: ah.pm10,
+            ...Object.fromEntries(POLLEN_TYPES.map(t => [t, ah[`${t}_pollen`]]))
+        }).filter(d => d.fecha >= todayStr);
 
-        const alerts = generateAlerts(w);
+        const alerts = generateAlerts(w, startIndex);
+
+        const dIdx = w.daily.time.indexOf(todayStr);
+        const yesterday = dIdx > 0 ? {
+            tempMax: Math.round(w.daily.temperature_2m_max[dIdx - 1]),
+            tempMin: Math.round(w.daily.temperature_2m_min[dIdx - 1])
+        } : null;
 
         const finalData = {
             location: { name: forcedName || "Tu ubicacion", region: forcedRegion, lat, lon, timezone: w.timezone },
+            updatedAt: new Date().toISOString(),
             current: {
                 temp: Math.round(w.current.temperature_2m),
                 feelsLike: Math.round(w.current.apparent_temperature),
                 humidity: w.current.relative_humidity_2m,
+                dewPoint: Math.round(w.current.dew_point_2m ?? 0),
                 windSpeed: Math.round(w.current.wind_speed_10m),
+                windGust: Math.round(w.current.wind_gusts_10m ?? w.current.wind_speed_10m),
                 windDir: windDirectionText(w.current.wind_direction_10m),
-                pressure: Math.round(w.current.surface_pressure),
+                pressure: Math.round(w.current.pressure_msl),      // a nivel del mar (la de superficie daba 949 hPa en Madrid)
+                pressureTrend,
+                visibility: w.current.visibility ?? null,
                 desc: currentWMO.text,
                 icon: currentWMO.icon,
                 isDay: w.current.is_day === 1,
-                uv: w.daily.uv_index_max[0] || 0,
-                aqi: a.current.us_aqi || 0,
-                pm25: a.current.pm2_5 || 0,
-                pm10: a.current.pm10 || 0,
+                uv: Math.round((w.current.uv_index ?? 0) * 10) / 10, // el de ahora (antes era el máximo de AYER)
+                uvMax: dIdx >= 0 ? (w.daily.uv_index_max[dIdx] || 0) : 0,
+                aqi: ac.us_aqi || 0,
+                eaqi: ac.european_aqi ?? null,
+                pm25: ac.pm2_5 || 0,
+                pm10: ac.pm10 || 0,
+                dust: ac.dust ?? null,
                 time: w.current.time,
                 cloudCover: w.current.cloud_cover || 0,
                 comparison: comparisonText
             },
+            yesterday,
             nowcast,
             hourly,
             pollen: pollenData,
+            airDaily,
             alerts,
             avisosOficiales,
             daily: w.daily.time.map((t, i) => ({
@@ -610,21 +736,25 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
                 sunset: w.daily.sunset[i].split('T')[1],
                 icon: decodeWMO(w.daily.weather_code[i], 1).icon,
                 rainProbMax: w.daily.precipitation_probability_max[i],
+                precipSum: Math.round((w.daily.precipitation_sum?.[i] ?? 0) * 10) / 10,
+                gustMax: Math.round(w.daily.wind_gusts_10m_max?.[i] ?? 0),
+                uvMax: w.daily.uv_index_max[i] || 0,
                 dayHours: w.hourly.time.reduce((acc, timeStr, idx) => {
                     if (timeStr.startsWith(t)) {
                         acc.push({
                             time: timeStr.split('T')[1],
                             temp: Math.round(w.hourly.temperature_2m[idx]),
                             rainProb: w.hourly.precipitation_probability[idx],
-                            icon: decodeWMO(w.hourly.weather_code[idx], 1).icon
+                            precip: w.hourly.precipitation[idx],
+                            icon: decodeWMO(w.hourly.weather_code[idx], w.hourly.is_day[idx]).icon
                         });
                     }
                     return acc;
                 }, [])
-            })).filter(d => d.fecha >= currentTime.split('T')[0])
+            })).filter(d => d.fecha >= todayStr)
         };
 
-        await WeatherCache.upsert({ locationId, data: JSON.stringify(finalData), updatedAt: new Date() })
+        await WeatherCache.upsert({ locationId: cacheKey, data: JSON.stringify(finalData), updatedAt: new Date() })
             .catch(e => log('error', 'caché (escritura):', e.message));
         res.json(finalData);
 
@@ -704,12 +834,35 @@ async function forEachLimit(items, limit, fn) {
     await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 }
 
+// "Hoy 14:00–23:59" / "Mañana 10:00–19:59" en la zona horaria del usuario
+function avisoRango(onset, expires, tz) {
+    if (!onset) return '';
+    const zone = isValidTimeZone(tz) ? tz : 'Europe/Madrid';
+    const day = (d) => new Intl.DateTimeFormat('sv-SE', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const hm = (d) => new Intl.DateTimeFormat('es-ES', { timeZone: zone, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+    const a = new Date(onset), b = expires ? new Date(expires) : null;
+    const today = day(new Date()), tomorrow = day(new Date(Date.now() + 86400000));
+    const label = day(a) === today ? 'Hoy' : day(a) === tomorrow ? 'Mañana' : new Intl.DateTimeFormat('es-ES', { timeZone: zone, weekday: 'long' }).format(a);
+    return `${label} ${hm(a)}${b ? '–' + hm(b) : ''}`;
+}
+
+// Enlace que abre la app en la ciudad del suscriptor (y en una sección)
+const cityUrl = (user, section) => {
+    const q = new URLSearchParams({ lat: user.lat, lon: user.lon });
+    if (user.city) q.set('name', user.city);
+    if (section) q.set('ver', section);
+    return `/?${q.toString()}`;
+};
+
 // Envía un push; si el navegador ya no tiene esa suscripción (404/410) la borramos.
+// payload.type decide la etiqueta: un aviso de lluvia ya no sustituye al
+// resumen de la mañana ni a un aviso oficial sin leer.
 async function sendPush(user, payload) {
     try {
+        const { type = 'aviso', section, ...rest } = payload;
         await webpush.sendNotification(
             { endpoint: user.endpoint, keys: user.keys },
-            JSON.stringify({ icon: '/logo.png', badge: '/logo.png', ...payload }),
+            JSON.stringify({ icon: '/icon-192.png', badge: '/icon-192.png', tag: `aeris-${type}`, type, url: cityUrl(user, section), ...rest }),
             { TTL: 3600, urgency: 'high' } // un aviso de lluvia de hace horas ya no sirve
         );
         return true;
@@ -727,16 +880,20 @@ async function sendPush(user, payload) {
 function weatherNotification(data, city) {
     const current = data.current;
     if (!current) return null;
-    return imminentRainNotification(data.minutely_15, current, city)
+    const rain = imminentRainNotification(data.minutely_15, current, city);
+    return (rain && { ...rain, type: 'lluvia', section: 'lluvia' })
         || (current.temperature_2m >= 36 && {
+            type: 'calor',
             title: `🌡️ Calor extremo en ${city}`,
             body: `Temperatura: ${Math.round(current.temperature_2m)}°C. Hidrátate y busca la sombra.`
         })
-        || (current.wind_speed_10m >= 70 && {
+        || ((current.wind_gusts_10m ?? current.wind_speed_10m) >= 70 && {
+            type: 'viento',
             title: `💨 Viento fuerte en ${city}`,
-            body: `Rachas de ${Math.round(current.wind_speed_10m)} km/h. Precaución en exteriores.`
+            body: `Rachas de ${Math.round(current.wind_gusts_10m ?? current.wind_speed_10m)} km/h. Precaución en exteriores.`
         })
         || (current.weather_code >= 95 && {
+            type: 'tormenta',
             title: `⚡ Tormenta en ${city}`,
             body: 'Actividad eléctrica detectada. Busca refugio.'
         })
@@ -767,13 +924,18 @@ app.get('/api/cron/check-rain', async (req, res) => {
                 try {
                     const areaCode = user.region ? getAemetAreaCode(user.region) : null;
                     if (areaCode) {
-                        const topAviso = (await fetchAemetAvisos(areaCode)).find(a => a.nivel === 'rojo' || a.nivel === 'naranja');
-                        const avisoKey = topAviso ? `${topAviso.nivel}|${topAviso.fenomeno}` : null;
+                        // Solo los de SU zona (antes, los de toda la comunidad)
+                        const topAviso = (await avisosParaPunto(areaCode, user.lat, user.lon)).find(a => a.nivel === 'rojo' || a.nivel === 'naranja');
+                        // Se notifica cuando cambia el aviso (nivel, fenómeno o inicio), nunca repetido
+                        const avisoKey = topAviso ? `${topAviso.nivel}|${topAviso.fenomeno}|${topAviso.onset || ''}`.slice(0, 250) : null;
                         if (topAviso && avisoKey !== user.lastAemetAviso) {
                             const emoji = topAviso.nivel === 'rojo' ? '🔴' : '🟠';
                             if (await sendPush(user, {
-                                title: `${emoji} Aviso oficial AEMET (${topAviso.nivel}) en ${user.city}`,
-                                body: topAviso.titular || topAviso.fenomeno
+                                type: 'aemet',
+                                section: 'avisos',
+                                requireInteraction: topAviso.nivel === 'rojo',
+                                title: `${emoji} Aviso ${topAviso.nivel} por ${topAviso.fenomeno.toLowerCase()} · ${user.city}`,
+                                body: [avisoRango(topAviso.onset, topAviso.expires, user.timezone), topAviso.titular].filter(Boolean).join(' · ')
                             })) {
                                 user.lastAemetAviso = avisoKey;
                                 user.lastNotification = new Date();
@@ -797,7 +959,7 @@ app.get('/api/cron/check-rain', async (req, res) => {
 
             try {
                 stats.llamadasOpenMeteo++;
-                const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m&forecast_days=2&timezone=auto`);
+                const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&forecast_days=2&timezone=auto`);
                 for (const user of pending) {
                     const notif = weatherNotification(data, user.city);
                     if (notif && await sendPush(user, notif)) {
@@ -842,7 +1004,7 @@ app.get('/api/cron/morning-summary', async (req, res) => {
                 const isNiceDay = rain < 20 && max >= 18 && max <= 28 && d.weather_code[0] <= 3;
                 const body = `${wmo.text} · ${min}°–${max}° · Lluvia: ${rain}% · UV: ${uv}${isNiceDay ? ' ¡Buen día para salir! 🏃' : ''}`;
                 for (const user of zoneUsers) {
-                    if (await sendPush(user, { title: `${emoji} Buenos días en ${user.city}`, body })) stats.notificaciones++;
+                    if (await sendPush(user, { type: 'manana', title: `${emoji} Buenos días en ${user.city}`, body })) stats.notificaciones++;
                 }
             } catch (err) { log('error', `morning zona ${lat},${lon}:`, err.message); }
         });

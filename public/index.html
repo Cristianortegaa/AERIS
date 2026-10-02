@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="styles.css?v=19">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -89,7 +89,7 @@
             </div>
             <div class="onboarding-slide" data-slide="1">
                 <div class="onboarding-emoji">🎭</div>
-                <h3>14 Personalidades</h3>
+                <h3>15 Personalidades</h3>
                 <p>Toca el bocadillo del robot para cambiar la IA que te comenta el tiempo. Desde Zen hasta Villano — elige tu favorita.</p>
             </div>
             <div class="onboarding-slide" data-slide="2">
@@ -375,7 +375,8 @@
                     <h2 class="card-label" id="lbl-lluvia"><i class="bi bi-cloud-drizzle"></i><span id="rain-title">Lluvia próximas 2 h</span></h2>
                     <span class="card-extra accent" id="rain-summary">--</span>
                 </div>
-                <p class="nowcast-text" id="nowcast-text" aria-live="polite"></p>
+                <p class="nowcast-text" id="nowcast-text"></p>
+                <p class="visually-hidden" id="nowcast-live" aria-live="polite"></p>
                 <div class="nowcast-chart" id="nowcast-chart" aria-hidden="true"></div>
                 <div class="nowcast-axis" id="nowcast-axis" aria-hidden="true"></div>
                 <div class="nowcast-legend" aria-hidden="true">
@@ -417,6 +418,8 @@
                 <div class="card-head">
                     <h2 class="card-label" id="lbl-sol"><i class="bi bi-brightness-alt-high"></i>Sol y luna</h2>
                     <span id="lunar-display" class="lunar-chip" title="Fase lunar"></span>
+                </div>
+                <div class="moon-times" id="moon-times">
                 </div>
                 <div class="solar-clock-wrapper">
                     <canvas id="solar-clock-canvas" width="320" height="80" aria-label="Reloj solar"></canvas>
@@ -489,7 +492,7 @@
                 <div class="skeleton" id="radar-skeleton"></div>
                 <iframe id="radar-frame" src="" title="Radar meteorológico en vivo" loading="lazy"></iframe>
                 <button type="button" class="radar-cover" aria-label="Activar el mapa del radar"><span><i class="bi bi-hand-index-thumb" aria-hidden="true"></i> Toca para mover el mapa</span></button>
-                <div class="radar-badge"><span class="live-dot"></span>RADAR EN VIVO</div>
+                <div class="radar-badge"><span class="live-dot"></span>PRECIPITACIÓN · MODELO</div>
             </section>
         </div>
     </div>
@@ -537,7 +540,8 @@
 </nav>
 
 <!-- APP JS -->
-<script src="app.js?v=17"></script>
+<script src="vendor/suncalc.js"></script>
+<script src="app.js?v=19"></script>
 
 </body>
 </html>

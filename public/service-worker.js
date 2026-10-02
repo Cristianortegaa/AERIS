@@ -1,11 +1,12 @@
-const CACHE_NAME = 'aeris-v26';
+const CACHE_NAME = 'aeris-v28';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=17',
-    '/app.js?v=17',
+    '/styles.css?v=19',
+    '/app.js?v=19',
     '/vendor/bootstrap-reboot.min.css',
+    '/vendor/suncalc.js',
     '/logo.png',
     '/icono-clima.png',
     '/apple-touch-icon.png',
@@ -74,24 +75,36 @@ self.addEventListener('push', function (event) {
     catch (e) { try { data.body = event.data.text() || data.body; } catch (e2) {} }
     const options = {
         body: data.body,
-        icon: data.icon || '/logo.png',
-        badge: data.badge || '/logo.png',
+        icon: data.icon || '/icon-192.png',
+        badge: data.badge || '/icon-192.png',
         vibrate: [200, 100, 200],
-        tag: 'aeris-alert',
+        // Una etiqueta por tipo: un aviso de lluvia ya no sustituye al
+        // resumen de la mañana ni a un aviso oficial sin leer
+        tag: data.tag || 'aeris-aviso',
         renotify: true,
-        data: { url: '/' }
+        requireInteraction: !!data.requireInteraction,
+        data: { url: data.url || '/', type: data.type || '' }
     };
-    event.waitUntil(self.registration.showNotification(data.title, options));
+    const jobs = [self.registration.showNotification(data.title, options)];
+    // Aviso oficial: globo en el icono de la app (se quita al abrirla)
+    if (data.type === 'aemet' && self.navigator.setAppBadge) jobs.push(self.navigator.setAppBadge(1).catch(() => {}));
+    event.waitUntil(Promise.all(jobs));
 });
 
+// Al tocarla se abre la app en la ciudad (y la sección) del aviso
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
+    const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async windowClients => {
             for (const client of windowClients) {
-                if (new URL(client.url).origin === self.location.origin && 'focus' in client) return client.focus();
+                if (new URL(client.url).origin !== self.location.origin) continue;
+                if ('navigate' in client && client.url !== target) {
+                    try { await client.navigate(target); } catch (e) {}
+                }
+                if ('focus' in client) return client.focus();
             }
-            if (clients.openWindow) return clients.openWindow('/');
+            if (clients.openWindow) return clients.openWindow(target);
         })
     );
 });
