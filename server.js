@@ -619,7 +619,8 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
                 if (forcedName && forcedName !== "Tu ubicacion") data.location.name = forcedName;
                 return res.json(data);
             }
-            throw new Error(`Fallo API Clima: ${errorReal.message}`);
+            const reason = errorReal.response && errorReal.response.data && errorReal.response.data.reason;
+            throw new Error(`Fallo API Clima: ${errorReal.message}${reason ? ' · ' + reason : ''}`);
         }
         if (aRes.status === 'rejected') log('error', 'Open-Meteo aire:', aRes.reason.message);
 
