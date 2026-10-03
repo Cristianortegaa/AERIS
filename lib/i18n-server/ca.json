@@ -54,5 +54,11 @@
     "seoHomeTitle": "AERIS · El temps, amb els avisos oficials de l'AEMET",
     "seoHomeDesc": "App del temps amb personalitat: pluja de les properes 2 hores, avisos oficials de l'AEMET, previsió a 15 dies amb fiabilitat, qualitat de l'aire, calitja i pol·len. Sense anuncis ni rastreig.",
     "privacyContact": "<b>Qualsevol dubte sobre les teves dades:</b> escriu a {mail}.",
-    "privacyNoContact": "<b>Sense intermediaris:</b> com que AERIS no et demana ni el nom ni el correu, tot el que guarda de tu ho pots esborrar des de l'app."
+    "privacyNoContact": "<b>Sense intermediaris:</b> com que AERIS no et demana ni el nom ni el correu, tot el que guarda de tu ho pots esborrar des de l'app.",
+    "pressureTitle": "📉 Baixa la pressió a {place}",
+    "pressureBody": "Baixarà {n} hPa en les properes 24 h. Si tens migranya o dolor articular, potser ho notaràs.",
+    "planFirstTitle": "📅 {title}: ja hi ha previsió",
+    "planChangedTitle": "📅 Canvia la previsió: {title}",
+    "planEveTitle": "📅 Demà: {title}",
+    "planBody": "{place} · {desc} · {min}°–{max}° · pluja {rain}%"
 }

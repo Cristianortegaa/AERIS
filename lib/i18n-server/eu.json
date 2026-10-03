@@ -54,5 +54,11 @@
     "seoHomeTitle": "AERIS · Espainiako eguraldia, AEMETen abisu ofizialekin",
     "seoHomeDesc": "Eguraldi-aplikazioa euskaraz: euria hurrengo 2 orduetan, AEMETen abisu ofizialak, 15 eguneko iragarpena fidagarritasunarekin, airearen kalitatea, kalima eta polena. Iragarkirik eta jarraipenik gabe.",
     "privacyContact": "<b>Zure datuei buruzko edozein zalantza:</b> idatzi helbide honetara: {mail}.",
-    "privacyNoContact": "<b>Bitartekaririk gabe:</b> AERISek ez dizu izenik ez emailik eskatzen; beraz, zutaz gordetzen duen guztia zuk zeuk ezaba dezakezu aplikaziotik."
+    "privacyNoContact": "<b>Bitartekaririk gabe:</b> AERISek ez dizu izenik ez emailik eskatzen; beraz, zutaz gordetzen duen guztia zuk zeuk ezaba dezakezu aplikaziotik.",
+    "pressureTitle": "📉 Presioa jaisten ari da · {place}",
+    "pressureBody": "Hurrengo 24 orduetan {n} hPa jaitsiko da. Migraina edo artikulazio-mina baduzu, baliteke nabaritzea.",
+    "planFirstTitle": "📅 {title}: iragarpena eskuragarri dago",
+    "planChangedTitle": "📅 Iragarpena aldatu da: {title}",
+    "planEveTitle": "📅 Bihar: {title}",
+    "planBody": "{place} · {desc} · {min}°–{max}° · euria %{rain}"
 }

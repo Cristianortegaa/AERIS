@@ -407,6 +407,17 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
   - Comprobación: `node tests/validate-lang.js <idioma>`, que también se ejecuta en `npm test`.
   - De paso, las líneas de las fichas ya no se cortan (palabras largas en euskera y gallego).
 
+- **Ocho funciones nuevas (hecho después):**
+  - **En casa · Ventilar:** en días de calor (máxima ≥ 26°), la franja más fresca para abrir las ventanas y cuándo cerrarlas; en días de frío (≤ 16°), la hora más templada para ventilar 10 minutos.
+  - **En casa · Tender la ropa:** cuánto tarda en secarse según la temperatura, la humedad, el viento y el sol, o si va a llover antes.
+  - **Atardecer:** nota de 1 a 10 según las nubes altas, medias y bajas a la hora de la puesta, más la hora dorada.
+  - **Presión:** aviso en la tarjeta de aire si va a bajar ≥ 6 hPa en 24 h, y notificación opcional («Bajadas bruscas de presión»), una al día como mucho.
+  - **¿Dónde hace mejor este finde?:** compara tus favoritos y las ciudades a menos de 200 km (con `/api/ciudades`) con una sola petición a Open-Meteo desde el móvil. Tu ciudad sale siempre, para poder compararla.
+  - **Mis viajes con aviso:** los viajes pueden llevar nombre («Boda de Ana») y la opción «Avísame cuando haya previsión y si cambia». El servidor avisa cuando llega la previsión (7 días antes), si cambia de verdad (lluvia ±30 puntos o cruza el 50 %, máxima ±4°) y la víspera.
+  - **Nieve y esquí:** 25 estaciones con su cota: espesor y nieve nueva en 7 días. Sale en temporada (noviembre–abril) o si va a nevar. Con la campana, «Avisarme de nevadas» añade la estación a los sitios vigilados.
+  - **Tal día como hoy:** hace un año y los récords de calor y frío de esa fecha (reanálisis ERA5 desde 1991), con las mismas peticiones que «lo normal»; la media de lo normal sigue siendo 1991–2020.
+  - Todo en los cinco idiomas.
+
 ---
 
 ## Qué más (revisión del 2026-10-03, tarde)

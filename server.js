@@ -365,6 +365,7 @@ app.get('/api/vapid-key', (req, res) => {
 function cleanPrefs(p) {
     const types = {};
     for (const k of ['lluvia', 'tormenta', 'calor', 'viento']) types[k] = !(p.types && p.types[k] === false);
+    types.presion = !!(p.types && p.types.presion === true); // migraña: solo si se pide
     const hour = Math.round(Number(p.morningHour));
     return {
         types,
@@ -374,6 +375,12 @@ function cleanPrefs(p) {
         calima: p.calima !== false,
         polen: !!p.polen,
         lang: I18N.normLang(p.lang), // idioma de las notificaciones
+        // Planes con aviso ("Avísame si cambia la previsión"): hasta 5
+        planes: (Array.isArray(p.planes) ? p.planes : []).slice(0, 5)
+            .filter(x => x && Number.isFinite(Number(x.lat)) && Number.isFinite(Number(x.lon))
+                && /^\d{4}-\d{2}-\d{2}$/.test(x.from) && /^\d{4}-\d{2}-\d{2}$/.test(x.to))
+            .map(x => ({ id: String(x.id || '').slice(0, 40), title: String(x.title || '').slice(0, 60), name: String(x.name || '').slice(0, 120),
+                lat: Number(x.lat), lon: Number(x.lon), from: x.from, to: x.to })),
         extras: (Array.isArray(p.extras) ? p.extras : []).slice(0, 2)
             .filter(e => e && Number.isFinite(Number(e.lat)) && Number.isFinite(Number(e.lon)))
             .map(e => ({ lat: Number(e.lat), lon: Number(e.lon), city: String(e.city || '').slice(0, 120), region: String(e.region || '').slice(0, 120) }))
@@ -593,6 +600,12 @@ for (const l of I18N.LANGS.filter(l => l !== 'es')) {
         res.type('html').send(renderAppPage({ lang: l, url: alternates[l], alternates, title: tr(l, 'seoHomeTitle'), desc: tr(l, 'seoHomeDesc') }));
     });
 }
+
+// Ciudades principales: la app compara el finde con las cercanas
+app.get('/api/ciudades', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.json(CIUDADES.filter(c => c.slug !== 'santiago').map(({ name, lat, lon, region }) => ({ name, lat, lon, region })));
+});
 
 // Sitemap con las ciudades principales, en todos los idiomas
 app.get('/sitemap.xml', (req, res) => {
@@ -1122,10 +1135,11 @@ const cronAuthorized = (req, res) => {
 // state (lo lleva el servidor): último aviso AEMET por ubicación y día del
 // último parte, para no repetir.
 const parseJSON = (v, def) => { try { return v ? (typeof v === 'string' ? JSON.parse(v) : v) : def; } catch { return def; } };
-const DEFAULT_PREFS = { types: { lluvia: true, tormenta: true, calor: true, viento: true }, aemetMin: 'naranja', morning: true, morningHour: 8, calima: true, polen: false, lang: 'es', extras: [] };
+const DEFAULT_PREFS = { types: { lluvia: true, tormenta: true, calor: true, viento: true, presion: false }, aemetMin: 'naranja', morning: true, morningHour: 8, calima: true, polen: false, lang: 'es', extras: [], planes: [] };
 const prefsOf = (user) => {
     const p = parseJSON(user.prefs, {});
-    return { ...DEFAULT_PREFS, ...p, types: { ...DEFAULT_PREFS.types, ...(p.types || {}) }, extras: Array.isArray(p.extras) ? p.extras.slice(0, 2) : [] };
+    return { ...DEFAULT_PREFS, ...p, types: { ...DEFAULT_PREFS.types, ...(p.types || {}) }, extras: Array.isArray(p.extras) ? p.extras.slice(0, 2) : [],
+        planes: Array.isArray(p.planes) ? p.planes.slice(0, 5) : [] };
 };
 const stateOf = (user) => parseJSON(user.state, {});
 async function saveState(user, state) {
@@ -1215,6 +1229,66 @@ function wantsMorning(user, { force = false } = {}) {
 
 const AEMET_RANK = { amarillo: 1, naranja: 2, rojo: 3 };
 
+// --- PRESIÓN: bajada brusca en las próximas 24 h (la notan quienes tienen migrañas) ---
+const PRESSURE_DROP_HPA = 6;
+function pressureDrop(data) {
+    const h = data && data.hourly, cur = data && data.current;
+    if (!h || !h.pressure_msl || !h.time || !cur || !cur.time) return 0;
+    const i0 = Math.max(0, h.time.findIndex(t => t >= cur.time.slice(0, 13)));
+    const next = h.pressure_msl.slice(i0, i0 + 25).filter(v => v != null);
+    if (next.length < 6) return 0;
+    return Math.round(next[0] - Math.min(...next));
+}
+
+// --- PLANES: "Avísame si cambia la previsión" para una fecha y un sitio ---
+// Primer aviso cuando la previsión llega (7 días antes), otro si cambia de
+// verdad (lluvia ±30 puntos o cruza el 50 %, máxima ±4°) y el de la víspera.
+async function checkPlanes(users, stats) {
+    const cache = new Map();
+    for (const user of users) {
+        const p = prefsOf(user);
+        if (!p.planes.length) continue;
+        const now = localParts(user.timezone);
+        const st = stateOf(user);
+        if (now.hour < 9 || st.planesDay === now.day) continue;
+        st.planes = st.planes || {};
+        const limit = new Date(now.day + 'T12:00:00Z'); limit.setUTCDate(limit.getUTCDate() + 7);
+        const in7 = limit.toISOString().slice(0, 10);
+        const tom = new Date(now.day + 'T12:00:00Z'); tom.setUTCDate(tom.getUTCDate() + 1);
+        const tomorrow = tom.toISOString().slice(0, 10);
+        for (const plan of p.planes) {
+            if (plan.to < now.day || plan.from > in7) continue;
+            const start = plan.from > now.day ? plan.from : now.day, end = plan.to < in7 ? plan.to : in7;
+            const key = `${plan.lat.toFixed(2)},${plan.lon.toFixed(2)},${start},${end}`;
+            let d = cache.get(key);
+            if (!d) {
+                stats.llamadasOpenMeteo++;
+                d = (await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${plan.lat}&longitude=${plan.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${start}&end_date=${end}`)).data.daily;
+                cache.set(key, d);
+            }
+            if (!d || !d.time || !d.time.length) continue;
+            const sum = {
+                tMax: Math.round(Math.max(...d.temperature_2m_max)), tMin: Math.round(Math.min(...d.temperature_2m_min)),
+                rain: Math.max(...d.precipitation_probability_max.map(v => v || 0)), code: Math.max(...d.weather_code)
+            };
+            const prev = st.planes[plan.id];
+            const title = plan.title || plan.name;
+            const vars = { title, place: placeName(plan.name, p.lang), desc: trApp(p.lang, decodeWMO(sum.code, 1).text), min: sum.tMin, max: sum.tMax, rain: sum.rain };
+            let kind = null;
+            if (!prev) kind = 'planFirstTitle';
+            else if (Math.abs(sum.rain - prev.rain) >= 30 || (sum.rain >= 50) !== (prev.rain >= 50) || Math.abs(sum.tMax - prev.tMax) >= 4) kind = 'planChangedTitle';
+            else if (plan.from === tomorrow && !prev.eve) kind = 'planEveTitle';
+            if (kind) {
+                const target = { user, lat: plan.lat, lon: plan.lon, city: plan.name };
+                if (await sendPush(user, { type: `plan-${plan.id}`, section: 'viajes', title: tr(p.lang, kind, vars), body: tr(p.lang, 'planBody', vars), url: cityUrl(target, 'viajes') })) stats.notificaciones++;
+            }
+            st.planes[plan.id] = { tMax: sum.tMax, rain: sum.rain, eve: (prev && prev.eve) || kind === 'planEveTitle' || plan.from === tomorrow };
+        }
+        st.planesDay = now.day;
+        await saveState(user, st);
+    }
+}
+
 // --- CRON: avisos (llámalo cada 15 min) ---
 app.get('/api/cron/check-rain', async (req, res) => {
     if (!cronAuthorized(req, res)) return;
@@ -1276,11 +1350,23 @@ app.get('/api/cron/check-rain', async (req, res) => {
             if (!hourlyPass && isQuietHour(zoneTargets[0].user)) { stats.zonasEnPausaNocturna++; return; }
             try {
                 stats.llamadasOpenMeteo++;
-                const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&forecast_days=2&timezone=auto`);
+                const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&hourly=pressure_msl&forecast_days=2&timezone=auto`);
                 for (const t of zoneTargets) {
                     if (done.has(t.user.endpoint)) continue;
-                    const notif = weatherNotification(data, t.city, prefsOf(t.user).lang);
-                    if (!notif || prefsOf(t.user).types[notif.type] === false) continue;
+                    const p = prefsOf(t.user);
+                    let notif = weatherNotification(data, t.city, p.lang);
+                    if (notif && p.types[notif.type] === false) notif = null;
+                    // Lo último: bajada brusca de presión (migraña), una vez al día y solo si se pide
+                    if (!notif && t.primary && p.types.presion) {
+                        const st = stateOf(t.user), today = localParts(t.user.timezone).day;
+                        const drop = pressureDrop(data);
+                        if (st.presion !== today && drop >= PRESSURE_DROP_HPA) {
+                            notif = { type: 'presion', section: 'aire', title: tr(p.lang, 'pressureTitle', { place: placeName(t.city, p.lang) }), body: tr(p.lang, 'pressureBody', { n: drop }) };
+                            st.presion = today;
+                            await saveState(t.user, st);
+                        }
+                    }
+                    if (!notif) continue;
                     if (await sendPush(t.user, { ...notif, url: cityUrl(t, notif.section) })) {
                         done.add(t.user.endpoint);
                         t.user.lastNotification = new Date();
@@ -1290,6 +1376,9 @@ app.get('/api/cron/check-rain', async (req, res) => {
                 }
             } catch (err) { log('error', `cron zona ${lat},${lon}:`, err.message); }
         });
+
+        // 3. Planes con aviso (una vez al día, desde las 9 de la mañana de cada uno)
+        try { await checkPlanes(users, stats); } catch (err) { log('error', 'planes:', err.message); }
 
         log('info', 'Cron avisos:', JSON.stringify(stats));
         salud.cron = { hora: new Date().toISOString(), ...stats };

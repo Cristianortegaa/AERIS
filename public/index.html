@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=50">
+    <link rel="stylesheet" href="styles.css?v=51">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -515,6 +515,25 @@
                 <div id="trips-list"></div>
             </section>
 
+            <!-- ¿DÓNDE HACE MEJOR ESTE FINDE? -->
+            <section class="glass-card" id="finde-card" hidden aria-labelledby="lbl-finde">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-finde"><i class="bi bi-signpost-split"></i>¿Dónde hace mejor este finde?</h2>
+                    <span class="card-extra" id="finde-when"></span>
+                </div>
+                <div id="finde-list"></div>
+                <p class="trend-note">Tus favoritos y las ciudades a menos de 200 km: más sol, temperatura agradable y menos lluvia.</p>
+            </section>
+
+            <!-- NIEVE Y ESQUÍ (en temporada o si va a nevar) -->
+            <section class="glass-card" id="nieve-card" hidden aria-labelledby="lbl-nieve">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-nieve"><i class="bi bi-snow"></i>Nieve y esquí</h2>
+                    <span class="card-hint">Espesor · nieve nueva en 7 días</span>
+                </div>
+                <div id="nieve-list"></div>
+            </section>
+
             <!-- TENDENCIA DÍAS 8–15 (ensemble) -->
             <section class="glass-card" id="trend-card" hidden aria-labelledby="lbl-trend">
                 <div class="card-head">
@@ -555,6 +574,15 @@
                     <span id="solar-pct"></span>
                     <span><span id="sunset-time">—</span> <i class="bi bi-sunset"></i></span>
                 </div>
+                <div class="sunset-row" id="sunset-row" hidden></div>
+            </section>
+
+            <!-- TAL DÍA COMO HOY -->
+            <section class="glass-card" id="hoy-card" hidden aria-labelledby="lbl-hoy">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-hoy"><i class="bi bi-calendar-heart"></i>Tal día como hoy</h2>
+                </div>
+                <div id="hoy-body"></div>
             </section>
 
             <!-- 7. CALIDAD DEL AIRE -->
@@ -575,6 +603,7 @@
                 <div class="calima-row" id="calima-row" hidden></div>
                 <div class="calima-row fire-row" id="fire-row" hidden></div>
                 <div class="calima-row fire-row" id="focos-row" hidden></div>
+                <div class="calima-row presion-row" id="presion-row" hidden></div>
             </section>
 
             <!-- 8. POLEN / ALERGIAS -->
@@ -615,6 +644,14 @@
                         <div class="skeleton" style="width:72px;height:32px;border-radius:99px;"></div>
                     </div>
                 </div>
+            </section>
+
+            <!-- EN CASA: ventilar y tender la ropa -->
+            <section class="glass-card" id="home-card" hidden aria-labelledby="lbl-casa">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-casa"><i class="bi bi-house-heart"></i>En casa</h2>
+                </div>
+                <div id="home-body"></div>
             </section>
 
             <!-- 11. RADAR EN VIVO -->
@@ -692,7 +729,7 @@
         if (!L) { try { var s = localStorage.getItem('aeris_lang'); if (SUP.indexOf(s) !== -1) L = s; } catch (e) {} }
         if (!L) { var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || 'es').toLowerCase().split('-')[0]; L = SUP.indexOf(nav) !== -1 ? nav : 'en'; }
         window.AERIS_LANG = L;
-        var files = (L === 'es' ? [] : ['i18n/' + L + '.js?v=1', 'i18n/personas-' + L + '.js?v=1']).concat(['i18n.js?v=2', 'app.js?v=54']);
+        var files = (L === 'es' ? [] : ['i18n/' + L + '.js?v=3', 'i18n/personas-' + L + '.js?v=1']).concat(['i18n.js?v=2', 'app.js?v=56']);
         files.forEach(function (src) { var el = document.createElement('script'); el.src = src; el.async = false; document.body.appendChild(el); });
     })();
 </script>

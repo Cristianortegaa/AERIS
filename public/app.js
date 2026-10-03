@@ -1705,8 +1705,11 @@ document.addEventListener('click', (e) => {
         case 'best-window':    showBestWindow(el.dataset.activity); break;
         case 'trip-new':       openTripPlanner(); break;
         case 'avisos':         openAvisos(); break;
+        case 'finde-go':       selectCity({ id: `${el.dataset.lat},${el.dataset.lon}`, name: el.dataset.name, region: el.dataset.region, lat: +el.dataset.lat, lon: +el.dataset.lon }); break;
+        case 'nieve-todas':    snowShowAll = !snowShowAll; renderSnow(); break;
+        case 'nieve-avisar':   snowAlertFor(Number(el.dataset.i)); break;
         case 'trip-open':      openTrip(el.dataset.trip); break;
-        case 'trip-del':       e.stopPropagation(); setTrips(getTrips().filter(t => t.id !== el.dataset.trip)); renderTrips(); break;
+        case 'trip-del':       e.stopPropagation(); setTrips(getTrips().filter(t => t.id !== el.dataset.trip)); renderTrips(); if (localStorage.getItem('aeris_push_on')) savePushPrefsSoon(); break;
         case 'trip-go': {
             const t = getTrips().find(x => x.id === el.dataset.trip);
             if (t) { closeDetail(); selectCity({ id: `${t.lat},${t.lon}`, name: t.name, region: t.region, lat: t.lat, lon: t.lon }); }
@@ -1827,6 +1830,7 @@ async function registerPush(silent = false) {
         if (!lat || !lon) return say(t('Elige una ciudad para activar los avisos.'), 'warn');
         const { follow, home, ...prefs } = getPushPrefs();
         prefs.lang = LANG; // las notificaciones llegan en el idioma de la app
+        prefs.planes = planesForPush();
 
         const res = await fetch('/api/subscribe', {
             method: 'POST',
@@ -2396,18 +2400,21 @@ const CONF_TXT = { alta: t('Fiable'), media: t('Bastante seguro'), baja: t('Inci
 // ============================================================
 // 26h. LO NORMAL PARA ESTAS FECHAS (ERA5, media 1991–2020)
 // ============================================================
-// 30 peticiones pequeñas (una por año, ventana de 4 semanas) la primera vez
-// para esa zona; luego queda guardado para siempre por fecha.
+// Una petición pequeña por año (ventana de 4 semanas) la primera vez para
+// esa zona; luego queda guardado por fecha. Lo normal es la media 1991–2020;
+// los récords y "hace un año" usan todos los años hasta el pasado.
 async function fetchNormals(lat, lon, fechas) {
     const cell = cellKey(lat, lon);
     const mmdd = (f) => f.slice(5, 10);
+    const lastYear = new Date().getFullYear() - 1;
     const out = {}, missing = [];
-    fechas.forEach(f => { const v = lsGet(`aeris_norm_${cell}_${mmdd(f)}`); if (v) out[f] = v; else missing.push(f); });
+    // v2 (con récords); "hace un año" cambia cada año: va en la clave
+    fechas.forEach(f => { const v = lsGet(`aeris_norm2_${cell}_${mmdd(f)}_${lastYear}`); if (v) out[f] = v; else missing.push(f); });
     if (!missing.length) return out;
     const first = new Date(missing[0] + 'T12:00:00Z'), last = new Date(missing[missing.length - 1] + 'T12:00:00Z');
     const from = new Date(first.getTime() - 7 * 86400e3), to = new Date(last.getTime() + 7 * 86400e3);
     const md = (d) => d.toISOString().slice(5, 10);
-    const years = Array.from({ length: 30 }, (_, i) => 1991 + i);
+    const years = Array.from({ length: lastYear - 1990 }, (_, i) => 1991 + i);
     const series = []; // { md, tx, tn }
     let next = 0;
     const worker = async () => {
@@ -2420,7 +2427,7 @@ async function fetchNormals(lat, lon, fechas) {
                 const r = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
                 if (!r.ok) continue;
                 const j = await r.json();
-                j.daily.time.forEach((t, i) => series.push({ md: t.slice(5, 10), doy: Date.UTC(2001, +t.slice(5, 7) - 1, +t.slice(8, 10)), tx: j.daily.temperature_2m_max[i], tn: j.daily.temperature_2m_min[i] }));
+                j.daily.time.forEach((t, i) => series.push({ y: +t.slice(0, 4), md: t.slice(5, 10), doy: Date.UTC(2001, +t.slice(5, 7) - 1, +t.slice(8, 10)), tx: j.daily.temperature_2m_max[i], tn: j.daily.temperature_2m_min[i] }));
             } catch (e) { /* un año menos no cambia la media */ }
         }
     };
@@ -2428,10 +2435,18 @@ async function fetchNormals(lat, lon, fechas) {
     if (series.length < 200) return out; // pocos datos: mejor no decir nada
     missing.forEach(f => {
         const c = Date.UTC(2001, +f.slice(5, 7) - 1, +f.slice(8, 10));
-        const win = series.filter(s => { let dd = Math.abs(s.doy - c) / 86400e3; dd = Math.min(dd, 365 - dd); return dd <= 7 && s.tx != null; });
+        const win = series.filter(s => { let dd = Math.abs(s.doy - c) / 86400e3; dd = Math.min(dd, 365 - dd); return dd <= 7 && s.tx != null && s.y <= 2020; });
         if (win.length < 100) return;
         const v = { tMax: Math.round(win.reduce((a, s) => a + s.tx, 0) / win.length * 10) / 10, tMin: Math.round(win.reduce((a, s) => a + s.tn, 0) / win.length * 10) / 10 };
-        lsSet(`aeris_norm_${cell}_${mmdd(f)}`, v);
+        // Ese mismo día en todos los años: récords y hace un año
+        const same = series.filter(s => s.md === mmdd(f) && s.tx != null && s.tn != null);
+        if (same.length >= 20) {
+            const hot = same.reduce((a, b) => (b.tx > a.tx ? b : a)), cold = same.reduce((a, b) => (b.tn < a.tn ? b : a));
+            v.rec = { max: hot.tx, maxY: hot.y, min: cold.tn, minY: cold.y, from: Math.min(...same.map(s => s.y)) };
+            const ly = same.find(s => s.y === lastYear);
+            if (ly) v.ly = { tx: ly.tx, tn: ly.tn };
+        }
+        lsSet(`aeris_norm2_${cell}_${mmdd(f)}_${lastYear}`, v);
         out[f] = v;
     });
     return out;
@@ -2546,6 +2561,7 @@ async function renderForecastExtras(data) {
         }
         el.textContent = txt;
     }
+    renderOnThisDay(data);
 }
 
 // Noche tropical (mínima ≥ 20°) o tórrida (≥ 25°): esta noche = mínima de mañana
@@ -2559,7 +2575,7 @@ function tropicalNight(data) {
 // 26i. AJUSTES DE AVISOS (la campana, con los avisos ya activados)
 // ============================================================
 const PUSH_PREFS_KEY = 'aeris_push_prefs';
-const defaultPushPrefs = () => ({ follow: true, home: null, types: { lluvia: true, tormenta: true, calor: true, viento: true }, aemetMin: 'naranja', morning: true, morningHour: 8, calima: true, polen: false, extras: [] });
+const defaultPushPrefs = () => ({ follow: true, home: null, types: { lluvia: true, tormenta: true, calor: true, viento: true, presion: false }, aemetMin: 'naranja', morning: true, morningHour: 8, calima: true, polen: false, extras: [] });
 const getPushPrefs = () => ({ ...defaultPushPrefs(), ...(lsGet(PUSH_PREFS_KEY) || {}) });
 const setPushPrefs = (p) => lsSet(PUSH_PREFS_KEY, p);
 // Sitio principal de los avisos: el que se está viendo o el fijado
@@ -2591,6 +2607,7 @@ function renderPushSettings() {
         ${sw('types.tormenta', p.types.tormenta, t('Tormentas'))}
         ${sw('types.calor', p.types.calor, t('Calor extremo'))}
         ${sw('types.viento', p.types.viento, t('Rachas fuertes'))}
+        ${sw('types.presion', !!p.types.presion, t('Bajadas bruscas de presión'), t('Para quien tiene migrañas o dolor articular'))}
         <label class="ps-row"><span>${t('Avisos oficiales de AEMET')}</span><select class="ps-select" data-pref="aemetMin">
             <option value="amarillo" ${p.aemetMin === 'amarillo' ? 'selected' : ''}>${t('Amarillo, naranja y rojo')}</option>
             <option value="naranja" ${p.aemetMin === 'naranja' ? 'selected' : ''}>${t('Naranja y rojo')}</option>
@@ -3159,6 +3176,13 @@ const todayISO = () => new Date().toLocaleDateString('sv-SE');
 const addDaysISO = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
 const getTrips = () => (lsGet(TRIPS_KEY) || []).filter(t => t.to >= todayISO());
 const setTrips = (t) => lsSet(TRIPS_KEY, t.slice(0, 5));
+// Viajes con "Avísame si cambia la previsión": se mandan al servidor con los avisos
+const planesForPush = () => getTrips().filter(x => x.notify).slice(0, 5)
+    .map(({ id, title, name, lat, lon, from, to }) => ({ id, title: title || '', name, lat, lon, from, to }));
+function syncPlanes() {
+    if (localStorage.getItem('aeris_push_on')) savePushPrefsSoon();
+    else if (getTrips().some(x => x.notify)) showToast(t('Para que te avise, activa los avisos con la campana.'), 'warn');
+}
 const fmtDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
 
 // Resumen del viaje con los días del ensemble que caen dentro
@@ -3193,7 +3217,7 @@ async function renderTrips() {
         else body = `<span class="trip-stats"><b>${fmtTemp(s.min)}° – ${fmtTemp(s.max)}°</b><span><i class="bi bi-droplet-fill" aria-hidden="true"></i>${Math.round(s.rain * 100)}%</span><span class="conf-pill conf-${s.level}">${CONF_TXT[s.level]}</span></span>`
             + `<span class="trip-meta">${s.pack.length ? t('Lleva {list}.', { list: joinEs(s.pack) }) : t('Nada especial que llevar.')}${s.partial ? t(' Solo están los primeros días.') : ''}</span>`;
         return `<div class="trip-item" role="button" tabindex="0" data-action="trip-open" data-trip="${escapeHTML(trip.id)}">
-            <div class="trip-head"><span class="trip-name">${escapeHTML(trip.name)}</span><span class="trip-dates">${escapeHTML(dates)}</span></div>
+            <div class="trip-head"><span class="trip-name">${trip.title ? `${escapeHTML(trip.title)} <small>· ${escapeHTML(trip.name)}</small>` : escapeHTML(trip.name)}${trip.notify ? ' <i class="bi bi-bell-fill trip-bell" aria-hidden="true"></i>' : ''}</span><span class="trip-dates">${escapeHTML(dates)}</span></div>
             ${body}
             <button type="button" class="trip-del" data-action="trip-del" data-trip="${escapeHTML(trip.id)}" aria-label="${t('Quitar el viaje a {name}', { name: escapeHTML(trip.name) })}"><i class="bi bi-x"></i></button>
         </div>`;
@@ -3208,6 +3232,8 @@ function openTripPlanner() {
     tripDraft = { from: todayISO(), to: addDaysISO(todayISO(), 2) };
     document.getElementById('detailTitle').textContent = t('Planear un viaje');
     document.getElementById('detailBody').innerHTML = `
+        <label class="trip-label" for="trip-title">${t('Nombre (opcional)')}</label>
+        <input type="text" id="trip-title" class="trip-input" maxlength="60" placeholder="${t('Boda, excursión, partido…')}" autocomplete="off">
         <label class="trip-label" for="trip-q">${t('Destino')}</label>
         <input type="search" id="trip-q" class="trip-input" placeholder="${t('Ciudad, pueblo…')}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
         <ul class="trip-results" id="trip-results"></ul>
@@ -3215,6 +3241,7 @@ function openTripPlanner() {
             <label class="trip-label">${t('Desde')}<input type="date" id="trip-from" class="trip-input" value="${tripDraft.from}" min="${todayISO()}"></label>
             <label class="trip-label">${t('Hasta')}<input type="date" id="trip-to" class="trip-input" value="${tripDraft.to}" min="${todayISO()}"></label>
         </div>
+        <label class="trip-notify"><input type="checkbox" id="trip-notify" ${localStorage.getItem('aeris_push_on') ? 'checked' : ''}><span>${t('Avísame cuando haya previsión y si cambia')}</span></label>
         <button type="button" class="btn-pill solid trip-save" id="trip-save" disabled>${t('Guardar viaje')}</button>
         <p class="detail-note">${t('La previsión llega hasta 15 días; si el viaje es más tarde, se completará sola cuando se acerque.')}</p>`;
     detailModal.classList.add('show');
@@ -3250,11 +3277,14 @@ function openTripPlanner() {
         const c = tripDraft.city;
         if (!c || !tripDraft.from || !tripDraft.to || tripDraft.to < tripDraft.from) return;
         const trips = getTrips();
-        trips.push({ id: `${Date.now()}`, name: c.name, region: c.region || '', lat: +c.lat, lon: +c.lon, from: tripDraft.from, to: tripDraft.to });
+        const title = document.getElementById('trip-title').value.trim().slice(0, 60);
+        const notify = document.getElementById('trip-notify').checked;
+        trips.push({ id: `${Date.now()}`, title, notify, name: c.name, region: c.region || '', lat: +c.lat, lon: +c.lon, from: tripDraft.from, to: tripDraft.to });
         trips.sort((a, b) => a.from.localeCompare(b.from));
         setTrips(trips);
         closeDetail();
         renderTrips();
+        if (notify) syncPlanes();
         showToast(t('Viaje a {name} guardado.', { name: c.name }), 'ok');
     });
     setTimeout(() => q.focus({ preventScroll: true }), 350);
@@ -3266,7 +3296,7 @@ async function openTrip(id) {
     if (!trip || !detailModal) return;
     let s;
     try { s = tripSummary(trip, await fetchEnsemble(trip.lat, trip.lon)); } catch (e) { s = { pending: true, daysTo: 0 }; }
-    document.getElementById('detailTitle').textContent = trip.name;
+    document.getElementById('detailTitle').textContent = trip.title || trip.name;
     const rows = s.pending ? `<p class="detail-text">${t('Faltan {n} días. La previsión llega 15 días antes: vuelve a mirarlo entonces.', { n: s.daysTo })}</p>`
         : s.days.map(d => `<div class="trip-day"><span class="trip-day-name">${escapeHTML(fmtDay(d.fecha))}</span><span>${fmtTemp(d.tMin)}° / <b>${fmtTemp(d.tMax)}°</b></span><span class="trend-rain">${d.rainProb >= 0.2 ? `<i class="bi bi-droplet-fill" aria-hidden="true"></i>${Math.round(d.rainProb * 100)}%` : ''}</span><span class="trend-conf">${CONF_TXT[d.level]}</span></div>`).join('');
     document.getElementById('detailBody').innerHTML = `
@@ -3276,6 +3306,351 @@ async function openTrip(id) {
         <button type="button" class="btn-pill ghost trip-go" data-action="trip-go" data-trip="${escapeHTML(trip.id)}"><i class="bi bi-geo-alt"></i>${t('Ver el tiempo de {name}', { name: escapeHTML(trip.name) })}</button>
         <p class="detail-note">${t('Con los 51 escenarios del modelo de IA de ECMWF.')}</p>`;
     detailModal.classList.add('show');
+}
+
+// ============================================================
+// 26v. EN CASA (ventilar y tender), ATARDECER Y PRESIÓN
+// ============================================================
+// Una petición más a Open-Meteo desde el móvil: 3 días por horas con nubes
+// por capas, radiación solar y presión (también la de ayer). Se guarda 1 h
+// (solo la del último sitio visto).
+async function fetchHomeData(lat, lon) {
+    const cell = cellKey(lat, lon);
+    const c = lsGet('aeris_home');
+    if (c && c.cell === cell && Date.now() - c.ts < 3600e3) return c.d;
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation,precipitation_probability,precipitation,cloud_cover_low,cloud_cover_mid,cloud_cover_high,pressure_msl&daily=sunset&timezone=auto&forecast_days=3&past_days=1`);
+    if (!r.ok) throw new Error(`casa ${r.status}`);
+    const j = await r.json(), h = j.hourly;
+    const d = {
+        hours: h.time.map((t, i) => ({
+            t, temp: h.temperature_2m[i], rh: h.relative_humidity_2m[i], wind: h.wind_speed_10m[i] || 0, rad: h.shortwave_radiation[i] || 0,
+            prob: h.precipitation_probability[i] || 0, mm: h.precipitation[i] || 0,
+            low: h.cloud_cover_low[i] || 0, mid: h.cloud_cover_mid[i] || 0, high: h.cloud_cover_high[i] || 0, p: h.pressure_msl[i]
+        })),
+        sunsets: j.daily.time.map((f, i) => ({ fecha: f, t: j.daily.sunset[i] }))
+    };
+    lsSet('aeris_home', { cell, ts: Date.now(), d });
+    return d;
+}
+const hh = (t) => t.slice(11, 16);
+// Índice de la hora actual (la última que ya ha empezado)
+const hourIndex = (hours, nowKey) => Math.max(0, hours.findIndex(h => h.t > nowKey) - 1);
+
+// --- Ventilar: en verano, cuándo fuera está más fresco; en invierno, la hora más templada
+function ventilationAdvice(d, nowKey) {
+    const i0 = hourIndex(d.hours, nowKey);
+    const next = d.hours.slice(i0, i0 + 24).filter(h => h.temp != null);
+    if (next.length < 12) return null;
+    const max = Math.max(...next.map(h => h.temp)), min = Math.min(...next.map(h => h.temp));
+    if (max >= 26) {
+        // Las horas frescas: hasta 2° por encima de la mínima (o 21°), sin lluvia probable
+        const cool = Math.max(21, min + 2);
+        const ok = next.map(h => h.temp <= cool && h.prob < 60);
+        let best = null, start = -1;
+        ok.forEach((v, i) => {
+            if (v && start < 0) start = i;
+            if ((!v || i === ok.length - 1) && start >= 0) {
+                const end = v ? i : i - 1;
+                if (!best || end - start > best[1] - best[0]) best = [start, end];
+                start = -1;
+            }
+        });
+        if (!best) return null;
+        const run = next.slice(best[0], best[1] + 1);
+        const tMin = Math.round(Math.min(...run.map(h => h.temp)));
+        const endT = next[Math.min(best[1] + 1, next.length - 1)].t;
+        const hot = next.slice(best[1] + 1).find(h => h.temp >= 24);
+        const text = best[0] === 0
+            ? t('Ahora es buen momento: ventila hasta las {b}, fuera está a {t}°.', { b: hh(endT), t: Math.round(next[0].temp) })
+            : t('Abre las ventanas de {a} a {b}: fuera bajará a {t}°.', { a: hh(run[0].t), b: hh(endT), t: tMin });
+        return { mode: 'hot', text: text + (hot ? t(' Ciérralas hacia las {c}, cuando fuera pase de {t}°.', { c: hh(hot.t), t: 24 }) : '') };
+    }
+    if (max <= 16) {
+        const day = next.filter(h => { const x = +h.t.slice(11, 13); return x >= 10 && x <= 18; });
+        if (!day.length) return null;
+        const warm = day.reduce((a, b) => (b.temp > a.temp ? b : a));
+        return { mode: 'cold', text: t('Hace frío: ventila 10 minutos hacia las {h}, la hora más templada ({t}°).', { h: hh(warm.t), t: Math.round(warm.temp) }) };
+    }
+    return null;
+}
+
+// --- Tender la ropa: cuánto tarda en secarse con el sol, el viento y la humedad
+const satVap = (T) => 0.6108 * Math.exp(17.27 * T / (T + 237.3)); // kPa
+const dryRate = (h) => satVap(h.temp) * (1 - h.rh / 100) * (1 + h.wind / 10) * (1 + h.rad / 500);
+const DRY_NEEDED = 12; // ≈ 1 h a pleno sol de verano, 4 h en primavera, imposible en invierno húmedo
+function dryingAdvice(d, nowKey) {
+    let i0 = hourIndex(d.hours, nowKey);
+    const hourOf = (h) => +h.t.slice(11, 13);
+    let prefix = '';
+    // Por la noche o ya tarde: se mira mañana desde las 9
+    if (hourOf(d.hours[i0]) >= 18 || hourOf(d.hours[i0]) < 7) {
+        const tomorrow9 = d.hours.findIndex((h, i) => i > i0 && hourOf(h) === 9);
+        if (tomorrow9 < 0) return null;
+        if (hourOf(d.hours[i0]) >= 18) prefix = t('Mañana: ');
+        i0 = tomorrow9;
+    }
+    const day = d.hours[i0].t.slice(0, 10);
+    let acc = 0, n = 0;
+    for (let i = i0; i < d.hours.length && d.hours[i].t.slice(0, 10) === day && hourOf(d.hours[i]) <= 20; i++) {
+        const h = d.hours[i];
+        if (h.prob >= 50 || h.mm >= 0.1) return { ok: false, text: prefix + t('Mejor dentro: lloverá hacia las {h}.', { h: hh(h.t) }) };
+        acc += dryRate(h); n++;
+        if (acc >= DRY_NEEDED) {
+            const start = hh(d.hours[i0].t);
+            if (n <= 3) return { ok: true, text: prefix + t('Sí, tiende: se seca en unas {n} h (desde las {s}).', { n, s: start }) };
+            return { ok: true, text: prefix + t('Se seca, pero despacio: unas {n} h (desde las {s}).', { n, s: start }) };
+        }
+    }
+    return { ok: false, text: prefix + t('Hoy no se seca fuera: mejor dentro o en el tendedero.') };
+}
+
+// --- Atardecer: las nubes altas y medias se tiñen de color; las bajas lo tapan
+function sunsetQuality(d, nowKey) {
+    const today = nowKey.slice(0, 10);
+    const s = d.sunsets.find(x => x.t > nowKey && x.fecha >= today);
+    if (!s) return null;
+    const h = d.hours.find(x => x.t.slice(0, 13) === s.t.slice(0, 13));
+    if (!h) return null;
+    const bell = (x, c, w) => Math.max(0, 1 - Math.pow((x - c) / w, 2));
+    let score, why;
+    if (h.prob >= 60 || h.mm >= 0.3) { score = 2; why = t('Lluvia: poco que ver.'); }
+    else if (h.low >= 70) { score = 2; why = t('Nubes bajas: el sol se esconderá antes.'); }
+    else if (h.high + h.mid < 10 && h.low < 20) { score = 5; why = t('Cielo despejado: bonito pero sin nubes de color.'); }
+    else {
+        score = 4 + 4 * bell(h.high, 50, 40) + 2.5 * bell(h.mid, 40, 35) - (h.low >= 40 ? 2 : 0);
+        why = h.low >= 40 ? t('Algunas nubes bajas pueden tapar el sol.') : t('Nubes altas y medias que se teñirán de naranja.');
+    }
+    score = Math.max(1, Math.min(10, Math.round(score)));
+    const label = t(score >= 8 ? 'Espectacular' : score >= 6 ? 'Bonito' : score >= 4 ? 'Normal' : 'Gris');
+    return { score, label, why, time: hh(s.t), isToday: s.fecha === today };
+}
+
+// --- Presión: bajada brusca en las próximas 24 h (migraña, dolor articular)
+function pressureChange(d, nowKey) {
+    const i0 = hourIndex(d.hours, nowKey);
+    const next = d.hours.slice(i0, i0 + 25).map(h => h.p).filter(v => v != null);
+    if (next.length < 6) return null;
+    const drop = Math.round(next[0] - Math.min(...next));
+    return drop >= 6 ? drop : null;
+}
+
+let homePlace = null;
+async function renderHome(data) {
+    const lat = data.location?.lat, lon = data.location?.lon, tz = data.location?.timezone;
+    if (!Number.isFinite(+lat) || !tz) return;
+    const place = `${lat},${lon}`;
+    homePlace = place;
+    let d;
+    try { d = await fetchHomeData(lat, lon); } catch (e) { return; }
+    if (homePlace !== place) return;
+    const nowKey = localNowKey(tz);
+    // En casa: ventilar y tender
+    const card = document.getElementById('home-card');
+    if (card) {
+        const v = ventilationAdvice(d, nowKey), dr = dryingAdvice(d, nowKey);
+        const row = (icon, title, text, cls = '') => `<div class="home-row ${cls}"><i class="bi ${icon}" aria-hidden="true"></i><div><b>${title}</b><span>${escapeHTML(text)}</span></div></div>`;
+        const html = (v ? row(v.mode === 'hot' ? 'bi-wind' : 'bi-snow2', t('Ventilar'), v.text) : '')
+            + (dr ? row('bi-sun', t('Tender la ropa'), dr.text, dr.ok ? 'is-ok' : 'is-no') : '');
+        setHTMLIfChanged(document.getElementById('home-body'), html);
+        card.hidden = !html;
+    }
+    // Atardecer (en la tarjeta del sol)
+    const sEl = document.getElementById('sunset-row');
+    if (sEl) {
+        const q = sunsetQuality(d, nowKey);
+        let golden = '';
+        if (q && q.isToday && typeof SunCalc !== 'undefined') {
+            const g = SunCalc.getTimes(new Date(), +lat, +lon).goldenHour;
+            if (g && !isNaN(g)) golden = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(g);
+        }
+        setHTMLIfChanged(sEl, q ? `<span class="sunset-score s${Math.ceil(q.score / 2.5)}">${q.score}<small>/10</small></span>`
+            + `<div><b>${escapeHTML(t(q.isToday ? 'Atardecer de hoy · {h}' : 'Atardecer de mañana · {h}', { h: q.time }))} · ${escapeHTML(q.label)}</b>`
+            + `<span>${escapeHTML(q.why)}${golden ? ' ' + escapeHTML(t('Hora dorada desde las {h}.', { h: golden })) : ''}</span></div>` : '');
+        sEl.hidden = !q;
+    }
+    // Presión (en la tarjeta de aire y salud)
+    const pEl = document.getElementById('presion-row');
+    if (pEl) {
+        const drop = pressureChange(d, nowKey);
+        pEl.hidden = !drop;
+        if (drop) setHTMLIfChanged(pEl, `<i class="bi bi-graph-down-arrow" aria-hidden="true"></i><div><b>${escapeHTML(t('Bajada brusca de presión: −{n} hPa en 24 h', { n: drop }))}</b><span>${escapeHTML(t('Si tienes migraña o dolor articular, puede que lo notes. Puedes recibir un aviso en los ajustes de la campana.'))}</span></div>`);
+    }
+}
+
+// ============================================================
+// 26w. ¿DÓNDE HACE MEJOR ESTE FINDE?
+// ============================================================
+// Tus favoritos, el sitio que miras y las ciudades a menos de 200 km, con
+// UNA petición a Open-Meteo (varias coordenadas a la vez) desde el móvil.
+async function getCiudades() {
+    const c = lsGet('aeris_ciudades');
+    if (c && Date.now() - c.ts < 7 * 86400e3) return c.list;
+    const r = await fetch('/api/ciudades');
+    const list = r.ok ? await r.json() : [];
+    if (list.length) lsSet('aeris_ciudades', { ts: Date.now(), list });
+    return list;
+}
+// Próximo sábado y domingo (si hoy es domingo, solo hoy)
+function weekendDates(todayIso) {
+    const d = new Date(todayIso + 'T12:00:00Z'), dow = d.getUTCDay();
+    const add = (n) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    if (dow === 0) return [todayIso];
+    if (dow === 6) return [todayIso, add(1)];
+    return [add(6 - dow), add(7 - dow)];
+}
+let findePlace = null;
+async function renderFinde(data) {
+    const card = document.getElementById('finde-card'), list = document.getElementById('finde-list');
+    const lat = +data.location?.lat, lon = +data.location?.lon, tz = data.location?.timezone;
+    if (!card || !Number.isFinite(lat) || !tz) return;
+    const key = `${lat},${lon}`;
+    findePlace = key;
+    const days = weekendDates(localNowKey(tz).slice(0, 10));
+    // Candidatos: aquí, favoritos y cercanas (sin repetir sitios a menos de 15 km)
+    const here = { name: placeLabel(document.getElementById('city')?.textContent.trim() || data.location.name), lat, lon, here: true };
+    const cands = [here];
+    const near = (a, b) => distKmC(a.lat, a.lon, b.lat, b.lon) < 15;
+    (favorites || []).forEach(f => {
+        const [la, lo] = String(f.id).split(',').map(Number);
+        const c = { name: f.name, region: f.region, lat: f.lat ?? la, lon: f.lon ?? lo, id: f.id };
+        if (Number.isFinite(+c.lat) && !cands.some(x => near(x, c))) cands.push(c);
+    });
+    try {
+        const cities = (await getCiudades()).map(c => ({ ...c, km: distKmC(lat, lon, c.lat, c.lon) }))
+            .filter(c => c.km <= 200).sort((a, b) => a.km - b.km);
+        for (const c of cities) { if (cands.length >= 9) break; if (!cands.some(x => near(x, c))) cands.push(c); }
+    } catch (e) { /* sin lista: solo favoritos */ }
+    if (cands.length < 2) { card.hidden = true; return; }
+    const cacheKey = `aeris_finde_${cands.map(c => cellKey(c.lat, c.lon)).join('|')}_${days.join(',')}`;
+    let res = (lsGet('aeris_finde') || {})[cacheKey];
+    if (!res || Date.now() - res.ts > 3 * 3600e3) {
+        try {
+            const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${cands.map(c => (+c.lat).toFixed(3)).join(',')}&longitude=${cands.map(c => (+c.lon).toFixed(3)).join(',')}&daily=weather_code,temperature_2m_max,precipitation_probability_max,precipitation_sum,sunshine_duration,wind_gusts_10m_max&timezone=auto&start_date=${days[0]}&end_date=${days[days.length - 1]}`);
+            if (!r.ok) throw new Error(r.status);
+            let j = await r.json(); if (!Array.isArray(j)) j = [j];
+            res = { ts: Date.now(), daily: j.map(x => x.daily) };
+            lsSet('aeris_finde', { [cacheKey]: res });
+        } catch (e) { card.hidden = true; return; }
+    }
+    if (findePlace !== key) return;
+    const tempScore = (tx) => tx >= 22 && tx <= 28 ? 3 : (tx >= 17 && tx < 22) || (tx > 28 && tx <= 32) ? 1.5 : 0;
+    const rows = cands.map((c, i) => {
+        const dd = res.daily[i];
+        if (!dd || !dd.time) return null;
+        const per = dd.time.map((f, k) => {
+            const sun = (dd.sunshine_duration[k] || 0) / 3600, tx = dd.temperature_2m_max[k], pr = dd.precipitation_probability_max[k] || 0;
+            return { f, tx: Math.round(tx), pr, code: dd.weather_code[k],
+                score: Math.min(sun, 10) * 0.5 + tempScore(tx) - pr / 100 * 6 - Math.min(dd.precipitation_sum[k] || 0, 10) * 0.5 - ((dd.wind_gusts_10m_max[k] || 0) > 50 ? 2 : 0) };
+        });
+        return { c, per, score: per.reduce((a, x) => a + x.score, 0) / per.length };
+    }).filter(Boolean).sort((a, b) => b.score - a.score);
+    const dayName = (f) => new Date(f + 'T12:00:00').toLocaleDateString(LOCALE, { weekday: 'short' }).replace('.', '');
+    card.hidden = false;
+    const top = rows.slice(0, 5);
+    const hereRow = rows.find(r => r.c.here);
+    if (hereRow && !top.includes(hereRow)) top.push(hereRow);
+    setHTMLIfChanged(list, top.map((r, i) => {
+        const w = WeatherCore.decodeWMO(r.per[0].code, 1, LANG);
+        const temps = r.per.map(x => `${escapeHTML(capitalize(dayName(x.f)))} <b>${fmtTemp(x.tx)}°</b>`).join(' · ');
+        const rain = Math.max(...r.per.map(x => x.pr));
+        return `<button type="button" class="finde-item${i === 0 ? ' is-best' : ''}" data-action="finde-go" data-lat="${r.c.lat}" data-lon="${r.c.lon}" data-name="${escapeHTML(r.c.name)}" data-region="${escapeHTML(r.c.region || '')}">
+            <span class="finde-icon">${renderIcon(w.icon, '')}</span>
+            <span class="finde-main"><span class="finde-name">${escapeHTML(r.c.name)}${r.c.here ? ` <small>${escapeHTML(t('(estás aquí)'))}</small>` : ''}</span><span class="finde-temps">${temps}${rain >= 20 ? ` · <i class="bi bi-droplet-fill" aria-hidden="true"></i>${rain}%` : ''}</span></span>
+            ${i === 0 ? `<span class="finde-best">${escapeHTML(t('Mejor opción'))}</span>` : ''}
+        </button>`;
+    }).join(''));
+    document.getElementById('finde-when').textContent = days.length === 1 ? t('Hoy domingo') : `${capitalize(dayName(days[0]))} – ${dayName(days[1])}`;
+}
+// Distancia en km (la del servidor no está en el móvil)
+function distKmC(a, b, c, d) {
+    const R = 6371, r = Math.PI / 180, dLat = (c - a) * r, dLon = (d - b) * r;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+// ============================================================
+// 26x. NIEVE Y ESTACIONES DE ESQUÍ
+// ============================================================
+// Cota de cada estación (la temperatura y la nieve dependen de la altura).
+const ESTACIONES = [
+    ['Sierra Nevada', 37.095, -3.398, 2300, 'Granada'], ['Baqueira-Beret', 42.699, 0.933, 2000, 'Lleida'],
+    ['Formigal-Panticosa', 42.775, -0.364, 1900, 'Huesca'], ['Cerler', 42.574, 0.534, 2100, 'Huesca'],
+    ['Candanchú', 42.788, -0.528, 1700, 'Huesca'], ['Astún', 42.808, -0.505, 1900, 'Huesca'],
+    ['La Molina', 42.336, 1.941, 1900, 'Girona'], ['Masella', 42.354, 1.903, 2000, 'Girona'],
+    ['Boí Taüll', 42.476, 0.875, 2300, 'Lleida'], ['Port Ainé', 42.423, 1.203, 2100, 'Lleida'],
+    ['Espot', 42.570, 1.083, 2000, 'Lleida'], ['Port del Comte', 42.177, 1.561, 2000, 'Lleida'],
+    ['Vallter 2000', 42.428, 2.265, 2300, 'Girona'], ['Alto Campoo', 43.039, -4.383, 1900, 'Cantabria'],
+    ['Valdezcaray', 42.242, -3.001, 1800, 'La Rioja'], ['San Isidro', 43.060, -5.366, 1700, 'León'],
+    ['Valgrande-Pajares', 43.004, -5.768, 1600, 'Asturias'], ['Fuentes de Invierno', 43.088, -5.370, 1700, 'Asturias'],
+    ['Leitariegos', 42.997, -6.418, 1700, 'León'], ['Manzaneda', 42.258, -7.297, 1600, 'Ourense'],
+    ['La Pinilla', 41.203, -3.474, 1800, 'Segovia'], ['Navacerrada', 40.785, -4.007, 1900, 'Madrid'],
+    ['Valdesquí', 40.799, -3.960, 2000, 'Madrid'], ['Javalambre', 40.105, -1.025, 1900, 'Teruel'],
+    ['Valdelinares', 40.372, -0.621, 1900, 'Teruel']
+];
+async function fetchSnow() {
+    const c = lsGet('aeris_nieve');
+    if (c && Date.now() - c.ts < 3 * 3600e3) return c.d;
+    const q = (k) => ESTACIONES.map(e => e[k]).join(',');
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${q(1)}&longitude=${q(2)}&elevation=${q(3)}&current=snow_depth,temperature_2m&daily=snowfall_sum&timezone=auto&forecast_days=7`);
+    if (!r.ok) throw new Error(`nieve ${r.status}`);
+    let j = await r.json(); if (!Array.isArray(j)) j = [j];
+    const d = j.map(x => ({ depth: Math.round((x.current?.snow_depth || 0) * 100), temp: x.current?.temperature_2m, fresh: Math.round((x.daily?.snowfall_sum || []).reduce((a, v) => a + (v || 0), 0)) }));
+    lsSet('aeris_nieve', { ts: Date.now(), d });
+    return d;
+}
+let snowShowAll = false;
+async function renderSnow() {
+    const card = document.getElementById('nieve-card');
+    if (!card) return;
+    let d;
+    try { d = await fetchSnow(); } catch (e) { card.hidden = true; return; }
+    const month = new Date().getMonth() + 1;
+    const rows = ESTACIONES.map((e, i) => ({ e, ...d[i] })).sort((a, b) => (b.fresh - a.fresh) || (b.depth - a.depth));
+    const season = month >= 11 || month <= 4;
+    // Fuera de temporada solo sale si va a nevar de verdad
+    card.hidden = !(season || rows.some(r => r.fresh >= 5 || r.depth >= 10));
+    if (card.hidden) return;
+    const shown = snowShowAll ? rows : rows.slice(0, 6);
+    setHTMLIfChanged(document.getElementById('nieve-list'), shown.map(r => `<div class="nieve-item">
+            <div class="nieve-main"><span class="nieve-name">${escapeHTML(r.e[0])}</span><span class="nieve-sub">${escapeHTML(r.e[4])} · ${r.e[3]} m</span></div>
+            <span class="nieve-depth" title="${escapeHTML(t('Espesor de nieve'))}">${r.depth ? `${r.depth} cm` : '—'}</span>
+            <span class="nieve-fresh${r.fresh >= 20 ? ' is-big' : ''}">${r.fresh ? `+${r.fresh} cm` : ''}</span>
+            ${r.fresh >= 20 ? `<button type="button" class="nieve-bell" data-action="nieve-avisar" data-i="${ESTACIONES.indexOf(r.e)}" aria-label="${escapeHTML(t('Avisarme de nevadas en {name}', { name: r.e[0] }))}"><i class="bi bi-bell" aria-hidden="true"></i></button>` : '<span></span>'}
+        </div>`).join('')
+        + (rows.length > 6 ? `<button type="button" class="btn-pill ghost nieve-more" data-action="nieve-todas">${escapeHTML(snowShowAll ? t('Ver menos') : t('Ver las {n} estaciones', { n: rows.length }))}</button>` : ''));
+}
+// "Avisarme de nevadas aquí": la estación pasa a ser uno de los sitios vigilados
+function snowAlertFor(i) {
+    const e = ESTACIONES[i];
+    if (!e) return;
+    if (!localStorage.getItem('aeris_push_on')) { showToast(t('Activa primero los avisos con la campana.'), 'warn'); return; }
+    const p = getPushPrefs();
+    if (p.extras.some(x => Math.abs(x.lat - e[1]) < 0.01 && Math.abs(x.lon - e[2]) < 0.01)) { showToast(t('Ya te aviso de {name}.', { name: e[0] }), 'ok'); return; }
+    if (p.extras.length >= 2) { showToast(t('Ya vigilas 2 sitios más: quita uno en los ajustes de la campana.'), 'warn'); return; }
+    p.extras = [...p.extras, { lat: e[1], lon: e[2], city: e[0], region: e[4] }];
+    setPushPrefs(p);
+    savePushPrefsSoon();
+    showToast(t('Te avisaré de nevadas y avisos de AEMET en {name}.', { name: e[0] }), 'ok');
+}
+
+// ============================================================
+// 26y. TAL DÍA COMO HOY (ERA5 desde 1991)
+// ============================================================
+function renderOnThisDay(data) {
+    const card = document.getElementById('hoy-card');
+    const today = data.daily && data.daily[0];
+    const n = today && (window._normals || {})[today.fecha];
+    if (!card || !n || !n.rec) { if (card) card.hidden = true; return; }
+    card.hidden = false;
+    const row = (label, val) => `<div class="hoy-row"><span>${escapeHTML(label)}</span><b>${val}</b></div>`;
+    const ly = n.ly;
+    const diff = ly ? Math.round(today.tempMax - ly.tx) : null;
+    setHTMLIfChanged(document.getElementById('hoy-body'),
+        (ly ? row(t('Hace un año'), `${fmtTemp(Math.round(ly.tx))}° / ${fmtTemp(Math.round(ly.tn))}°`) : '')
+        + row(t('Récord de calor'), `${fmtTemp(Math.round(n.rec.max))}° <small>(${n.rec.maxY})</small>`)
+        + row(t('Récord de frío'), `${fmtTemp(Math.round(n.rec.min))}° <small>(${n.rec.minY})</small>`)
+        + (diff != null ? `<p class="hoy-note">${escapeHTML(Math.abs(diff) < 1 ? t('Hoy, una máxima parecida a la de hace un año.') : t(diff > 0 ? 'Hoy, {n}° más de máxima que hace un año.' : 'Hoy, {n}° menos de máxima que hace un año.', { n: Math.abs(diff) }))}</p>` : '')
+        + `<p class="hoy-src">${escapeHTML(t('Reanálisis ERA5 (Copernicus) para tu zona, desde {y}.', { y: n.rec.from }))}</p>`);
 }
 
 // ============================================================
@@ -3468,6 +3843,9 @@ const renderWeather = (data) => {
     renderObservation(data).catch(() => {});
     renderFireRisk(data);
     renderFocos(data).catch(() => {});
+    renderHome(data).catch(() => {});
+    renderFinde(data).catch(() => {});
+    if (!window._snowRendered) { window._snowRendered = true; setTimeout(() => renderSnow().catch(() => {}), 4000); }
 
     // Animación clima
     startWeatherAnimation(getAnimationType(cur.desc, cur.isDay));
@@ -3477,7 +3855,7 @@ const renderWeather = (data) => {
         setTimeout(openParte, Math.max(0, SPLASH_MIN_MS - performance.now()) + 300);
     }
     if (pendingSection) {
-        const target = { lluvia: 'rain-card', avisos: 'alerts-container', radar: 'section-mapa', aire: 'section-ambiente' }[pendingSection];
+        const target = { lluvia: 'rain-card', avisos: 'alerts-container', radar: 'section-mapa', aire: 'section-ambiente', viajes: 'trips-card' }[pendingSection];
         pendingSection = null;
         const el = target && document.getElementById(target);
         if (el && el.offsetParent !== null) setTimeout(() => {

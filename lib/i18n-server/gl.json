@@ -54,5 +54,11 @@
     "seoHomeTitle": "AERIS · O tempo de España, con avisos oficiais de AEMET",
     "seoHomeDesc": "App do tempo en galego: chuvia nas próximas 2 horas, avisos oficiais de AEMET, previsión a 15 días coa súa fiabilidade, calidade do aire, calima e pole. Sen anuncios e sen rastrexo.",
     "privacyContact": "<b>Calquera dúbida sobre os teus datos:</b> escribe a {mail}.",
-    "privacyNoContact": "<b>Sen intermediarios:</b> como AERIS non che pide nome nin correo electrónico, todo o que garda de ti podes borralo ti mesmo desde a app."
+    "privacyNoContact": "<b>Sen intermediarios:</b> como AERIS non che pide nome nin correo electrónico, todo o que garda de ti podes borralo ti mesmo desde a app.",
+    "pressureTitle": "📉 Baixa a presión en {place}",
+    "pressureBody": "Baixará {n} hPa nas próximas 24 h. Se tes enxaqueca ou dor articular, pode que o notes.",
+    "planFirstTitle": "📅 {title}: xa hai previsión",
+    "planChangedTitle": "📅 Cambia a previsión: {title}",
+    "planEveTitle": "📅 Mañá: {title}",
+    "planBody": "{place} · {desc} · {min}°–{max}° · chuvia {rain}%"
 }
