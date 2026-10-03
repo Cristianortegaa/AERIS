@@ -2682,6 +2682,99 @@ function setRadarMode(mode) {
 })();
 
 // ============================================================
+// 26l. MAR Y PLAYA (solo en la costa: en el interior la API marina no da datos)
+// ============================================================
+async function renderMarine(data) {
+    const card = document.getElementById('marine-card');
+    const lat = data.location?.lat, lon = data.location?.lon;
+    if (!card || !Number.isFinite(+lat)) return;
+    const place = `${lat},${lon}`;
+    let m = null;
+    try {
+        const key = `aeris_marine_${cellKey(lat, lon)}`;
+        const c = lsGet(key);
+        if (c && Date.now() - c.ts < 60 * 60 * 1000) m = c.m;
+        else {
+            const r = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&timezone=auto&forecast_days=1&current=wave_height,wave_period,sea_surface_temperature&daily=wave_height_max`);
+            if (r.ok) { m = await r.json(); lsSet(key, { ts: Date.now(), m }); }
+        }
+    } catch (e) { m = null; }
+    if (`${window._lastFullData?.location?.lat},${window._lastFullData?.location?.lon}` !== place) return;
+    const cur = m && m.current;
+    if (!cur || cur.wave_height == null || cur.sea_surface_temperature == null) { card.hidden = true; return; }
+    const sst = cur.sea_surface_temperature, wave = (m.daily && m.daily.wave_height_max && m.daily.wave_height_max[0]) ?? cur.wave_height;
+    const today = data.daily && data.daily[0];
+    // Nota del día de playa (0–10): agua, olas, calor, lluvia, viento
+    let score = 0;
+    score += sst >= 22 ? 3 : sst >= 19 ? 2 : sst >= 16 ? 1 : 0;
+    score += wave < 0.5 ? 3 : wave < 1 ? 2 : wave < 1.5 ? 1 : 0;
+    score += today && today.tempMax >= 27 ? 2 : today && today.tempMax >= 23 ? 1 : 0;
+    score += today && (today.rainProbMax || 0) < 20 ? 1 : 0;
+    score += (data.current.windGust || 0) < 30 ? 1 : 0;
+    const label = score >= 8 ? 'Gran día de playa' : score >= 5 ? 'Día de playa regular' : 'Mejor otro día para la playa';
+    const tip = wave >= 1.5 ? 'Mar movido: ojo con la bandera y las corrientes.' : (data.current.uvMax || 0) >= 6 ? 'UV alto: crema y sombrilla entre las 12 y las 17 h.' : sst < 18 ? 'El agua está fría.' : '';
+    const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+    card.hidden = false;
+    setHTMLIfChanged(document.getElementById('marine-body'), `
+        <div class="marine-score"><span class="marine-num">${score}<small>/10</small></span><span>${escapeHTML(label)}</span></div>
+        <div class="marine-stats">
+            <span><i class="bi bi-thermometer-half" aria-hidden="true"></i>Agua ${fmt1.format(sst)} °C</span>
+            <span><i class="bi bi-water" aria-hidden="true"></i>Olas hasta ${fmt1.format(wave)} m</span>
+            ${cur.wave_period ? `<span><i class="bi bi-stopwatch" aria-hidden="true"></i>Periodo ${Math.round(cur.wave_period)} s</span>` : ''}
+        </div>
+        ${tip ? `<p class="marine-tip">${escapeHTML(tip)}</p>` : ''}`);
+}
+
+// ============================================================
+// 26m. DATO REAL DE LA ESTACIÓN DE AEMET MÁS CERCANA
+// ============================================================
+async function renderObservation(data) {
+    const el = document.getElementById('obs-txt');
+    const lat = data.location?.lat, lon = data.location?.lon;
+    if (!el || !Number.isFinite(+lat)) return;
+    try {
+        const r = await fetch(`/api/observacion?lat=${lat}&lon=${lon}`);
+        const o = r.ok ? await r.json() : null;
+        if (`${window._lastFullData?.location?.lat},${window._lastFullData?.location?.lon}` !== `${lat},${lon}`) return;
+        if (!o || !o.station || o.temp == null || o.ageMin > 180) { el.textContent = ''; return; }
+        const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+        const hm = new Date(o.time.length > 19 || /Z$/.test(o.time) ? o.time : o.time + 'Z').toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        el.textContent = `Medido en ${o.station.name}${o.station.km >= 1 ? ` (${fmt1.format(o.station.km)} km)` : ''}: ${fmt1.format(useFahrenheit ? o.temp * 9 / 5 + 32 : o.temp)}° a las ${hm}`;
+        el.title = `Estación de AEMET ${o.station.id}${o.humidity != null ? ` · humedad ${o.humidity}%` : ''}${o.gust != null ? ` · racha ${o.gust} km/h` : ''}`;
+    } catch (e) { el.textContent = ''; }
+}
+
+// ============================================================
+// 26n. RIESGO METEOROLÓGICO DE INCENDIO (índice de Fosberg, no oficial)
+// ============================================================
+// Con calor, aire seco y viento el monte arde con facilidad. Se calcula con
+// las peores horas de hoy (FFWI de Fosberg); el oficial es el de AEMET.
+function fireRisk(data) {
+    const today = (data.daily && data.daily[0] && data.daily[0].fecha) || '';
+    const hrs = (data.hourly || []).filter(h => h.fullDate && h.fullDate.startsWith(today) && h.humidity != null);
+    if (!hrs.length) return null;
+    const ffwi = (tC, rh, windKmh) => {
+        const T = tC * 9 / 5 + 32, H = rh, U = windKmh * 0.621371;
+        const m = H < 10 ? 0.03229 + 0.281073 * H - 0.000578 * H * T
+            : H <= 50 ? 2.22749 + 0.160107 * H - 0.01478 * T
+            : 21.0606 + 0.005565 * H * H - 0.00035 * H * T - 0.483199 * H;
+        const x = m / 30, eta = 1 - 2 * x + 1.5 * x * x - 0.5 * x * x * x;
+        return Math.max(0, eta * Math.sqrt(1 + U * U) / 0.3002);
+    };
+    const worst = Math.max(...hrs.map(h => ffwi(h.temp, h.humidity, Math.max(h.wind || 0, (h.gust || 0) * 0.6))));
+    const level = worst >= 50 ? 'muy alto' : worst >= 30 ? 'alto' : worst >= 15 ? 'moderado' : 'bajo';
+    return { value: Math.round(worst), level };
+}
+function renderFireRisk(data) {
+    const el = document.getElementById('fire-row');
+    if (!el) return;
+    const r = fireRisk(data);
+    const show = r && (r.level === 'alto' || r.level === 'muy alto');
+    el.hidden = !show;
+    if (show) setHTMLIfChanged(el, `<i class="bi bi-fire" aria-hidden="true"></i><div><b>Riesgo de incendio ${r.level}</b><span>Calor, aire seco y viento. Nada de fuego al aire libre ni barbacoas en el campo.</span></div>`);
+}
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -2863,6 +2956,9 @@ const renderWeather = (data) => {
     }
 
     renderForecastExtras(data).catch(e => console.warn('extras', e.message));
+    renderMarine(data).catch(() => {});
+    renderObservation(data).catch(() => {});
+    renderFireRisk(data);
 
     // Animación clima
     startWeatherAnimation(getAnimationType(cur.desc, cur.isDay));

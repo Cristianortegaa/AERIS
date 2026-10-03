@@ -555,6 +555,73 @@ app.get('/sitemap.xml', (req, res) => {
         + `\n</urlset>\n`);
 });
 
+// --- OBSERVACIÓN REAL: estación de AEMET más cercana ---
+// Se baja el último día de todas las estaciones (≈3 MB) como mucho cada 30
+// min y se busca la más cercana. AEMET falla a menudo: si no hay datos, la
+// app sigue sin este extra.
+let obsCache = { ts: 0, byStation: null, loading: null };
+async function loadObservaciones() {
+    const apiKey = process.env.AEMET_API_KEY;
+    if (!apiKey) return null;
+    if (obsCache.byStation && Date.now() - obsCache.ts < 30 * 60 * 1000) return obsCache.byStation;
+    if (obsCache.loading) return obsCache.loading;
+    obsCache.loading = (async () => {
+        try {
+            const meta = await http.get('https://opendata.aemet.es/opendata/api/observacion/convencional/todas', { headers: { api_key: apiKey } });
+            if (!meta.data || meta.data.estado !== 200 || !meta.data.datos) return obsCache.byStation;
+            const { data } = await http.get(meta.data.datos, { timeout: 20000, responseType: 'arraybuffer' });
+            const rows = JSON.parse(Buffer.from(data).toString('latin1'));
+            const byStation = new Map();
+            for (const r of rows) {
+                if (!r || !r.idema || r.lat == null || r.lon == null) continue;
+                const prev = byStation.get(r.idema);
+                if (!prev || String(r.fint) > String(prev.fint)) byStation.set(r.idema, r);
+            }
+            obsCache = { ts: Date.now(), byStation, loading: null };
+            return byStation;
+        } catch (e) {
+            log('error', 'AEMET observación:', e.message);
+            return obsCache.byStation;
+        } finally { obsCache.loading = null; }
+    })();
+    return obsCache.loading;
+}
+const distKm = (a, b, c, d) => {
+    const R = 6371, toR = Math.PI / 180, dLat = (c - a) * toR, dLon = (d - b) * toR;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(a * toR) * Math.cos(c * toR) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x));
+};
+const titleCase = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim()
+    .replace(/(^|[\s/(-])([a-záéíóúñü])/g, (m, a, b) => a + b.toUpperCase())
+    .replace(/ (De|Del|La|Las|Los|El|Y) /g, (m) => m.toLowerCase());
+
+app.get('/api/observacion', weatherLimiter, async (req, res) => {
+    const lat = Number(req.query.lat), lon = Number(req.query.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return res.status(400).json({ error: 'Coordenadas no válidas.' });
+    const all = await loadObservaciones();
+    if (!all) return res.json({ station: null });
+    // La más cercana (a menos de 25 km) que tenga un dato de las últimas 3 h
+    const age = (r) => Math.round((Date.now() - new Date(r.fint + (/[Z+]/.test(String(r.fint).slice(10)) ? '' : 'Z')).getTime()) / 60000);
+    const near = [];
+    for (const r of all.values()) {
+        if (r.ta == null) continue;
+        const dk = distKm(lat, lon, r.lat, r.lon);
+        if (dk <= 25) near.push({ r, dist: dk });
+    }
+    near.sort((a, b) => a.dist - b.dist);
+    const best = near.find(n => age(n.r) <= 180);
+    if (!best) return res.json({ station: null });
+    const r = best.r;
+    const ageMin = age(r);
+    res.setHeader('Cache-Control', 'public, max-age=600');
+    res.json({
+        station: { id: r.idema, name: titleCase(r.ubi), km: Math.round(best.dist * 10) / 10, alt: r.alt ?? null },
+        time: r.fint, ageMin,
+        temp: r.ta, humidity: r.hr ?? null, wind: r.vv != null ? Math.round(r.vv * 3.6) : null, gust: r.vmax != null ? Math.round(r.vmax * 3.6) : null,
+        rain: r.prec ?? null, pressure: r.pres_nmar ?? null
+    });
+});
+
 // --- WEATHER API ---
 // Coordenadas redondeadas a ~1 km: la caché sirve a todos los que están cerca
 // (antes la clave era la coordenada exacta del GPS y casi nunca acertaba).

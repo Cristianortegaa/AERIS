@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=32">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -345,6 +345,7 @@
                 </div>
                 <div id="compare-txt" class="hero-compare"></div>
                 <div id="normal-txt" class="hero-compare"></div>
+                <div id="obs-txt" class="hero-compare hero-obs"></div>
 
                 <!-- Lluvia inminente (solo aparece si llueve o va a llover en 2 h) -->
                 <button type="button" class="nowcast-pill" id="nowcast-pill" data-action="goto-rain" hidden>
@@ -438,6 +439,14 @@
                 </div>
             </section>
 
+            <!-- MAR Y PLAYA (solo en la costa) -->
+            <section class="glass-card" id="marine-card" hidden aria-labelledby="lbl-mar">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-mar"><i class="bi bi-water"></i>Mar y playa</h2>
+                </div>
+                <div id="marine-body"></div>
+            </section>
+
             <!-- PRÓXIMO PUENTE (si cae en los próximos 15 días) -->
             <section class="glass-card puente-card" id="puente-card" hidden aria-labelledby="lbl-puente">
                 <div class="card-head">
@@ -504,6 +513,7 @@
                 </div>
                 <div class="aqi-forecast" id="aqi-forecast" aria-label="Calidad del aire, próximos días"></div>
                 <div class="calima-row" id="calima-row" hidden></div>
+                <div class="calima-row fire-row" id="fire-row" hidden></div>
             </section>
 
             <!-- 8. POLEN / ALERGIAS -->
@@ -611,7 +621,7 @@
 <!-- APP JS -->
 <script src="vendor/suncalc.js"></script>
 <script src="weather-core.js?v=2"></script>
-<script src="app.js?v=35"></script>
+<script src="app.js?v=37"></script>
 
 </body>
 </html>
