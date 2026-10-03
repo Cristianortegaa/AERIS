@@ -270,6 +270,22 @@ const AEMET_NIVEL_ORDEN = { rojo: 0, naranja: 1, amarillo: 2, verde: 3 };
 const aemetAvisosCache = new Map(); // areaCode -> { data, ts }
 const AEMET_CACHE_MS = 15 * 60 * 1000; // 15 min: los avisos no cambian cada minuto
 
+// Estado para /healthz (en memoria: se pierde al reiniciar el servidor)
+// AEMET da 503 sueltos a menudo: se guarda el último acierto y el último fallo
+const salud = { cron: null, aemet: { ultimoOk: null, ultimoFallo: null, error: null } };
+const marcarAemet = (ok, detalle) => {
+    if (ok) salud.aemet.ultimoOk = new Date().toISOString();
+    else { salud.aemet.ultimoFallo = new Date().toISOString(); salud.aemet.error = String(detalle || '').slice(0, 120); }
+};
+const aemetFallo = (e) => e && e.response ? `HTTP ${e.response.status}` : (e && e.message) || 'error';
+// La clave de AEMET es un JWT con su fecha de caducidad ("exp")
+const aemetKeyCaduca = (() => {
+    try {
+        const exp = JSON.parse(Buffer.from(String(process.env.AEMET_API_KEY || '').split('.')[1], 'base64url').toString()).exp;
+        return exp ? new Date(exp * 1000) : null;
+    } catch (e) { return null; }
+})();
+
 async function fetchAemetAvisos(areaCode) {
     const apiKey = process.env.AEMET_API_KEY;
     if (!apiKey || !areaCode) return [];
@@ -282,6 +298,9 @@ async function fetchAemetAvisos(areaCode) {
             headers: { api_key: apiKey }
         });
         if (!metaRes.data || metaRes.data.estado !== 200 || !metaRes.data.datos) {
+            // 404 = no hay avisos elaborados para la zona (no es un fallo)
+            const est = metaRes.data && metaRes.data.estado;
+            if (est === 404) marcarAemet(true); else marcarAemet(false, `estado ${est}: ${metaRes.data && metaRes.data.descripcion || ''}`);
             aemetAvisosCache.set(areaCode, { data: [], ts: Date.now() });
             return [];
         }
@@ -352,9 +371,11 @@ async function fetchAemetAvisos(areaCode) {
         avisos.sort((a, b) => ((AEMET_NIVEL_ORDEN[a.nivel] ?? 9) - (AEMET_NIVEL_ORDEN[b.nivel] ?? 9))
             || String(a.onset).localeCompare(String(b.onset)));
         aemetAvisosCache.set(areaCode, { data: avisos, ts: Date.now() });
+        marcarAemet(true);
         return avisos;
     } catch (e) {
         log('error', 'AEMET avisos:', e.message);
+        marcarAemet(false, `avisos: ${aemetFallo(e)}`);
         return cached ? cached.data : []; // si falla, mejor devolver lo último bueno que nada
     }
 }
@@ -369,13 +390,37 @@ async function avisosParaPunto(areaCode, lat, lon) {
 // también para "despertar" el servidor antes del cron de la mañana.
 app.get('/healthz', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
+    const uptimeMin = Math.round(process.uptime() / 60);
+    const minDesde = (iso) => iso ? Math.round((Date.now() - new Date(iso).getTime()) / 60000) : null;
+    const diasClave = aemetKeyCaduca ? Math.floor((aemetKeyCaduca.getTime() - Date.now()) / 86400000) : null;
+    // Lo que conviene mirar, en castellano
+    const problemas = [];
+    if (!process.env.AEMET_API_KEY) problemas.push('Falta AEMET_API_KEY: no hay avisos oficiales ni estaciones.');
+    else if (diasClave != null && diasClave < 0) problemas.push('La clave de AEMET ha caducado: pide otra en opendata.aemet.es.');
+    else if (diasClave != null && diasClave <= 30) problemas.push(`La clave de AEMET caduca en ${diasClave} días: pide otra en opendata.aemet.es.`);
+    // Solo es problema si AEMET lleva más de 1 h sin responder bien
+    const aemetOkMin = minDesde(salud.aemet.ultimoOk);
+    if (salud.aemet.ultimoFallo && (aemetOkMin == null ? uptimeMin > 60 : aemetOkMin > 60) && salud.aemet.ultimoFallo > (salud.aemet.ultimoOk || ''))
+        problemas.push(`AEMET lleva más de 1 h sin responder bien (último error: ${salud.aemet.error}).`);
+    if (!publicVapidKey || !privateVapidKey) problemas.push('Faltan las claves VAPID: no se envían notificaciones.');
+    if (salud.cron && salud.cron.error) problemas.push(`El cron de avisos falló: ${salud.cron.error}`);
+    // El cron corre cada 15 min: si tras 40 min no ha pasado, algo va mal
+    const cronMin = salud.cron ? minDesde(salud.cron.hora) : null;
+    if ((cronMin != null && cronMin > 40) || (!salud.cron && uptimeMin > 40)) problemas.push('El cron de avisos no ha corrido en los últimos 40 min: revisa el servicio de cron.');
     res.json({
-        ok: true,
-        uptimeMin: Math.round(process.uptime() / 60),
+        ok: true,                               // el servidor responde
+        todoBien: problemas.length === 0,
+        problemas,
+        uptimeMin,
         db: sequelize.getDialect(),             // postgres = las suscripciones sobreviven a los despliegues
         aemetKey: !!process.env.AEMET_API_KEY,  // sin ella no hay avisos oficiales ni estaciones
+        aemetKeyCaduca: aemetKeyCaduca ? aemetKeyCaduca.toISOString().slice(0, 10) : null,
+        aemetKeyDiasRestantes: diasClave,
+        aemet: { ultimoOkHaceMin: aemetOkMin, ultimoFalloHaceMin: minDesde(salud.aemet.ultimoFallo), ultimoError: salud.aemet.error },
         vapid: !!(publicVapidKey && privateVapidKey),
         cronSecret: !!process.env.CRON_SECRET,
+        // Desde el último reinicio del servidor (null = aún no ha pasado)
+        ultimoCron: salud.cron ? { ...salud.cron, haceMin: cronMin } : null,
         openMeteoPausado: Date.now() < openMeteoBlockedUntil
     });
 });
@@ -612,7 +657,10 @@ async function loadObservaciones() {
     obsCache.loading = (async () => {
         try {
             const meta = await http.get('https://opendata.aemet.es/opendata/api/observacion/convencional/todas', { headers: { api_key: apiKey } });
-            if (!meta.data || meta.data.estado !== 200 || !meta.data.datos) return obsCache.byStation;
+            if (!meta.data || meta.data.estado !== 200 || !meta.data.datos) {
+                marcarAemet(false, `observación: estado ${meta.data && meta.data.estado}`);
+                return obsCache.byStation;
+            }
             const { data } = await http.get(meta.data.datos, { timeout: 20000, responseType: 'arraybuffer' });
             const rows = JSON.parse(Buffer.from(data).toString('latin1'));
             const byStation = new Map();
@@ -622,9 +670,11 @@ async function loadObservaciones() {
                 if (!prev || String(r.fint) > String(prev.fint)) byStation.set(r.idema, r);
             }
             obsCache = { ts: Date.now(), byStation, loading: null };
+            marcarAemet(true);
             return byStation;
         } catch (e) {
             log('error', 'AEMET observación:', e.message);
+            marcarAemet(false, `observación: ${aemetFallo(e)}`);
             return obsCache.byStation;
         } finally { obsCache.loading = null; }
     })();
@@ -1219,9 +1269,11 @@ app.get('/api/cron/check-rain', async (req, res) => {
         });
 
         log('info', 'Cron avisos:', JSON.stringify(stats));
+        salud.cron = { hora: new Date().toISOString(), ...stats };
         res.json({ success: true, ...stats });
     } catch (error) {
         log('error', 'Cron Job:', error.message);
+        salud.cron = { hora: new Date().toISOString(), error: String(error.message).slice(0, 120) };
         res.status(500).json({ success: false, error: error.message });
     }
 });
