@@ -670,19 +670,25 @@ app.get('/api/observacion', weatherLimiter, async (req, res) => {
 // Ficheros públicos de FIRMS para Europa (VIIRS de NOAA-20, NOAA-21 y Suomi
 // NPP, ~375 m), sin clave. Se bajan como mucho cada 30 min. Ojo: un foco de
 // calor puede ser un incendio, una quema agrícola o una industria.
-const FIRMS_FEEDS = [
-    'https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-20-viirs-c2/csv/J1_VIIRS_C2_Europe_24h.csv',
-    'https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-21-viirs-c2/csv/J2_VIIRS_C2_Europe_24h.csv',
-    'https://firms.modaps.eosdis.nasa.gov/data/active_fire/suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_Europe_24h.csv'
+// Península, Baleares, Ceuta y Melilla vienen en el fichero de Europa;
+// Canarias, en el de "norte y centro de África" (de ese solo se coge Canarias).
+const FIRMS_SATS = [['noaa-20-viirs-c2', 'J1_VIIRS_C2'], ['noaa-21-viirs-c2', 'J2_VIIRS_C2'], ['suomi-npp-viirs-c2', 'SUOMI_VIIRS_C2']];
+const FIRMS_REGIONS = [
+    { region: 'Europe', bbox: [34.5, 44.5, -10.5, 5] },                         // [latMin, latMax, lonMin, lonMax]
+    { region: 'Northern_and_Central_Africa', bbox: [27.4, 29.6, -18.4, -13.2] }  // Canarias
 ];
+const FIRMS_FEEDS = FIRMS_REGIONS.flatMap(r => FIRMS_SATS.map(([dir, file]) => ({
+    url: `https://firms.modaps.eosdis.nasa.gov/data/active_fire/${dir}/csv/${file}_${r.region}_24h.csv`, bbox: r.bbox
+})));
 let firmsCache = { ts: 0, points: null, loading: null };
 async function loadFirms() {
     if (firmsCache.points && Date.now() - firmsCache.ts < 30 * 60 * 1000) return firmsCache.points;
     if (firmsCache.loading) return firmsCache.loading;
     firmsCache.loading = (async () => {
         const points = [];
-        const res = await Promise.allSettled(FIRMS_FEEDS.map(u => http.get(u, { timeout: 20000, responseType: 'text' })));
-        for (const r of res) {
+        const res = await Promise.allSettled(FIRMS_FEEDS.map(f => http.get(f.url, { timeout: 30000, responseType: 'text' })));
+        for (const [k, r] of res.entries()) {
+            const [latMin, latMax, lonMin, lonMax] = FIRMS_FEEDS[k].bbox;
             if (r.status !== 'fulfilled') { log('error', 'FIRMS:', r.reason.message); continue; }
             const lines = String(r.value.data).trim().split('\n');
             const head = lines.shift().split(',');
@@ -693,8 +699,7 @@ async function loadFirms() {
                 const lat = +c[iLat], lon = +c[iLon];
                 if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
                 if (String(c[iConf]).toLowerCase().startsWith('l')) continue; // baja confianza
-                // Solo península, Baleares, Ceuta, Melilla y alrededores
-                if (lat < 34.5 || lat > 44.5 || lon < -10.5 || lon > 5) continue;
+                if (lat < latMin || lat > latMax || lon < lonMin || lon > lonMax) continue;
                 const t = String(c[iTime]).padStart(4, '0');
                 points.push({ lat, lon, time: `${c[iDate]}T${t.slice(0, 2)}:${t.slice(2)}:00Z`, frp: +c[iFrp] || 0, sat: c[iSat] });
             }

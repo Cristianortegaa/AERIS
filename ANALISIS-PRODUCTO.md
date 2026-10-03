@@ -360,7 +360,7 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
 
 - **Riesgo para la salud por calor (hecho después):** se usan las 182 zonas de meteosalud y sus umbrales oficiales (Plan Nacional 2026, Anexo I, Ministerio de Sanidad), con el índice oficial (suma en 3 días de lo que la máxima supera el umbral → niveles 0–3). Las zonas están en `lib/meteosalud-2026.json`.
 
-- **Focos de calor por satélite (hecho después):** sin clave, con los ficheros públicos de 24 h de NASA FIRMS (VIIRS de NOAA-20, NOAA-21 y Suomi NPP). Aviso en la tarjeta de aire si hay focos a menos de 50 km y puntos en el mapa del radar. Pueden ser incendios, quemas agrícolas o industrias, y así se dice. Canarias no entra en el fichero de Europa.
+- **Focos de calor por satélite (hecho después):** sin clave, con los ficheros públicos de 24 h de NASA FIRMS (VIIRS de NOAA-20, NOAA-21 y Suomi NPP). Aviso en la tarjeta de aire si hay focos a menos de 50 km y puntos en el mapa del radar. Pueden ser incendios, quemas agrícolas o industrias, y así se dice. Canarias sale del fichero de "norte y centro de África" (solo los focos dentro de las islas).
 
 **No hecho, y por qué:**
 - **"Mi viaje" a otra ciudad:** solo está el puente de la ciudad que se mira.
