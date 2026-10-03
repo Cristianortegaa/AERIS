@@ -365,6 +365,20 @@ async function avisosParaPunto(areaCode, lat, lon) {
 }
 
 // --- RUTAS ---
+// Estado del servicio: qué está configurado (sí/no, nunca los valores). Sirve
+// también para "despertar" el servidor antes del cron de la mañana.
+app.get('/healthz', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+        ok: true,
+        uptimeMin: Math.round(process.uptime() / 60),
+        db: sequelize.getDialect(),             // postgres = las suscripciones sobreviven a los despliegues
+        aemetKey: !!process.env.AEMET_API_KEY,  // sin ella no hay avisos oficiales ni estaciones
+        vapid: !!(publicVapidKey && privateVapidKey),
+        cronSecret: !!process.env.CRON_SECRET,
+        openMeteoPausado: Date.now() < openMeteoBlockedUntil
+    });
+});
 app.get('/api/vapid-key', (req, res) => {
     if (!publicVapidKey) return res.status(503).json({ error: 'Notificaciones no disponibles.' });
     res.json({ key: publicVapidKey });
