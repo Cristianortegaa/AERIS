@@ -2554,7 +2554,8 @@ function renderPushSettings() {
         <div class="ps-actions">
             <button type="button" class="btn-pill ghost" data-ps="test"><i class="bi bi-send"></i>Enviar prueba</button>
             <button type="button" class="btn-pill ghost ps-danger" data-ps="off"><i class="bi bi-bell-slash"></i>Desactivar</button>
-        </div>`;
+        </div>
+        <p class="ps-privacy">Para avisarte se guardan los sitios que vigilas y tus ajustes; al desactivar se borran. <a href="/privacidad">Privacidad</a></p>`;
 }
 function openPushSettings() {
     if (!settingsModal) return;

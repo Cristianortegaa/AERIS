@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Privacidad · AERIS</title>
+    <meta name="description" content="Qué datos usa AERIS, para qué y cómo borrarlos. Sin cuentas, sin anuncios y sin rastreo.">
+    <meta name="theme-color" content="#1554c0">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100dvh;
+            padding: max(24px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            color: #fff;
+            background: #0b1a3a linear-gradient(180deg, #1554c0 0%, #0f2f6e 40%, #0b1a3a 100%) no-repeat;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.55;
+        }
+        main { max-width: 640px; margin: 0 auto; }
+        a { color: #9fd0ff; }
+        .back { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; color: #fff; opacity: 0.85; text-decoration: none; }
+        h1 { margin: 18px 0 6px; font-size: 1.8rem; font-weight: 650; letter-spacing: -0.03em; }
+        .lead { margin: 0 0 22px; font-size: 1.02rem; opacity: 0.92; }
+        h2 { margin: 28px 0 8px; font-size: 1.1rem; font-weight: 650; }
+        p, li { font-size: 0.95rem; opacity: 0.9; }
+        ul { padding-left: 20px; margin: 8px 0; }
+        li { margin: 4px 0; }
+        .card {
+            margin-top: 12px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+        .card p { margin: 0; }
+        .small { margin-top: 32px; font-size: 0.8rem; opacity: 0.65; }
+    </style>
+</head>
+<body>
+<main>
+    <a class="back" href="/">← Volver a AERIS</a>
+    <h1>Privacidad</h1>
+    <p class="lead">AERIS no tiene cuentas, ni anuncios, ni analítica, ni cookies de seguimiento. Aquí está, sin letra pequeña, qué datos se usan y cómo borrarlos.</p>
+
+    <h2>Lo que se queda en tu móvil</h2>
+    <p>Tus ciudades favoritas, tus viajes, los ajustes (tema, unidades, personalidad) y los últimos datos del tiempo se guardan solo en tu navegador, para que la app abra rápido y funcione sin conexión. No se envían a ningún sitio. Se borran al borrar los datos del sitio o desinstalar la app.</p>
+
+    <h2>Tu ubicación</h2>
+    <p>Si le das permiso, la app usa tu ubicación para darte el tiempo de donde estás. Las coordenadas se envían al servidor de AERIS y a Open-Meteo solo para pedir esa previsión. El servidor guarda como mucho 24 horas una copia del tiempo de ese punto, para no repetir peticiones, sin nada que la relacione contigo. Solo se guarda tu ubicación asociada a ti si activas las notificaciones (ver abajo). Puedes usar la app sin dar la ubicación: basta con buscar una ciudad.</p>
+
+    <h2>Notificaciones (solo si las activas)</h2>
+    <p>Para avisarte de lluvia, tormentas o avisos de AEMET, el servidor de AERIS guarda:</p>
+    <ul>
+        <li>la dirección de envío que crea tu navegador para las notificaciones (no lleva tu nombre ni tu email);</li>
+        <li>los sitios que vigilas: coordenadas, nombre de la ciudad y comunidad (tu ubicación o la ciudad que mires, y hasta 2 sitios más que añadas);</li>
+        <li>tu zona horaria, tus preferencias de avisos y qué avisos se te han mandado ya, para no repetirlos.</li>
+    </ul>
+    <p>Se usa solo para mandarte esos avisos, porque tú lo pides al activarlos (consentimiento, art. 6.1.a del RGPD). Las notificaciones las entrega el servicio de tu navegador (Apple, Google o Mozilla). Los datos se guardan hasta que desactives los avisos o tu navegador anule la suscripción; en ese momento se borran del servidor.</p>
+
+    <h2>Servicios externos</h2>
+    <p>Para funcionar, tu móvil se conecta directamente a estos servicios, que ven tu dirección IP como cualquier web que visitas:</p>
+    <ul>
+        <li><a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>: previsión, aire, polen y búsqueda de ciudades.</li>
+        <li><a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> y <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>: el radar y el mapa. <a href="https://www.windy.com/" target="_blank" rel="noopener">Windy</a>, solo si abres esa pestaña.</li>
+        <li><a href="https://www.jsdelivr.com/" target="_blank" rel="noopener">jsDelivr</a> y <a href="https://fonts.google.com/" target="_blank" rel="noopener">Google Fonts</a>: iconos, librerías y la tipografía.</li>
+    </ul>
+    <p>El servidor de AERIS está alojado en <a href="https://render.com/" target="_blank" rel="noopener">Render</a>, que puede registrar datos técnicos de las peticiones (como la IP) durante un tiempo limitado por seguridad. AERIS no guarda registros con tu IP.</p>
+
+    <h2>Tus derechos</h2>
+    <ul>
+        <li><b>Borrar lo del servidor:</b> en la app, campana → ajustes de avisos → <b>Desactivar</b>. Se borra todo lo que AERIS guarda de ti.</li>
+        <li><b>Borrar lo del móvil:</b> borra los datos del sitio en tu navegador o desinstala la app.</li>
+        <li>{{CONTACTO}}</li>
+        <li>Si crees que no se respetan tus datos, puedes reclamar ante la <a href="https://www.aepd.es/" target="_blank" rel="noopener">Agencia Española de Protección de Datos</a>.</li>
+    </ul>
+
+    <h2>Fuentes de los datos</h2>
+    <div class="card">
+        <p>Datos meteorológicos: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (licencia <a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener">CC BY 4.0</a>), con modelos de ECMWF, DWD, Météo-France, AEMET y otros.<br>
+        Avisos y observaciones: información elaborada por la <a href="https://www.aemet.es/" target="_blank" rel="noopener">Agencia Estatal de Meteorología</a> (© AEMET).<br>
+        Riesgo para la salud por calor: umbrales del Ministerio de Sanidad (Meteosalud).<br>
+        Focos de calor: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a>.<br>
+        Iconos del tiempo: Meteocons de Bas Milius (MIT).</p>
+    </div>
+
+    <p class="small">Última actualización: 3 de octubre de 2026.</p>
+</main>
+</body>
+</html>

@@ -9,9 +9,6 @@ const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const compression = require('compression');
-const zlib = require('zlib');
-const tarStream = require('tar-stream');
-const { XMLParser } = require('fast-xml-parser');
 // Conversión de Open-Meteo a los datos de la app (la comparte el navegador)
 const WeatherCore = require('./public/weather-core.js');
 const { decodeWMO } = WeatherCore;
@@ -203,70 +200,10 @@ const getAemetAreaCode = (regionName) => {
     return null;
 };
 
-// Extrae el texto de cada XML del paquete de avisos de AEMET. Antes venía
-// como .tar.gz y ahora llega como .tar sin comprimir: se aceptan los dos (y
-// un XML suelto, por si acaso).
-function extractXmlsFromTar(buffer) {
-    return new Promise((resolve, reject) => {
-        let raw = buffer;
-        if (raw[0] === 0x1f && raw[1] === 0x8b) {
-            try { raw = zlib.gunzipSync(raw); } catch (e) { return reject(e); }
-        }
-        const head = raw.slice(0, 64).toString('utf-8').trimStart();
-        if (head.startsWith('<?xml') || head.startsWith('<alert')) return resolve([raw.toString('utf-8')]);
-        const extract = tarStream.extract();
-        const xmls = [];
-        extract.on('entry', (header, stream, next) => {
-            const chunks = [];
-            stream.on('data', (chunk) => chunks.push(chunk));
-            stream.on('end', () => {
-                if (header.name.endsWith('.xml')) xmls.push(Buffer.concat(chunks).toString('utf-8'));
-                next();
-            });
-            stream.on('error', reject);
-            stream.resume();
-        });
-        extract.on('finish', () => resolve(xmls));
-        extract.on('error', reject);
-        extract.end(raw);
-    });
-}
-
-// Polígono CAP ("lat,lon lat,lon ...") → [[lat, lon], ...]
-const parseCapPolygon = (str) => String(str || '').trim().split(/\s+/)
-    .map(pair => pair.split(',').map(Number))
-    .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
-
-function pointInPolygon(lat, lon, poly) {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const [yi, xi] = poly[i], [yj, xj] = poly[j];
-        if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
-    }
-    return inside;
-}
-// Distancia aproximada (en grados de latitud) del punto al borde del polígono
-function distToPolygon(lat, lon, poly) {
-    const k = Math.cos(lat * Math.PI / 180); // un grado de longitud mide menos que uno de latitud
-    let best = Infinity;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const ax = poly[j][1] * k, ay = poly[j][0], bx = poly[i][1] * k, by = poly[i][0], px = lon * k, py = lat;
-        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
-        const t = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
-        best = Math.min(best, Math.hypot(px - (ax + t * dx), py - (ay + t * dy)));
-    }
-    return best;
-}
-// ¿Afecta el aviso a este punto? Dentro de su zona o a menos de ~4 km del
-// borde (los polígonos de AEMET están simplificados). Sin polígono, sí.
-const avisoAfecta = (aviso, lat, lon) => {
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !aviso.poligonos || !aviso.poligonos.length) return true;
-    return aviso.poligonos.some(p => p.length > 2 && (pointInPolygon(lat, lon, p) || distToPolygon(lat, lon, p) < 0.04));
-};
+const { extractXmlsFromTar, pointInPolygon, distToPolygon, avisoAfecta, parseAvisosCap } = require('./lib/aemet-cap');
 // Lo que se manda al cliente (sin los polígonos, que pesan)
 const avisoPublico = ({ poligonos, ...a }) => a;
 
-const AEMET_NIVEL_ORDEN = { rojo: 0, naranja: 1, amarillo: 2, verde: 3 };
 const aemetAvisosCache = new Map(); // areaCode -> { data, ts }
 const AEMET_CACHE_MS = 15 * 60 * 1000; // 15 min: los avisos no cambian cada minuto
 
@@ -286,6 +223,15 @@ const aemetKeyCaduca = (() => {
     } catch (e) { return null; }
 })();
 
+// Si AEMET falla: lo último bueno que hubiera y, si no hay nada, se vuelve a
+// probar en 1 min (ni 15 min sin avisos ni una llamada por cada visita)
+const AEMET_REINTENTO_MS = 60 * 1000;
+function aemetFalloCache(areaCode, cached) {
+    const data = cached ? cached.data.filter(a => !a.expires || Date.parse(a.expires) > Date.now()) : [];
+    aemetAvisosCache.set(areaCode, { data, ts: Date.now() - AEMET_CACHE_MS + AEMET_REINTENTO_MS });
+    return data;
+}
+
 async function fetchAemetAvisos(areaCode) {
     const apiKey = process.env.AEMET_API_KEY;
     if (!apiKey || !areaCode) return [];
@@ -300,9 +246,13 @@ async function fetchAemetAvisos(areaCode) {
         if (!metaRes.data || metaRes.data.estado !== 200 || !metaRes.data.datos) {
             // 404 = no hay avisos elaborados para la zona (no es un fallo)
             const est = metaRes.data && metaRes.data.estado;
-            if (est === 404) marcarAemet(true); else marcarAemet(false, `estado ${est}: ${metaRes.data && metaRes.data.descripcion || ''}`);
-            aemetAvisosCache.set(areaCode, { data: [], ts: Date.now() });
-            return [];
+            if (est === 404) {
+                marcarAemet(true);
+                aemetAvisosCache.set(areaCode, { data: [], ts: Date.now() });
+                return [];
+            }
+            marcarAemet(false, `estado ${est}: ${metaRes.data && metaRes.data.descripcion || ''}`);
+            return aemetFalloCache(areaCode, cached);
         }
 
         const tarRes = await http.get(metaRes.data.datos, {
@@ -311,72 +261,14 @@ async function fetchAemetAvisos(areaCode) {
         });
 
         const xmls = await extractXmlsFromTar(Buffer.from(tarRes.data));
-        const parser = new XMLParser({ ignoreAttributes: false, textNodeName: '#text' });
-        const now = Date.now();
-        const seen = new Set();
-        const avisos = [];
-
-        for (const xml of xmls) {
-            let doc;
-            try { doc = parser.parse(xml); } catch (e) { continue; }
-            const alert = doc && doc.alert;
-            if (!alert || !alert.info) continue;
-
-            const infos = Array.isArray(alert.info) ? alert.info : [alert.info];
-            const info = infos.find(i => i.language === 'es-ES') || infos[0];
-            if (!info) continue;
-
-            const params = Array.isArray(info.parameter) ? info.parameter : (info.parameter ? [info.parameter] : []);
-            const getParam = (name) => {
-                const p = params.find(p => p.valueName === name);
-                return p ? String(p.value) : null;
-            };
-
-            const nivel = (getParam('AEMET-Meteoalerta nivel') || '').toLowerCase();
-            if (!nivel || nivel === 'verde') continue; // "verde" = sin riesgo, no interesa mostrarlo
-
-            const expires = info.expires ? new Date(info.expires).getTime() : null;
-            if (expires && expires < now) continue; // ya caducado
-
-            const areasRaw = Array.isArray(info.area) ? info.area : (info.area ? [info.area] : []);
-            const zonas = areasRaw.map(a => a && a.areaDesc).filter(Boolean);
-            const poligonos = areasRaw.flatMap(a => [].concat((a && a.polygon) || [])).map(parseCapPolygon).filter(p => p.length > 2);
-
-            // El fenómeno viene en eventCode ("TO;Tormentas"); en versiones
-            // antiguas venía como parámetro
-            const codes = [].concat(info.eventCode || []);
-            const ec = codes.find(c => c && c.valueName === 'AEMET-Meteoalerta fenomeno');
-            const fenomenoRaw = (ec && String(ec.value)) || getParam('AEMET-Meteoalerta fenomeno') || '';
-            const fenomeno = fenomenoRaw.includes(';') ? fenomenoRaw.split(';')[1] : fenomenoRaw;
-
-            const key = `${nivel}|${fenomeno}|${zonas.join(',')}|${info.onset || ''}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-
-            avisos.push({
-                nivel,                                 // amarillo | naranja | rojo
-                fenomeno: fenomeno || 'Fenómeno adverso',
-                titular: info.headline || info.event || '',
-                descripcion: info.description || '',
-                consejo: info.instruction || '',
-                probabilidad: getParam('AEMET-Meteoalerta probabilidad') || '',
-                zonas,
-                onset: info.onset || null,
-                expires: info.expires || null,
-                poligonos
-            });
-        }
-
-        // Primero el más grave y, a igual nivel, el que empieza antes
-        avisos.sort((a, b) => ((AEMET_NIVEL_ORDEN[a.nivel] ?? 9) - (AEMET_NIVEL_ORDEN[b.nivel] ?? 9))
-            || String(a.onset).localeCompare(String(b.onset)));
+        const avisos = parseAvisosCap(xmls);
         aemetAvisosCache.set(areaCode, { data: avisos, ts: Date.now() });
         marcarAemet(true);
         return avisos;
     } catch (e) {
         log('error', 'AEMET avisos:', e.message);
         marcarAemet(false, `avisos: ${aemetFallo(e)}`);
-        return cached ? cached.data : []; // si falla, mejor devolver lo último bueno que nada
+        return aemetFalloCache(areaCode, cached);
     }
 }
 
@@ -403,6 +295,7 @@ app.get('/healthz', (req, res) => {
     if (salud.aemet.ultimoFallo && (aemetOkMin == null ? uptimeMin > 60 : aemetOkMin > 60) && salud.aemet.ultimoFallo > (salud.aemet.ultimoOk || ''))
         problemas.push(`AEMET lleva más de 1 h sin responder bien (último error: ${salud.aemet.error}).`);
     if (!publicVapidKey || !privateVapidKey) problemas.push('Faltan las claves VAPID: no se envían notificaciones.');
+    if (!process.env.CONTACT_EMAIL) problemas.push('Falta CONTACT_EMAIL: la página de privacidad no tiene email de contacto.');
     if (salud.cron && salud.cron.error) problemas.push(`El cron de avisos falló: ${salud.cron.error}`);
     // El cron corre cada 15 min: si tras 40 min no ha pasado, algo va mal
     const cronMin = salud.cron ? minDesde(salud.cron.hora) : null;
@@ -424,6 +317,25 @@ app.get('/healthz', (req, res) => {
         openMeteoPausado: Date.now() < openMeteoBlockedUntil
     });
 });
+// --- PRIVACIDAD ---
+// El email de contacto sale de CONTACT_EMAIL (en Render), no del código
+const escHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let privacidadTpl = null;
+app.get(['/privacidad', '/privacidad/'], (req, res) => {
+    try {
+        if (!privacidadTpl) privacidadTpl = fs.readFileSync(path.join(__dirname, 'lib', 'privacidad.html'), 'utf-8');
+        const email = String(process.env.CONTACT_EMAIL || '').trim();
+        const contacto = email
+            ? `<b>Cualquier duda sobre tus datos:</b> escribe a <a href="mailto:${escHtml(email)}">${escHtml(email)}</a>.`
+            : '<b>Sin intermediarios:</b> como AERIS no te pide nombre ni email, todo lo que guarda de ti lo puedes borrar tú desde la app.';
+        res.setHeader('Cache-Control', 'no-cache');
+        res.type('html').send(privacidadTpl.replace('{{CONTACTO}}', contacto));
+    } catch (e) {
+        log('error', 'privacidad:', e.message);
+        res.status(500).send('No disponible.');
+    }
+});
+
 app.get('/api/vapid-key', (req, res) => {
     if (!publicVapidKey) return res.status(503).json({ error: 'Notificaciones no disponibles.' });
     res.json({ key: publicVapidKey });
@@ -606,7 +518,6 @@ async function resolveSlug(slug) {
     return found;
 }
 
-const escHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let indexTemplate = null;
 const getIndexTemplate = () => indexTemplate || (indexTemplate = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf-8'));
 
@@ -849,6 +760,12 @@ const weatherHandler = async (req, res) => {
         if (cache && (new Date() - new Date(cache.updatedAt) < WEATHER_CACHE_MS)) {
             const data = JSON.parse(cache.data);
             if (forcedName && forcedName !== "Tu ubicacion") data.location.name = forcedName;
+            // Los avisos, siempre al día (tienen su propia caché de 15 min por
+            // comunidad): si AEMET falló al guardar esta copia, no se pierden 10 min
+            const areaCode = getAemetAreaCode(forcedRegion);
+            if (areaCode) {
+                try { data.avisosOficiales = (await avisosParaPunto(areaCode, lat, lon)).map(avisoPublico); } catch (e) { /* se queda la copia */ }
+            }
             return res.json(data);
         }
 

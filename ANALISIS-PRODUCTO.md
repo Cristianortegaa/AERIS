@@ -374,6 +374,12 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
 
 **Comprobado:** `/healthz` dice `db: postgres`, así que `DATABASE_URL` está configurada.
 
+- **Privacidad, atribución y pruebas automáticas (hecho después):**
+  - `/privacidad` explica qué se guarda, para qué y cómo borrarlo. El email de contacto sale de `CONTACT_EMAIL` en Render; mientras falte, `/healthz` lo marca como problema.
+  - Enlaces a Open-Meteo (CC BY 4.0) y © AEMET en el panel lateral, y aviso de privacidad en los ajustes de notificaciones.
+  - Pruebas automáticas con `npm test`, sobre un paquete real de avisos de AEMET y respuestas reales de Open-Meteo, que GitHub Actions pasa en cada subida. La lectura de avisos está ahora en `lib/aemet-cap.js`.
+  - Arreglado de paso: si AEMET fallaba en una consulta, esa ciudad se quedaba hasta 10 minutos sin avisos. Ahora los avisos se refrescan aparte y, si AEMET falla, se reintenta al minuto.
+
 ---
 
 ## Qué más (revisión del 2026-10-03, tarde)
@@ -391,7 +397,7 @@ Casi toda la hoja de ruta está hecha. Lo que queda, por orden de importancia:
    - UptimeRobot (gratis), con un monitor de palabra clave `"todoBien":true` en `/healthz`, que te manda un email.
    - Así te enteras si caduca la clave, se para el cron o AEMET deja de responder.
    - Sin código. Esfuerzo: 5 min.
-3. **Pruebas automáticas mínimas.**
+3. ✅ **Pruebas automáticas mínimas.**
    - AEMET ya cambió el formato una vez (de `.tar.gz` a `.tar`) y los avisos estuvieron rotos sin que nadie lo viera.
    - Propuesta:
      - tests con un paquete de avisos real guardado, `generateAlerts` y `buildPayload`;
@@ -400,11 +406,11 @@ Casi toda la hoja de ruta está hecha. Lo que queda, por orden de importancia:
 
 ### B. Legal
 
-4. **Página de privacidad.**
+4. ✅ **Página de privacidad.**
    - Se guarda la ubicación de quien activa las notificaciones, y el RGPD pide explicar qué se guarda, para qué y cómo borrarlo (la baja ya existe).
    - Propuesta: `/privacidad` y un enlace en el panel lateral y al activar los avisos.
    - Esfuerzo: 30 min.
-5. **Atribución con enlace.**
+5. ✅ **Atribución con enlace.**
    - Hoy pone «Datos: Open-Meteo · AEMET» sin enlazar.
    - Open-Meteo (CC BY 4.0) pide enlace.
    - AEMET pide citarla como fuente («Información elaborada por la Agencia Estatal de Meteorología»).

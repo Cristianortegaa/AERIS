@@ -1,0 +1,20 @@
+# Pruebas en cada subida: lectura de avisos de AEMET y weather-core.
+# Si fallan, GitHub lo marca en rojo (y manda un email) antes de que lo note nadie.
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
