@@ -358,8 +358,9 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
   - estados vacíos;
   - aviso de lluvia más tarde en la frase.
 
+- **Riesgo para la salud por calor (hecho después):** se usan las 182 zonas de meteosalud y sus umbrales oficiales (Plan Nacional 2026, Anexo I, Ministerio de Sanidad), con el índice oficial (suma en 3 días de lo que la máxima supera el umbral → niveles 0–3). Las zonas están en `lib/meteosalud-2026.json`.
+
 **No hecho, y por qué:**
-- **Riesgo de calor por zona Meteosalud:** hace falta la tabla oficial de umbrales de Sanidad. Mientras tanto, la app compara con lo normal de la zona.
 - **Focos de incendio (NASA FIRMS):** necesita una clave gratuita (MAP_KEY) que hay que pedir. El índice actual es meteorológico, no oficial.
 - **"Mi viaje" a otra ciudad:** solo está el puente de la ciudad que se mira.
 - **Ilustraciones propias del tiempo:** es trabajo de arte y cambiaría el estilo, incluido el icono 3D que elegiste.

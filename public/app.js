@@ -1518,9 +1518,11 @@ const renderAemetAvisos = (avisos) => {
 
 const renderAlerts = (alerts, avisosOficiales) => {
     const container = document.getElementById('alerts-container');
+    const heat = heatCardHtml(window._lastFullData);
+    if (heat && alerts) alerts = alerts.filter(a => !/calor/i.test(a.title));
     const propias = (!alerts || alerts.length === 0) ? '' :
         alerts.map(a => `<div class="alert-card ${a.level}"><i class="bi bi-exclamation-triangle-fill alert-icon"></i><div><div class="fw-bold">${a.title}</div><div class="small opacity-75">${a.msg}</div></div></div>`).join('');
-    setHTMLIfChanged(container, renderAemetAvisos(avisosOficiales) + propias);
+    setHTMLIfChanged(container, renderAemetAvisos(avisosOficiales) + heat + propias);
 };
 
 // Iconos de actividades: Font Awesome Free 6.5.1 (iconos CC BY 4.0,
@@ -2161,7 +2163,9 @@ const DETAIL = {
         const why = Math.abs(diff) < 1 ? 'Se nota tal cual marca el termómetro.'
             : diff > 0 ? `Se nota ${Math.round(diff)}° más${c.humidity >= 60 ? ' por la humedad' : ' por el sol y la poca brisa'}.`
             : `Se nota ${Math.round(-diff)}° menos${c.windSpeed >= 15 ? ' por el viento' : ''}.`;
-        return { title: 'Sensación térmica', value: `${fmtTemp(c.feelsLike)}°`, text: `${why} Combina temperatura, humedad, viento y sol.`,
+        const ms = d.meteosalud;
+        const umbral = ms ? ` En tu zona (${ms.nombre}), Sanidad considera peligroso para la salud a partir de ${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(ms.umbral)} °C de máxima.` : '';
+        return { title: 'Sensación térmica', value: `${fmtTemp(c.feelsLike)}°`, text: `${why} Combina temperatura, humedad, viento y sol.${umbral}`,
             chart: miniChart(d.hourly.map(h => fmtTemp(h.feels)), d.hourly.map(h => h.displayTime), '°') };
     }
 };
@@ -2950,6 +2954,44 @@ async function searchCities(q) {
         const res = await fetch(`/api/search/${encodeURIComponent(q)}`);
         return res.ok ? res.json() : [];
     }
+}
+
+// ============================================================
+// 26s. RIESGO PARA LA SALUD POR CALOR (umbrales oficiales de Sanidad)
+// ============================================================
+// El servidor dice la zona de meteosalud y su umbral; el nivel se calcula como
+// el Plan Nacional: suma en hoy y los 2 días siguientes de lo que la máxima
+// prevista supera el umbral (0 · ≤3,5 · ≤7 · >7 → niveles 0 a 3).
+const HEAT_TXT = ['Sin riesgo', 'Riesgo bajo', 'Riesgo medio', 'Riesgo alto'];
+const HEAT_TIPS = [
+    '',
+    'Bebe agua aunque no tengas sed y evita el sol en las horas centrales.',
+    'Evita esfuerzos entre las 12 y las 18 h, busca sitios frescos y pendiente de mayores, niños y personas con enfermedades crónicas.',
+    'Peligro para la salud: no hagas esfuerzos, quédate en lugares frescos, llama a quien viva solo y ante mareo o confusión, 112.'
+];
+function heatRisk(data) {
+    const ms = data && data.meteosalud;
+    if (!ms || !data.daily || !data.daily.length) return null;
+    const days = data.daily.slice(0, 3);
+    const idx = days.reduce((s, d) => s + Math.max(0, d.tempMax - ms.umbral), 0);
+    const nivel = idx === 0 ? 0 : idx <= 3.5 ? 1 : idx <= 7 ? 2 : 3;
+    const over = days.filter(d => d.tempMax > ms.umbral).length;
+    return { ...ms, idx: Math.round(idx * 10) / 10, nivel, over };
+}
+function heatCardHtml(data) {
+    const h = heatRisk(data);
+    if (!h || h.nivel === 0) return '';
+    const cls = ['', 'yellow', 'orange', ''][h.nivel];
+    const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+    return `<div class="alert-card ${cls}">
+        <i class="bi bi-thermometer-sun alert-icon"></i>
+        <div>
+            <span class="aemet-badge">SANIDAD · CALOR</span>
+            <div class="fw-bold">${HEAT_TXT[h.nivel]} para la salud · nivel ${h.nivel}</div>
+            <div class="small opacity-75">${escapeHTML(h.nombre)}: a partir de ${fmt1.format(h.umbral)} °C el calor aumenta la mortalidad. ${h.over === 1 ? 'Se supera 1 día' : `Se supera ${h.over} días`} de los próximos 3.</div>
+            <div class="aviso-tip">${HEAT_TIPS[h.nivel]}</div>
+        </div>
+    </div>`;
 }
 
 // ============================================================

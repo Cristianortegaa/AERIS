@@ -481,6 +481,36 @@ app.get('/api/search/:query', async (req, res) => {
     }
 });
 
+// --- RIESGO PARA LA SALUD POR CALOR (umbrales oficiales de Sanidad) ---
+// 182 zonas de meteosalud con su temperatura umbral (Plan Nacional de
+// Actuaciones Preventivas de los Efectos del Exceso de Temperaturas 2026,
+// Anexo I). La zona de cada punto se busca por su polígono.
+const METEOSALUD = (() => {
+    try { return require('./lib/meteosalud-2026.json'); }
+    catch (e) { log('error', 'meteosalud:', e.message); return { zonas: [] }; }
+})();
+function meteosaludZona(lat, lon) {
+    lat = Number(lat); lon = Number(lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const inRing = (ring) => pointInPolygon(lon, lat, ring); // anillos en [lon, lat]
+    let near = null;
+    for (const z of METEOSALUD.zonas) {
+        for (const poly of z.polys) {
+            if (inRing(poly[0]) && !poly.slice(1).some(inRing)) return z;
+            // Por si el punto cae justo fuera del borde simplificado (costa)
+            const d = distToPolygon(lon, lat, poly[0]);
+            if (d < 0.05 && (!near || d < near.d)) near = { z, d };
+        }
+    }
+    return near ? near.z : null;
+}
+// Índice oficial: suma en hoy y los 2 días siguientes de (máxima − umbral)
+// cuando es positiva. 0 → nivel 0; ≤3,5 → 1; ≤7 → 2; >7 → 3.
+function heatLevel(umbral, maximas) {
+    const idx = maximas.slice(0, 3).reduce((s, t) => s + Math.max(0, (t ?? -99) - umbral), 0);
+    return { idx: Math.round(idx * 10) / 10, nivel: idx === 0 ? 0 : idx <= 3.5 ? 1 : idx <= 7 ? 2 : 3 };
+}
+
 // --- SEO: UNA PÁGINA POR CIUDAD (/tiempo/valencia) ---
 // La app es la misma; el servidor solo pone el título, la descripción, los
 // datos estructurados y la ciudad, para que Google pueda indexar "el tiempo en
@@ -745,6 +775,8 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
         const a = (aRes.status === 'fulfilled') ? aRes.value.data : null;
         const avisosOficiales = (avisosRes.status === 'fulfilled') ? avisosRes.value.map(avisoPublico) : [];
         const finalData = WeatherCore.buildPayload({ w, a, lat, lon, name: forcedName, region: forcedRegion, avisosOficiales });
+        const ms = meteosaludZona(lat, lon);
+        finalData.meteosalud = ms ? { zona: ms.id, nombre: ms.nombre, umbral: ms.umbral } : null;
 
         await WeatherCache.upsert({ locationId: cacheKey, data: JSON.stringify(finalData), updatedAt: new Date() })
             .catch(e => log('error', 'caché (escritura):', e.message));
@@ -940,7 +972,7 @@ async function sendMorning(users, stats) {
         const { lat, lon } = zoneUsers[0];
         try {
             stats.llamadasOpenMeteo++;
-            const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&hourly=precipitation_probability&timezone=auto&forecast_days=1`);
+            const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&hourly=precipitation_probability&timezone=auto&forecast_days=3`);
             const d = data.daily;
             if (!d) return;
             let air = null;
@@ -969,6 +1001,12 @@ async function sendMorning(users, stats) {
                 if (p.calima && dust >= 50) extra.push(`calima ${dust >= 100 ? 'intensa' : 'moderada'}`);
                 if (p.polen && pollenTop && pollenTop[1] > 50) extra.push(`polen de ${pollenTop[0]} alto`);
                 if (uv >= 6) extra.push(`UV ${uv}, crema`);
+                // Riesgo para la salud por calor (umbral oficial de su zona)
+                const ms = p.types.calor !== false && meteosaludZona(user.lat, user.lon);
+                if (ms) {
+                    const h = heatLevel(ms.umbral, d.temperature_2m_max);
+                    if (h.nivel >= 1) extra.unshift(`riesgo por calor nivel ${h.nivel} (${['', 'bajo', 'medio', 'alto'][h.nivel]})`);
+                }
                 const body = `${wmo.text} · ${min}°–${max}° · ${rainTxt}${extra.length ? ' · ' + extra.join(' · ') : ''}`;
                 if (await sendPush(user, { type: 'manana', section: 'parte', title: `${emoji} Buenos días en ${user.city}`, body })) stats.notificaciones++;
                 const st = stateOf(user);
