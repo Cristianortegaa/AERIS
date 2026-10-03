@@ -253,11 +253,22 @@ try { navigator.clearAppBadge && navigator.clearAppBadge().catch(() => {}); } ca
 // ============================================================
 // 8. UTILIDADES
 // ============================================================
+// Iconos del tiempo en 3D: Meteocons "fill" (Bas Milius, MIT, en
+// icons/meteocons). Son estáticos: solo se animan al cambiar el tiempo
+// (blurIn), nunca en bucle. (icono-clima.png, el sol y nube plano de antes,
+// se conserva en el proyecto pero ya no se usa.)
+const METEOCON = {
+    'bi-sun': 'clear-day', 'bi-moon': 'clear-night', 'bi-cloud-moon': 'partly-cloudy-night',
+    'bi-cloud-sun': 'partly-cloudy-day', 'bi-cloud': 'partly-cloudy-day',
+    'bi-clouds': 'overcast', 'bi-cloud-haze2': 'fog', 'bi-cloud-drizzle': 'drizzle',
+    'bi-cloud-rain': 'rain', 'bi-cloud-rain-heavy': 'rain', 'bi-cloud-snow': 'snow', 'bi-snow': 'snow',
+    'bi-cloud-lightning': 'thunderstorms', 'bi-cloud-lightning-rain': 'thunderstorms-rain'
+};
 const renderIcon = (iconName, size = "fs-4") => {
-    if (iconName.includes('bi-cloud-sun') && !iconName.includes('moon')) {
-        const big = size.includes("5.5rem") || size.includes("fs-1");
-        return `<img src="icono-clima.png" alt="Sol y Nube" style="width:${big ? '160px' : '48px'};height:auto;vertical-align:middle;">`;
-    }
+    const big = size.includes("5.5rem") || size.includes("fs-1");
+    const w = big ? 160 : 48;
+    const name = METEOCON[iconName];
+    if (name) return `<img src="icons/meteocons/${name}.svg" alt="" class="wx-icon" style="width:${w}px;height:auto;vertical-align:middle;">`;
     return `<i class="bi ${iconName} ${size}"></i>`;
 };
 
@@ -2059,7 +2070,7 @@ function scrubTo(i) {
     // Durante el arrastre, sin animación: son datos que cambian decenas de veces por segundo
     tempEl.innerHTML = `${fmtTemp(h.temp)}<span class="deg">°${useFahrenheit ? '<small>F</small>' : ''}</span>`;
     descEl.innerText = h.desc || '';
-    iconEl.innerHTML = `<i class="bi ${h.icon}" style="font-size:5.5rem;display:inline-block;"></i>`;
+    iconEl.innerHTML = renderIcon(h.icon, "5.5rem");
     if (timeEl) timeEl.innerHTML = i === 0 ? curveState.saved.time : `Previsto · ${h.displayTime}${h.rainProb ? ` · ${h.rainProb}% lluvia` : ''}`;
     const g = box._geo;
     box.classList.add('is-scrubbing');
@@ -2247,7 +2258,7 @@ async function refreshFavoriteTemps() {
             const wmo = WeatherCore.decodeWMO(cur.weather_code, cur.is_day);
             const el = li.querySelector('.fav-now') || li.querySelector('.fav-item-info').appendChild(document.createElement('span'));
             el.className = 'fav-now';
-            el.innerHTML = `<i class="bi ${wmo.icon}" aria-hidden="true"></i>${fmtTemp(Math.round(cur.temperature_2m))}°`;
+            el.innerHTML = `${renderIcon(wmo.icon, "")}${fmtTemp(Math.round(cur.temperature_2m))}°`;
             el.title = wmo.text;
         });
     } catch (e) { /* sin datos en vivo: el panel funciona igual */ }
