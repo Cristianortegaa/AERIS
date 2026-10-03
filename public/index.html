@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=24">
+    <link rel="stylesheet" href="styles.css?v=26">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -120,6 +120,20 @@
 <button id="installBtn" aria-label="Instalar app">
     <i class="bi bi-download"></i> Instalar App
 </button>
+
+<!-- HOJA DE DETALLE POR DATO -->
+<div class="persona-modal" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="persona-content" id="detailSheet">
+        <div class="persona-drag-zone" id="detailDragZone">
+            <div class="sheet-grabber"></div>
+            <div class="persona-head">
+                <h2 id="detailTitle"></h2>
+                <button class="btn-icon sm" id="closeDetail" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        <div class="detail-body" id="detailBody"></div>
+    </div>
+</div>
 
 <!-- PÍLDORA DE LLUVIA FIJA (al hacer scroll) -->
 <button type="button" class="live-pill" id="live-pill" data-action="goto-rain" aria-label="Ver la lluvia de las próximas horas">
@@ -313,7 +327,7 @@
                     <span class="hl"><i class="bi bi-arrow-up"></i><span id="max-temp" class="skeleton" style="width:24px;"></span><span class="unit-temp">°</span></span>
                     <span class="hl"><i class="bi bi-arrow-down"></i><span id="min-temp" class="skeleton" style="width:24px;"></span><span class="unit-temp">°</span></span>
                     <span class="dot-sep" aria-hidden="true"></span>
-                    <span>Sensación <span id="feels-like" class="skeleton" style="width:26px;">--</span><span class="unit-temp">°</span></span>
+                    <span class="feels-link" role="button" tabindex="0" data-action="detail" data-metric="sensacion">Sensación <span id="feels-like" class="skeleton" style="width:26px;">--</span><span class="unit-temp">°</span></span>
                 </div>
                 <div id="compare-txt" class="hero-compare"></div>
 
@@ -326,20 +340,20 @@
 
                 <!-- STATS -->
                 <div class="stats-grid">
-                    <div class="stat-tile">
+                    <div class="stat-tile" role="button" tabindex="0" data-action="detail" data-metric="humedad">
                         <i class="bi bi-droplet-fill stat-icon" aria-hidden="true"></i><div class="stat-label">Humedad</div>
                         <div class="stat-value"><span id="hum" class="skeleton" style="width:28px;">--</span><small>%</small></div>
                     </div>
-                    <div class="stat-tile">
+                    <div class="stat-tile" role="button" tabindex="0" data-action="detail" data-metric="viento">
                         <i class="bi bi-wind stat-icon" aria-hidden="true"></i><div class="stat-label">Viento</div>
                         <div class="stat-value"><span id="wind" class="skeleton" style="width:28px;">--</span><small class="unit-wind">km/h</small></div>
                         <div class="stat-sub" id="wind-dir"></div>
                     </div>
-                    <div class="stat-tile">
+                    <div class="stat-tile" role="button" tabindex="0" data-action="detail" data-metric="presion">
                         <i class="bi bi-speedometer2 stat-icon" aria-hidden="true"></i><div class="stat-label">Presión</div>
                         <div class="stat-value"><span id="pressure" class="skeleton" style="width:36px;">--</span><small>hPa</small><span id="pressure-trend"></span></div>
                     </div>
-                    <div class="stat-tile">
+                    <div class="stat-tile" role="button" tabindex="0" data-action="detail" data-metric="uv">
                         <i class="bi bi-sun-fill stat-icon" aria-hidden="true"></i><div class="stat-label">Índice UV</div>
                         <div class="stat-value"><span id="uv" class="skeleton" style="width:22px;">--</span></div>
                     </div>
@@ -370,6 +384,7 @@
                     <h2 class="card-label" id="lbl-horas"><i class="bi bi-clock"></i>Próximas 24 h</h2>
                 </div>
                 <p class="day-summary" id="day-summary"></p>
+                <div class="hour-curve" id="hour-curve" role="slider" tabindex="0" aria-label="Recorre las próximas 24 horas con el dedo" hidden></div>
                 <div class="hourly-scroll" id="hourly" role="list" aria-label="Pronóstico por hora">
                     <div class="hourly-item"><div class="skeleton" style="width:34px;height:12px;"></div><div class="skeleton skeleton-circle" style="width:28px;height:28px;"></div><div class="skeleton" style="width:28px;height:18px;"></div></div>
                     <div class="hourly-item"><div class="skeleton" style="width:34px;height:12px;"></div><div class="skeleton skeleton-circle" style="width:28px;height:28px;"></div><div class="skeleton" style="width:28px;height:18px;"></div></div>
@@ -552,8 +567,8 @@
 
 <!-- APP JS -->
 <script src="vendor/suncalc.js"></script>
-<script src="weather-core.js?v=1"></script>
-<script src="app.js?v=24"></script>
+<script src="weather-core.js?v=2"></script>
+<script src="app.js?v=27"></script>
 
 </body>
 </html>

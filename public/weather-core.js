@@ -99,7 +99,7 @@ function dailyMax(times, series) {
 const POLLEN_VARS = () => POLLEN_TYPES.map(t => `${t}_pollen`).join(',');
 const forecastUrl = (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
     + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,pressure_msl,dew_point_2m,uv_index,visibility`
-    + `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day,wind_gusts_10m,uv_index,pressure_msl`
+    + `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day,wind_gusts_10m,uv_index,pressure_msl,relative_humidity_2m,wind_speed_10m,dew_point_2m,apparent_temperature`
     + `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max,precipitation_sum,wind_gusts_10m_max`
     + `&minutely_15=precipitation&timezone=auto&past_days=1`;
 // Aire y polen en UNA llamada
@@ -149,7 +149,14 @@ function buildPayload({ w, a, lat, lon, name, region, avisosOficiales = [] }) {
                 precip: w.hourly.precipitation[realIndex],
                 gust: Math.round(w.hourly.wind_gusts_10m?.[realIndex] ?? 0),
                 uv: Math.round((w.hourly.uv_index?.[realIndex] ?? 0) * 10) / 10,
-                icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon
+                icon: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).icon,
+                desc: decodeWMO(w.hourly.weather_code[realIndex], w.hourly.is_day[realIndex]).text,
+                // Para la curva que se recorre con el dedo y las hojas de detalle
+                feels: Math.round(w.hourly.apparent_temperature?.[realIndex] ?? w.hourly.temperature_2m[realIndex]),
+                humidity: w.hourly.relative_humidity_2m?.[realIndex] ?? null,
+                dewPoint: w.hourly.dew_point_2m?.[realIndex] != null ? Math.round(w.hourly.dew_point_2m[realIndex]) : null,
+                wind: Math.round(w.hourly.wind_speed_10m?.[realIndex] ?? 0),
+                pressure: w.hourly.pressure_msl?.[realIndex] != null ? Math.round(w.hourly.pressure_msl[realIndex]) : null
             };
         });
 

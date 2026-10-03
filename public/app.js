@@ -333,10 +333,50 @@ const getBgClass = (cur) => {
     return cur.isDay ? 'bg-clear-day' : 'bg-clear-night';
 };
 
+
+// Cielo despejado según la altura REAL del sol (SunCalc): noche, hora azul,
+// hora dorada y día se funden poco a poco en vez de saltar de claro a oscuro.
+// Con nubes, lluvia o nieve mandan sus propias paletas.
+const SKY_STOPS = [
+    [-18, ['#070b1f', '#121a46', '#2a2370']],   // noche
+    [-8,  ['#141d4a', '#2e3f7d', '#5b5aa0']],   // hora azul
+    [-2,  ['#24438f', '#6a6fb2', '#e3937a']],   // crepúsculo
+    [3,   ['#2d5fb8', '#e89a6a', '#f6c98b']],   // hora dorada
+    [12,  ['#1554c0', '#2f7fe0', '#5ea6ec']]    // día
+];
+const hex2rgb = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mixHex = (a, b, t) => '#' + hex2rgb(a).map((v, i) => Math.round(v + (hex2rgb(b)[i] - v) * t).toString(16).padStart(2, '0')).join('');
+function solarSkyColors(altDeg) {
+    if (altDeg <= SKY_STOPS[0][0]) return SKY_STOPS[0][1];
+    for (let i = 1; i < SKY_STOPS.length; i++) {
+        const [a0, c0] = SKY_STOPS[i - 1], [a1, c1] = SKY_STOPS[i];
+        if (altDeg <= a1) { const t = (altDeg - a0) / (a1 - a0); return c0.map((c, k) => mixHex(c, c1[k], t)); }
+    }
+    return SKY_STOPS[SKY_STOPS.length - 1][1];
+}
+function applySolarSky() {
+    const data = window._lastFullData;
+    const sky = document.querySelector('.sky');
+    if (!sky) return;
+    const clear = document.body.classList.contains('bg-clear-day') || document.body.classList.contains('bg-clear-night');
+    if (!clear || !data || typeof SunCalc === 'undefined' || !Number.isFinite(+data.location?.lat)) {
+        ['--sky-top', '--sky-mid', '--sky-bottom'].forEach(v => sky.style.removeProperty(v));
+        document.body.style.removeProperty('--theme');
+        return;
+    }
+    const alt = SunCalc.getPosition(new Date(), +data.location.lat, +data.location.lon).altitude * 180 / Math.PI;
+    const [top, mid, bottom] = solarSkyColors(alt);
+    sky.style.setProperty('--sky-top', top);
+    sky.style.setProperty('--sky-mid', mid);
+    sky.style.setProperty('--sky-bottom', bottom);
+    document.body.style.setProperty('--theme', top); // barra de estado a juego
+}
+
 const setDynamicBackground = (cur) => {
     // Solo tocamos las clases de cielo: is-ready / is-scrolled deben sobrevivir
     document.body.classList.remove(...BG_CLASSES);
     document.body.classList.add(getBgClass(cur));
+    applySolarSky();
     syncThemeColor();
 };
 
@@ -944,6 +984,7 @@ function initSheetDrag(zone, sheet, onClose) {
 }
 initSheetDrag(document.getElementById('personaDragZone'), personaSheet, closePersonaModal);
 initSheetDrag(document.getElementById('iosDragZone'), document.getElementById('iosSheet'), () => window.closeIosModal());
+initSheetDrag(document.getElementById('detailDragZone'), document.getElementById('detailSheet'), () => closeDetail());
 
 // ============================================================
 // 19. TEMA (automático por hora de sol — sin botón manual)
@@ -1004,6 +1045,7 @@ const renderFavorites = () => {
     favorites.forEach(city => {
         const li = document.createElement('li');
         li.className = 'fav-item';
+        li.dataset.favId = String(city.id);
         li.innerHTML = `<div class="fav-item-info" role="button" tabindex="0"><span class="fav-name">${escapeHTML(city.name)}</span><span class="fav-region">${escapeHTML(city.region)}</span></div><button type="button" class="fav-delete" aria-label="Eliminar ${escapeHTML(city.name)}"><i class="bi bi-trash3"></i></button>`;
         li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); };
         li.querySelector('.fav-delete').onclick = (e) => {
@@ -1015,7 +1057,7 @@ const renderFavorites = () => {
         list.appendChild(li);
     });
 };
-const openSidebar  = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); };
+const openSidebar  = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); refreshFavoriteTemps(); };
 const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
 document.getElementById('favMenuBtn').addEventListener('click', openSidebar);
 document.getElementById('closeSidebar').addEventListener('click', closeSidebar);
@@ -1028,7 +1070,8 @@ document.getElementById('favList').addEventListener('keydown', (e) => {
 // Escape cierra la capa que esté abierta (sin animación extra: es teclado)
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (modal.classList.contains('show')) closePersonaModal();
+    if (document.getElementById('detailModal')?.classList.contains('show')) closeDetail();
+    else if (modal.classList.contains('show')) closePersonaModal();
     else if (document.getElementById('iosInstallModal')?.classList.contains('show')) closeIosModal();
     else if (document.getElementById('notificationModal')?.classList.contains('show')) closeNotifModal();
     else if (document.getElementById('share-modal').classList.contains('show')) closeShareModal();
@@ -1271,6 +1314,8 @@ setInterval(() => {
     renderNowcast(window._lastFullData);
     renderFreshness();
     updateLivePill();
+    applySolarSky();
+    syncThemeColor();
 }, 60000);
 const refreshIfStale = () => {
     if (document.visibilityState === 'visible' && lastFetchAt && Date.now() - lastFetchAt > 10 * 60000) getWeather(currentId);
@@ -1283,7 +1328,8 @@ setInterval(refreshIfStale, 60000);
 // ============================================================
 
 // Calcula la mejor ventana horaria para una actividad dado el forecast horario
-function getBestWindows(activityId, hourly) {
+const bestWindowRange = (activityId, hourly) => getBestWindows(activityId, hourly, { range: true });
+function getBestWindows(activityId, hourly, opts = {}) {
     if (!hourly || hourly.length === 0) return null;
     const getHour = (t) => {
         if (!t || t === 'Ahora') return new Date().getHours();
@@ -1318,6 +1364,7 @@ function getBestWindows(activityId, hourly) {
     // Elegir la ventana más larga
     windows.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]));
     const [si, ei] = windows[0];
+    if (opts.range) return [si, ei];
     const sH   = getHour(hourly[si].displayTime);
     const eH   = getHour(hourly[ei].displayTime) + 1;
     // Formato compacto ("16–18h") para que quepa en la tarjeta de actividad
@@ -1393,6 +1440,23 @@ function groupAvisos(avisos) {
     }
     return [...groups.values()];
 }
+// Qué hacer, en concreto (el texto oficial de AEMET es genérico)
+const AVISO_CONSEJOS = [
+    [/lluvia|precipitaci/i, 'No cruces vados ni zonas inundadas y evita sótanos y garajes.'],
+    [/tormenta/i, 'Evita zonas abiertas, árboles aislados y el agua.'],
+    [/viento|galerna/i, 'Cuidado con objetos sueltos, andamios y arbolado.'],
+    [/costero|oleaje|mar/i, 'Aléjate de paseos marítimos y espigones.'],
+    [/calor|temperaturas m[aá]ximas/i, 'Bebe agua, busca la sombra y evita esfuerzos en las horas centrales.'],
+    [/nieve|nevada/i, 'Si tienes que conducir, lleva cadenas y depósito lleno.'],
+    [/fr[ií]o|temperaturas m[ií]nimas|helada/i, 'Abrígate por capas y cuidado con el hielo en el suelo.'],
+    [/niebla/i, 'Conduce con luces y más distancia de seguridad.'],
+    [/polvo|calima/i, 'Si tienes asma o alergia, evita el ejercicio fuera.']
+];
+const avisoConsejo = (fenomenos) => {
+    const tips = [];
+    for (const f of fenomenos) for (const [re, tip] of AVISO_CONSEJOS) if (re.test(f) && !tips.includes(tip)) tips.push(tip);
+    return tips.slice(0, 2).join(' ');
+};
 const joinEs = (arr) => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`;
 
 const renderAemetAvisos = (avisos) => {
@@ -1416,6 +1480,7 @@ const renderAemetAvisos = (avisos) => {
                 <div class="fw-bold">${escapeHTML(titulo)}</div>
                 <div class="small opacity-75">${meta}</div>
                 ${detalle ? `<div class="small opacity-75">${escapeHTML(detalle)}</div>` : ''}
+                ${g.nivel !== 'amarillo' && avisoConsejo(g.fenomenos) ? `<div class="aviso-tip">${escapeHTML(avisoConsejo(g.fenomenos))}</div>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -1474,12 +1539,12 @@ const renderLifestyle = (cur, daily, hourly) => {
             ? (status === 'bad' ? `↗ ${window}` : window)
             : (status === 'bad' ? 'Hoy no' : '');
         const ariaLabel = `${act.name}: ${status === 'good' ? 'Ideal' : status === 'fair' ? 'Regular' : 'Malo'}${timeLabel ? '. ' + timeLabel : ''}`;
-        return `<div class="activity-item" role="img" aria-label="${ariaLabel}">
+        return `<button type="button" class="activity-item" data-action="best-window" data-activity="${act.id}" aria-label="${ariaLabel}. Ver el mejor momento">
             ${activityIcon(act.id)}
-            <div class="status-dot status-${status}"></div>
+            <span class="status-dot status-${status}"></span>
             <span class="activity-name">${act.name}</span>
             <span class="activity-time${status === 'bad' && window ? ' activity-time--rescue' : ''}">${timeLabel}</span>
-        </div>`;
+        </button>`;
     }).join(''));
 };
 
@@ -1505,6 +1570,8 @@ document.addEventListener('click', (e) => {
         case 'toggle-day':     toggleDay(Number(el.dataset.day)); break;
         case 'close-share':    closeShareModal(); break;
         case 'close-notif':    closeNotifModal(); break;
+        case 'detail':         openDetail(el.dataset.metric); break;
+        case 'best-window':    showBestWindow(el.dataset.activity); break;
         case 'download-share': downloadShareCard(el); break;
         case 'retry':          retryWeather(); break;
         case 'goto-rain': {
@@ -1870,6 +1937,275 @@ function updateLivePill() {
 }
 
 // ============================================================
+// 26c. CURVA DE 24 H QUE SE RECORRE CON EL DEDO
+// ============================================================
+// Arrastrar sobre la curva enseña en el hero el tiempo de esa hora; al
+// soltar vuelve a "ahora". touch-action: pan-y deja el scroll vertical a la
+// página y el horizontal a la curva, sin pelearse con el navegador.
+const curveState = { idx: -1, saved: null };
+
+function renderHourCurve(data) {
+    const box = document.getElementById('hour-curve');
+    if (!box) return;
+    const hrs = (data.hourly || []).slice(0, 24);
+    if (hrs.length < 6) { box.hidden = true; return; }
+    box.hidden = false;
+    const W = 1000, H = 120, top = 24, bottom = 40; // viewBox; abajo, lluvia y horas
+    const temps = hrs.map(h => fmtTemp(h.temp));
+    const tMin = Math.min(...temps), tMax = Math.max(...temps), span = Math.max(1, tMax - tMin);
+    const x = (i) => (i + 0.5) * (W / hrs.length);
+    const y = (t) => top + (1 - (t - tMin) / span) * (H - top - bottom);
+    const pts = temps.map((t, i) => [x(i), y(t)]);
+    // Curva suave (Catmull-Rom → Bézier)
+    let d = `M ${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+        d += ` C ${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6}, ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6}, ${p2[0]} ${p2[1]}`;
+    }
+    const bw = W / hrs.length;
+    const bars = hrs.map((h, i) => {
+        const v = Math.max(h.precip || 0, (h.rainProb || 0) >= 50 ? 0.2 : 0);
+        if (v < 0.1) return '';
+        // Barras de lluvia en su franja, por encima de las horas del eje
+        const bh = Math.min(16, 3 + Math.log10(1 + v * 4) * 9);
+        return `<rect x="${x(i) - bw * 0.32}" y="${H - 20 - bh}" width="${bw * 0.64}" height="${bh}" rx="3" class="hc-rain"/>`;
+    }).join('');
+    const iMax = temps.indexOf(tMax), iMin = temps.indexOf(tMin);
+    // Etiquetas en HTML (en el SVG estirado a lo ancho se deformarían)
+    const px = (v) => (v / H) * 100;
+    // Máxima y mínima, siempre encima de su punto (debajo pisarían la lluvia y las horas)
+    const label = (i, t) => `<span class="hc-lbl" style="left:${Math.min(96, Math.max(4, (x(i) / W) * 100))}%;top:${px(y(t) - 24)}%">${t}°</span>`;
+    const ticks = hrs.map((h, i) => i % 6 === 0 ? `<span class="hc-tick" style="left:${(x(i) / W) * 100}%">${i === 0 ? 'Ahora' : h.displayTime}</span>` : '').join('');
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+        ${bars}<path d="${d}" class="hc-line" vector-effect="non-scaling-stroke"/>
+        <line class="hc-cursor" x1="0" x2="0" y1="4" y2="${H - 20}" vector-effect="non-scaling-stroke"/></svg>
+        <span class="hc-dot" aria-hidden="true"></span>
+        ${label(iMax, tMax)}${iMin !== iMax ? label(iMin, tMin) : ''}${ticks}`;
+    box._geo = { n: hrs.length, x, y, temps, W, H };
+    box.setAttribute('aria-valuemin', 0);
+    box.setAttribute('aria-valuemax', hrs.length - 1);
+    box.setAttribute('aria-valuenow', 0);
+    box.setAttribute('aria-valuetext', 'Ahora');
+}
+
+// Pinta en el hero la hora i (o vuelve a "ahora" con i = -1)
+function scrubTo(i) {
+    const data = window._lastFullData;
+    const box = document.getElementById('hour-curve');
+    if (!data || !box || !box._geo) return;
+    const tempEl = document.getElementById('temp'), descEl = document.getElementById('desc');
+    const iconEl = document.getElementById('weather-icon-container'), timeEl = document.getElementById('local-time');
+    if (i < 0) {
+        if (curveState.saved) {
+            tempEl.innerHTML = curveState.saved.temp; descEl.innerText = curveState.saved.desc;
+            iconEl.innerHTML = curveState.saved.icon; if (timeEl) timeEl.innerHTML = curveState.saved.time;
+            [tempEl, descEl, iconEl].forEach(blurIn);
+        }
+        curveState.saved = null; curveState.idx = -1;
+        box.classList.remove('is-scrubbing');
+        document.querySelectorAll('.hourly-item.is-scrubbed').forEach(el => el.classList.remove('is-scrubbed'));
+        box.setAttribute('aria-valuenow', 0); box.setAttribute('aria-valuetext', 'Ahora');
+        return;
+    }
+    if (i === curveState.idx) return;
+    if (!curveState.saved) curveState.saved = { temp: tempEl.innerHTML, desc: descEl.innerText, icon: iconEl.innerHTML, time: timeEl ? timeEl.innerHTML : '' };
+    curveState.idx = i;
+    const h = data.hourly[i];
+    // Durante el arrastre, sin animación: son datos que cambian decenas de veces por segundo
+    tempEl.innerHTML = `${fmtTemp(h.temp)}<span class="deg">°${useFahrenheit ? '<small>F</small>' : ''}</span>`;
+    descEl.innerText = h.desc || '';
+    iconEl.innerHTML = `<i class="bi ${h.icon}" style="font-size:5.5rem;display:inline-block;"></i>`;
+    if (timeEl) timeEl.innerHTML = i === 0 ? curveState.saved.time : `Previsto · ${h.displayTime}${h.rainProb ? ` · ${h.rainProb}% lluvia` : ''}`;
+    const g = box._geo;
+    box.classList.add('is-scrubbing');
+    box.style.setProperty('--hc-x', `${(g.x(i) / g.W) * 100}%`);
+    const dot = box.querySelector('.hc-dot'), line = box.querySelector('.hc-cursor');
+    if (dot) { dot.style.left = `${(g.x(i) / g.W) * 100}%`; dot.style.top = `${(g.y(g.temps[i]) / g.H) * 100}%`; }
+    if (line) { line.setAttribute('x1', g.x(i)); line.setAttribute('x2', g.x(i)); }
+    // La tira horaria acompaña, sin animación
+    const items = document.querySelectorAll('#hourly .hourly-item');
+    items.forEach((el, k) => el.classList.toggle('is-scrubbed', k === i));
+    const it = items[i], hc = document.getElementById('hourly');
+    if (it && hc) hc.scrollLeft = it.offsetLeft - hc.clientWidth / 2 + it.offsetWidth / 2;
+    if (navigator.vibrate && matchMedia('(pointer: coarse)').matches) navigator.vibrate(4);
+    box.setAttribute('aria-valuenow', i);
+    box.setAttribute('aria-valuetext', `${h.displayTime}, ${fmtTemp(h.temp)} grados, ${h.desc || ''}${h.rainProb ? `, ${h.rainProb} % de lluvia` : ''}`);
+}
+
+(function initHourCurve() {
+    const box = document.getElementById('hour-curve');
+    if (!box) return;
+    let active = false, pid = null, startX = 0, startY = 0, decided = false;
+    const idxAt = (clientX) => {
+        const g = box._geo; if (!g) return -1;
+        const r = box.getBoundingClientRect();
+        return Math.max(0, Math.min(g.n - 1, Math.floor(((clientX - r.left) / r.width) * g.n)));
+    };
+    box.addEventListener('pointerdown', (e) => {
+        if (!box._geo) return;
+        active = true; decided = e.pointerType !== 'touch'; pid = e.pointerId; startX = e.clientX; startY = e.clientY;
+        if (decided) { box.setPointerCapture(pid); scrubTo(idxAt(e.clientX)); }
+    });
+    box.addEventListener('pointermove', (e) => {
+        if (!active || e.pointerId !== pid) return;
+        if (!decided) {
+            // Umbral de 10 px para decidir el eje antes de empezar
+            const dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
+            if (dx < 10 && dy < 10) return;
+            if (dy > dx) { active = false; return; } // era scroll vertical
+            decided = true; box.setPointerCapture(pid);
+        }
+        scrubTo(idxAt(e.clientX));
+    });
+    const end = (e) => { if (e.pointerId !== pid) return; if (active && decided) scrubTo(-1); active = false; };
+    box.addEventListener('pointerup', end);
+    box.addEventListener('pointercancel', end);
+    // Teclado: flechas recorren las horas; Escape o salir vuelven a ahora
+    box.addEventListener('keydown', (e) => {
+        const n = box._geo ? box._geo.n : 0;
+        if (!n) return;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const cur = curveState.idx < 0 ? 0 : curveState.idx;
+            scrubTo(Math.max(0, Math.min(n - 1, cur + (e.key === 'ArrowRight' ? 1 : -1))));
+        } else if (e.key === 'Escape' || e.key === 'Home') { scrubTo(-1); }
+    });
+    box.addEventListener('blur', () => scrubTo(-1));
+})();
+
+// ============================================================
+// 26d. HOJA DE DETALLE POR DATO (humedad, viento, presión, UV, sensación)
+// ============================================================
+function miniChart(values, labels, unit, opts = {}) {
+    const vals = values.map(v => v == null ? null : Number(v));
+    const ok = vals.filter(v => v != null);
+    if (ok.length < 2) return '';
+    const W = 320, H = 110, pad = 14;
+    let lo = Math.min(...ok), hi = Math.max(...ok);
+    if (opts.min != null) lo = Math.min(lo, opts.min);
+    if (hi - lo < (opts.minSpan || 2)) { const m = (hi + lo) / 2; lo = m - (opts.minSpan || 2) / 2; hi = m + (opts.minSpan || 2) / 2; }
+    const x = (i) => pad + i * (W - pad * 2) / (vals.length - 1);
+    const y = (v) => pad + (1 - (v - lo) / (hi - lo)) * (H - pad * 2 - 14);
+    const d = vals.map((v, i) => v == null ? '' : `${i && vals[i - 1] != null ? 'L' : 'M'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+    const iMax = vals.indexOf(Math.max(...ok)), iMin = vals.indexOf(Math.min(...ok));
+    const t = (i, below) => `<text x="${x(i)}" y="${y(vals[i]) + (below ? 16 : -7)}" text-anchor="middle" class="dc-label">${vals[i]}${unit}</text>`;
+    const ticks = labels.map((l, i) => i % 6 === 0 ? `<text x="${x(i)}" y="${H - 2}" text-anchor="middle" class="dc-tick">${i === 0 ? 'Ahora' : l}</text>` : '').join('');
+    return `<svg class="detail-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Próximas 24 horas">
+        <path d="${d}" class="dc-line"/>${t(iMax, false)}${iMin !== iMax ? t(iMin, true) : ''}${ticks}</svg>`;
+}
+
+const DETAIL = {
+    humedad(d) {
+        const c = d.current, dp = c.dewPoint;
+        const feel = dp == null ? '' : dp < 10 ? 'Ambiente seco.' : dp < 16 ? 'Ambiente agradable.' : dp < 19 ? 'Algo húmedo.' : dp < 22 ? 'Ambiente bochornoso.' : 'Muy bochornoso: cuesta refrescarse.';
+        return { title: 'Humedad', value: `${c.humidity}%`, text: `${dp != null ? `Punto de rocío ${fmtTemp(dp)}°. ` : ''}${feel} El punto de rocío dice mejor que la humedad cómo se nota el aire.`,
+            chart: miniChart(d.hourly.map(h => h.humidity), d.hourly.map(h => h.displayTime), '%', { minSpan: 10 }) };
+    },
+    viento(d) {
+        const c = d.current;
+        const maxG = d.hourly.reduce((m, h) => (h.gust || 0) > m.g ? { g: h.gust, t: h.displayTime } : m, { g: 0, t: '' });
+        const bf = c.windSpeed < 6 ? 'Casi en calma' : c.windSpeed < 20 ? 'Brisa suave' : c.windSpeed < 39 ? 'Viento moderado' : c.windSpeed < 62 ? 'Viento fuerte' : 'Temporal';
+        return { title: 'Viento', value: `${fmtWind(c.windSpeed)} ${windUnit()}`, text: `${bf}${c.windDir ? ' del ' + c.windDir : ''}. Rachas ahora de ${fmtWind(c.windGust || c.windSpeed)} ${windUnit()}${maxG.g ? `; las más fuertes, ${fmtWind(maxG.g)} ${windUnit()} hacia las ${maxG.t}` : ''}.`,
+            chart: miniChart(d.hourly.map(h => fmtWind(h.gust || 0)), d.hourly.map(h => h.displayTime), '', { min: 0, minSpan: 10 }), note: 'La curva muestra las rachas.' };
+    },
+    presion(d) {
+        const c = d.current, tr = c.pressureTrend;
+        const trTxt = tr == null ? '' : tr > 1 ? `Sube ${tr} hPa en 3 h: suele indicar mejoría.` : tr < -1 ? `Baja ${Math.abs(tr)} hPa en 3 h: puede empeorar (y a quien tiene migrañas le afecta).` : 'Estable en las últimas 3 h.';
+        return { title: 'Presión', value: `${c.pressure} hPa`, text: `${trTxt} Es la presión a nivel del mar, la que usan los mapas del tiempo.`,
+            chart: miniChart(d.hourly.map(h => h.pressure), d.hourly.map(h => h.displayTime), '', { minSpan: 4 }) };
+    },
+    uv(d) {
+        const c = d.current;
+        const lvl = (u) => { u = Math.round(u || 0); return u < 3 ? 'bajo' : u < 6 ? 'moderado' : u < 8 ? 'alto' : u < 11 ? 'muy alto' : 'extremo'; };
+        const prot = d.hourly.filter(h => Math.round(h.uv || 0) >= 3 && h.fullDate.slice(0, 10) === d.hourly[0].fullDate.slice(0, 10));
+        const win = prot.length ? `Protégete de ${prot[0].displayTime} a ${prot[prot.length - 1].displayTime}.` : 'Hoy no hace falta protección especial.';
+        return { title: 'Índice UV', value: `${Math.round(c.uv)} · ${lvl(c.uv)}`, text: `Máximo de hoy: ${Math.round(c.uvMax || 0)} (${lvl(c.uvMax || 0)}). ${win}`,
+            chart: miniChart(d.hourly.map(h => h.uv), d.hourly.map(h => h.displayTime), '', { min: 0, minSpan: 3 }) };
+    },
+    sensacion(d) {
+        const c = d.current, diff = c.feelsLike - c.temp;
+        const why = Math.abs(diff) < 1 ? 'Se nota tal cual marca el termómetro.'
+            : diff > 0 ? `Se nota ${Math.round(diff)}° más${c.humidity >= 60 ? ' por la humedad' : ' por el sol y la poca brisa'}.`
+            : `Se nota ${Math.round(-diff)}° menos${c.windSpeed >= 15 ? ' por el viento' : ''}.`;
+        return { title: 'Sensación térmica', value: `${fmtTemp(c.feelsLike)}°`, text: `${why} Combina temperatura, humedad, viento y sol.`,
+            chart: miniChart(d.hourly.map(h => fmtTemp(h.feels)), d.hourly.map(h => h.displayTime), '°') };
+    }
+};
+
+const detailModal = document.getElementById('detailModal');
+function openDetail(metric) {
+    const d = window._lastFullData;
+    if (!d || !detailModal || !DETAIL[metric]) return;
+    const info = DETAIL[metric](d);
+    document.getElementById('detailTitle').textContent = info.title;
+    document.getElementById('detailBody').innerHTML = `<div class="detail-value">${escapeHTML(info.value)}</div>
+        <p class="detail-text">${escapeHTML(info.text)}</p>${info.chart}${info.note ? `<p class="detail-note">${escapeHTML(info.note)}</p>` : ''}`;
+    detailModal.classList.add('show');
+    detailModal._trigger = document.activeElement;
+    document.getElementById('closeDetail')?.focus({ preventScroll: true });
+}
+function closeDetail() {
+    if (!detailModal) return;
+    detailModal.classList.remove('show');
+    const sheet = document.getElementById('detailSheet');
+    if (sheet) { sheet.style.transform = ''; sheet.style.transition = ''; }
+    detailModal._trigger?.focus?.({ preventScroll: true });
+}
+detailModal?.addEventListener('click', (e) => { if (e.target === detailModal) closeDetail(); });
+document.getElementById('closeDetail')?.addEventListener('click', closeDetail);
+// Las fichas son role="button": Enter y espacio también las abren
+document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-action="detail"]')) { e.preventDefault(); openDetail(e.target.dataset.metric); }
+});
+
+// ============================================================
+// 26e. MEJOR MOMENTO: tocar una actividad marca su ventana en la tira horaria
+// ============================================================
+function showBestWindow(activityId) {
+    const data = window._lastFullData;
+    const win = data && bestWindowRange(activityId, data.hourly);
+    const items = document.querySelectorAll('#hourly .hourly-item');
+    items.forEach(el => el.classList.remove('is-best'));
+    document.querySelectorAll('.activity-item.is-selected').forEach(el => el.classList.remove('is-selected'));
+    const act = document.querySelector(`.activity-item[data-activity="${activityId}"]`);
+    if (!win) { showToast('Hoy no hay un buen momento para eso en las próximas 24 h.', 'warn'); return; }
+    act?.classList.add('is-selected');
+    for (let i = win[0]; i <= win[1]; i++) items[i]?.classList.add('is-best');
+    const card = document.getElementById('section-horas'), hc = document.getElementById('hourly');
+    const navH = document.querySelector('.nav-bar')?.offsetHeight || 0;
+    if (card) window.scrollTo({ top: card.getBoundingClientRect().top + window.pageYOffset - navH - 8, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    const first = items[win[0]];
+    if (first && hc) hc.scrollTo({ left: first.offsetLeft - 16, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
+
+// ============================================================
+// 26f. FAVORITOS CON EL TIEMPO EN VIVO (una sola petición para todos)
+// ============================================================
+async function refreshFavoriteTemps() {
+    const list = document.getElementById('favList');
+    const favs = (favorites || []).map(f => ({ f, c: String(f.id || '').split(',').map(Number) }))
+        .filter(x => x.c.length === 2 && x.c.every(Number.isFinite));
+    if (!list || !favs.length) return;
+    try {
+        const lat = favs.map(x => x.c[0].toFixed(3)).join(','), lon = favs.map(x => x.c[1].toFixed(3)).join(',');
+        const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,is_day&timezone=auto`);
+        if (!r.ok) return;
+        let res = await r.json();
+        if (!Array.isArray(res)) res = [res];
+        favs.forEach((x, i) => {
+            const cur = res[i] && res[i].current;
+            const li = list.querySelector(`[data-fav-id="${CSS.escape(String(x.f.id))}"]`);
+            if (!cur || !li) return;
+            const wmo = WeatherCore.decodeWMO(cur.weather_code, cur.is_day);
+            const el = li.querySelector('.fav-now') || li.querySelector('.fav-item-info').appendChild(document.createElement('span'));
+            el.className = 'fav-now';
+            el.innerHTML = `<i class="bi ${wmo.icon}" aria-hidden="true"></i>${fmtTemp(Math.round(cur.temperature_2m))}°`;
+            el.title = wmo.text;
+        });
+    } catch (e) { /* sin datos en vivo: el panel funciona igual */ }
+}
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -1995,6 +2331,8 @@ const renderWeather = (data) => {
         ).join(''));
         // Vuelve al principio al cambiar de sitio, no si el usuario la había movido
         if (changed && placeChanged) hCont.scrollLeft = 0;
+        if (curveState.idx >= 0) scrubTo(-1);
+        renderHourCurve(data);
     }
 
     // Daily: barras de rango sobre la escala de toda la semana (estilo iOS)

@@ -2398,3 +2398,55 @@ body.hero-out.has-live-pill .live-pill {
 @media (prefers-reduced-motion: reduce) {
     .live-pill, body.hero-out.has-live-pill .live-pill { transform: translate(-50%, 0); }
 }
+
+/* ============================================================
+   CURVA DE 24 H, DETALLE POR DATO, MEJOR MOMENTO, FAVORITOS
+   ============================================================ */
+.hour-curve {
+    position: relative;
+    height: 92px;
+    margin: 0 0 12px;
+    touch-action: pan-y;          /* vertical = página; horizontal = recorrer */
+    cursor: ew-resize;
+    -webkit-user-select: none;
+    user-select: none;
+    border-radius: 14px;
+}
+.hour-curve[hidden] { display: none; }
+.hour-curve svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.hc-line { fill: none; stroke: #ffd38a; stroke-width: 2.5; stroke-linecap: round; }
+.hc-rain { fill: rgba(143, 211, 255, 0.55); }
+.hc-lbl { position: absolute; transform: translateX(-50%); font-size: 0.72rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; pointer-events: none; }
+.hc-tick { position: absolute; bottom: 0; transform: translateX(-50%); font-size: 0.68rem; color: var(--text-3); font-variant-numeric: tabular-nums; pointer-events: none; }
+.hc-cursor { stroke: rgba(255, 255, 255, 0.85); stroke-width: 1.5; opacity: 0; }
+.hc-dot { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25); opacity: 0; pointer-events: none; }
+.hour-curve.is-scrubbing .hc-cursor, .hour-curve.is-scrubbing .hc-dot { opacity: 1; }
+.hour-curve:not(.is-scrubbing) .hc-cursor, .hour-curve:not(.is-scrubbing) .hc-dot { transition: opacity 150ms ease; }
+.hour-curve:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: 2px; }
+.hourly-item.is-scrubbed { background: var(--fill-2); border-color: rgba(255, 255, 255, 0.5); }
+/* Mejor momento de la actividad elegida: barra de color bajo esas horas */
+.hourly-item.is-best { box-shadow: inset 0 -3px 0 #4ade80; }
+.activity-item { font: inherit; color: inherit; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.activity-item.is-selected { border-color: rgba(74, 222, 128, 0.7); background: rgba(74, 222, 128, 0.12); }
+@media (hover: hover) and (pointer: fine) { .activity-item:hover { background: var(--fill-2); } }
+.activity-item:active { transform: scale(0.97); transition: transform 120ms var(--ease-out); }
+
+/* Fichas de datos que abren su detalle */
+.stat-tile[role="button"], .feels-link { cursor: pointer; }
+.stat-tile[role="button"]:active { transform: scale(0.97); transition: transform 120ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .stat-tile[role="button"]:hover { background: var(--fill-2); } }
+.feels-link { text-decoration: underline dotted rgba(255, 255, 255, 0.4); text-underline-offset: 3px; }
+.detail-body { padding: 0 4px 6px; overflow-y: auto; overscroll-behavior: contain; }
+.detail-value { font-size: 2.4rem; font-weight: 300; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.detail-text { margin: 6px 0 14px; font-size: 0.92rem; line-height: 1.45; color: var(--text-2); }
+.detail-note { margin: 6px 0 0; font-size: 0.75rem; color: var(--text-3); }
+.detail-chart { display: block; width: 100%; height: auto; }
+.dc-line { fill: none; stroke: #ffd38a; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.dc-label { font-size: 11px; font-weight: 600; fill: var(--text); }
+.dc-tick { font-size: 10px; fill: var(--text-3); }
+
+/* Favoritos: tiempo en vivo de cada ciudad */
+.fav-now { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 0.8rem; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+/* Consejo concreto en avisos naranja y rojo */
+.aviso-tip { margin-top: 6px; font-size: 0.8rem; font-weight: 600; line-height: 1.35; }
