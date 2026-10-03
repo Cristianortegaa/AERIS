@@ -1600,12 +1600,21 @@ window.toggleDay = (index) => {
 document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (!el) return;
+    if (el.dataset.action === 'trip-open' && e.target.closest('[data-action="trip-del"]')) return;
     switch (el.dataset.action) {
         case 'toggle-day':     toggleDay(Number(el.dataset.day)); break;
         case 'close-share':    closeShareModal(); break;
         case 'close-notif':    closeNotifModal(); break;
         case 'detail':         openDetail(el.dataset.metric); break;
         case 'best-window':    showBestWindow(el.dataset.activity); break;
+        case 'trip-new':       openTripPlanner(); break;
+        case 'trip-open':      openTrip(el.dataset.trip); break;
+        case 'trip-del':       e.stopPropagation(); setTrips(getTrips().filter(t => t.id !== el.dataset.trip)); renderTrips(); break;
+        case 'trip-go': {
+            const t = getTrips().find(x => x.id === el.dataset.trip);
+            if (t) { closeDetail(); selectCity({ id: `${t.lat},${t.lon}`, name: t.name, region: t.region, lat: t.lat, lon: t.lon }); }
+            break;
+        }
         case 'download-share': downloadShareCard(el); break;
         case 'retry':          retryWeather(); break;
         case 'goto-rain': {
@@ -2194,6 +2203,7 @@ document.getElementById('closeDetail')?.addEventListener('click', closeDetail);
 // Las fichas son role="button": Enter y espacio también las abren
 document.addEventListener('keydown', (e) => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-action="detail"]')) { e.preventDefault(); openDetail(e.target.dataset.metric); }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-action="trip-open"]')) { e.preventDefault(); openTrip(e.target.dataset.trip); }
 });
 
 // ============================================================
@@ -3033,6 +3043,135 @@ function drawFocosOnRadar() {
 }
 
 // ============================================================
+// 26u. MIS VIAJES (previsión de otra ciudad para unas fechas)
+// ============================================================
+// Destino + fechas (hasta 15 días vista, lo que llega el ensemble de ECMWF).
+// Se guardan en el móvil; los pasados se borran solos.
+const TRIPS_KEY = 'aeris_trips';
+const todayISO = () => new Date().toLocaleDateString('sv-SE');
+const addDaysISO = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
+const getTrips = () => (lsGet(TRIPS_KEY) || []).filter(t => t.to >= todayISO());
+const setTrips = (t) => lsSet(TRIPS_KEY, t.slice(0, 5));
+const fmtDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
+
+// Resumen del viaje con los días del ensemble que caen dentro
+function tripSummary(trip, ens) {
+    const days = (ens || []).filter(e => e.fecha >= trip.from && e.fecha <= trip.to);
+    const daysTo = Math.round((new Date(trip.from + 'T12:00:00') - new Date(todayISO() + 'T12:00:00')) / 86400e3);
+    if (!days.length) return { pending: true, daysTo };
+    const min = Math.min(...days.map(d => d.tMin)), max = Math.max(...days.map(d => d.tMax));
+    const rain = Math.max(...days.map(d => d.rainProb));
+    const level = days.some(d => d.level === 'baja') ? 'baja' : days.some(d => d.level === 'media') ? 'media' : 'alta';
+    const pack = [];
+    if (rain >= 0.4) pack.push('paraguas');
+    if (min <= 8) pack.push('abrigo'); else if (min <= 14) pack.push('una chaqueta');
+    if (max >= 26) pack.push('ropa fresca y crema');
+    const covered = days.length, total = Math.round((new Date(trip.to + 'T12:00:00') - new Date(trip.from + 'T12:00:00')) / 86400e3) + 1;
+    return { pending: false, days, min, max, rain, level, pack, partial: covered < total, daysTo };
+}
+
+async function renderTrips() {
+    const list = document.getElementById('trips-list');
+    if (!list) return;
+    const trips = getTrips();
+    setTrips(trips); // limpia los pasados
+    if (!trips.length) { list.innerHTML = '<p class="trips-empty">Elige destino y fechas y te digo qué tiempo hará y qué llevar.</p>'; return; }
+    const rows = await Promise.all(trips.map(async (t) => {
+        let s;
+        try { s = tripSummary(t, await fetchEnsemble(t.lat, t.lon)); } catch (e) { s = { pending: true, daysTo: 0, error: true }; }
+        const dates = `${fmtDay(t.from)}${t.to !== t.from ? ` – ${fmtDay(t.to)}` : ''}`;
+        let body;
+        if (s.error) body = '<span class="trip-meta">No se pudo cargar la previsión.</span>';
+        else if (s.pending) body = `<span class="trip-meta">Faltan ${s.daysTo} días. La previsión llega 15 días antes.</span>`;
+        else body = `<span class="trip-stats"><b>${fmtTemp(s.min)}° – ${fmtTemp(s.max)}°</b><span><i class="bi bi-droplet-fill" aria-hidden="true"></i>${Math.round(s.rain * 100)}%</span><span class="conf-pill conf-${s.level}">${CONF_TXT[s.level]}</span></span>`
+            + `<span class="trip-meta">${s.pack.length ? `Lleva ${joinEs(s.pack)}.` : 'Nada especial que llevar.'}${s.partial ? ' Solo están los primeros días.' : ''}</span>`;
+        return `<div class="trip-item" role="button" tabindex="0" data-action="trip-open" data-trip="${escapeHTML(t.id)}">
+            <div class="trip-head"><span class="trip-name">${escapeHTML(t.name)}</span><span class="trip-dates">${escapeHTML(dates)}</span></div>
+            ${body}
+            <button type="button" class="trip-del" data-action="trip-del" data-trip="${escapeHTML(t.id)}" aria-label="Quitar el viaje a ${escapeHTML(t.name)}"><i class="bi bi-x"></i></button>
+        </div>`;
+    }));
+    list.innerHTML = rows.join('');
+}
+
+// Hoja para planear un viaje (reutiliza la hoja de detalle)
+let tripDraft = null;
+function openTripPlanner() {
+    if (!detailModal) return;
+    tripDraft = { from: todayISO(), to: addDaysISO(todayISO(), 2) };
+    document.getElementById('detailTitle').textContent = 'Planear un viaje';
+    document.getElementById('detailBody').innerHTML = `
+        <label class="trip-label" for="trip-q">Destino</label>
+        <input type="search" id="trip-q" class="trip-input" placeholder="Ciudad, pueblo…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+        <ul class="trip-results" id="trip-results"></ul>
+        <div class="trip-dates-row">
+            <label class="trip-label">Desde<input type="date" id="trip-from" class="trip-input" value="${tripDraft.from}" min="${todayISO()}"></label>
+            <label class="trip-label">Hasta<input type="date" id="trip-to" class="trip-input" value="${tripDraft.to}" min="${todayISO()}"></label>
+        </div>
+        <button type="button" class="btn-pill solid trip-save" id="trip-save" disabled>Guardar viaje</button>
+        <p class="detail-note">La previsión llega hasta 15 días; si el viaje es más tarde, se completará sola cuando se acerque.</p>`;
+    detailModal.classList.add('show');
+    const q = document.getElementById('trip-q'), res = document.getElementById('trip-results'), save = document.getElementById('trip-save');
+    let t = null;
+    q.addEventListener('input', () => {
+        clearTimeout(t);
+        tripDraft.city = null; save.disabled = true;
+        if (q.value.trim().length < 3) { res.innerHTML = ''; return; }
+        t = setTimeout(async () => {
+            const cities = await searchCities(normalizeInput(q.value)).catch(() => []);
+            res.innerHTML = cities.length ? cities.slice(0, 5).map((c, i) => `<li><button type="button" data-i="${i}"><b>${escapeHTML(c.name)}</b><small>${escapeHTML(c.region || '')}</small></button></li>`).join('')
+                : `<li class="trip-none">No encuentro «${escapeHTML(q.value)}».</li>`;
+            res._cities = cities;
+        }, 300);
+    });
+    res.addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-i]');
+        if (!b) return;
+        tripDraft.city = res._cities[Number(b.dataset.i)];
+        q.value = tripDraft.city.name;
+        res.innerHTML = '';
+        save.disabled = false;
+    });
+    document.getElementById('trip-from').addEventListener('change', (e) => {
+        tripDraft.from = e.target.value;
+        const to = document.getElementById('trip-to');
+        to.min = tripDraft.from;
+        if (to.value < tripDraft.from) { to.value = tripDraft.from; tripDraft.to = tripDraft.from; }
+    });
+    document.getElementById('trip-to').addEventListener('change', (e) => { tripDraft.to = e.target.value; });
+    save.addEventListener('click', () => {
+        const c = tripDraft.city;
+        if (!c || !tripDraft.from || !tripDraft.to || tripDraft.to < tripDraft.from) return;
+        const trips = getTrips();
+        trips.push({ id: `${Date.now()}`, name: c.name, region: c.region || '', lat: +c.lat, lon: +c.lon, from: tripDraft.from, to: tripDraft.to });
+        trips.sort((a, b) => a.from.localeCompare(b.from));
+        setTrips(trips);
+        closeDetail();
+        renderTrips();
+        showToast(`Viaje a ${c.name} guardado.`, 'ok');
+    });
+    setTimeout(() => q.focus({ preventScroll: true }), 350);
+}
+
+// Día a día del viaje
+async function openTrip(id) {
+    const trip = getTrips().find(t => t.id === id);
+    if (!trip || !detailModal) return;
+    let s;
+    try { s = tripSummary(trip, await fetchEnsemble(trip.lat, trip.lon)); } catch (e) { s = { pending: true, daysTo: 0 }; }
+    document.getElementById('detailTitle').textContent = trip.name;
+    const rows = s.pending ? `<p class="detail-text">Faltan ${s.daysTo} días. La previsión llega 15 días antes: vuelve a mirarlo entonces.</p>`
+        : s.days.map(d => `<div class="trip-day"><span class="trip-day-name">${escapeHTML(fmtDay(d.fecha))}</span><span>${fmtTemp(d.tMin)}° / <b>${fmtTemp(d.tMax)}°</b></span><span class="trend-rain">${d.rainProb >= 0.2 ? `<i class="bi bi-droplet-fill" aria-hidden="true"></i>${Math.round(d.rainProb * 100)}%` : ''}</span><span class="trend-conf">${CONF_TXT[d.level]}</span></div>`).join('');
+    document.getElementById('detailBody').innerHTML = `
+        <p class="detail-text">${escapeHTML(trip.region || '')}${trip.region ? ' · ' : ''}${escapeHTML(fmtDay(trip.from))}${trip.to !== trip.from ? ` – ${escapeHTML(fmtDay(trip.to))}` : ''}</p>
+        ${rows}
+        ${!s.pending && s.pack.length ? `<p class="detail-text">Lleva ${escapeHTML(joinEs(s.pack))}.</p>` : ''}
+        <button type="button" class="btn-pill ghost trip-go" data-action="trip-go" data-trip="${escapeHTML(trip.id)}"><i class="bi bi-geo-alt"></i>Ver el tiempo de ${escapeHTML(trip.name)}</button>
+        <p class="detail-note">Con los 51 escenarios del modelo de IA de ECMWF.</p>`;
+    detailModal.classList.add('show');
+}
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -3214,6 +3353,7 @@ const renderWeather = (data) => {
     }
 
     renderForecastExtras(data).catch(e => console.warn('extras', e.message));
+    if (!window._tripsRendered) { window._tripsRendered = true; renderTrips(); }
     renderMarine(data).catch(() => {});
     renderCityDots();
     renderA11ySummary(data);

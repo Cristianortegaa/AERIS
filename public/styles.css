@@ -2596,3 +2596,29 @@ html.ptr-enabled { overscroll-behavior-y: none; }
 .fav-empty i { color: #ff8fa3; margin-top: 2px; }
 .share-phrase { margin-top: 10px; font-size: 0.9rem; font-style: italic; opacity: 0.9; }
 .share-phrase:empty { display: none; }
+
+/* ============================================================
+   MIS VIAJES
+   ============================================================ */
+.trip-add { padding: 6px 12px; font-size: 0.8rem; }
+.trips-empty { margin: 0; font-size: 0.86rem; color: var(--text-2); }
+.trip-item { position: relative; display: grid; gap: 4px; padding: 12px 40px 12px 0; border-top: 1px solid var(--hairline); cursor: pointer; }
+.trip-item:first-child { border-top: 0; padding-top: 2px; }
+.trip-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.trip-name { font-size: 1rem; font-weight: 600; }
+.trip-dates { display: inline-block; font-size: 0.8rem; color: var(--text-2); }
+.trip-dates::first-letter, .trip-day-name::first-letter { text-transform: uppercase; }
+.trip-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.trip-stats i { color: #8fd3ff; margin-right: 3px; }
+.trip-meta { font-size: 0.82rem; color: var(--text-2); }
+.trip-del { position: absolute; top: 8px; right: 0; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--fill-1); color: var(--text-2); cursor: pointer; }
+.trip-label { display: grid; gap: 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.trip-input { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--stroke); background: var(--fill-1); color: var(--text); font: inherit; font-size: 16px; color-scheme: dark; }
+.trip-results { list-style: none; margin: 6px 0 0; padding: 0; }
+.trip-results button { display: grid; width: 100%; padding: 10px 4px; border: 0; border-bottom: 1px solid var(--hairline); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.trip-results small { color: var(--text-3); }
+.trip-none { padding: 10px 4px; font-size: 0.86rem; color: var(--text-2); }
+.trip-dates-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.trip-save, .trip-go { width: 100%; justify-content: center; margin-top: 16px; }
+.trip-day { display: grid; grid-template-columns: 6.5rem 1fr 3rem auto; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid var(--hairline); font-size: 0.9rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trip-day-name { display: inline-block; color: var(--text-2); }
