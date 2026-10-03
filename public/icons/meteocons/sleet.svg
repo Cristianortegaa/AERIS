@@ -26,7 +26,7 @@
 	<path d="M26.17,46.25l-1.09-.63m-2.16-1.24-1.09-.63M24,42.5v1.25m0,3.75V46.25m-1.08-.63-1.09.63m4.34-2.5-1.09.63" fill="none" stroke-linecap="round" stroke-miterlimit="10" stroke="url(#c)"/>
 	<circle cx="38" cy="45" r="1.25" fill="none" stroke-miterlimit="10" stroke="url(#d)"/>
 	<path d="M40.17,46.25l-1.09-.63m-2.16-1.24-1.09-.63M38,42.5v1.25m0,3.75V46.25m-1.08-.63-1.09.63m4.34-2.5-1.09.63" fill="none" stroke-linecap="round" stroke-miterlimit="10" stroke="url(#e)"/>
-	<line x1="24.08" y1="45.01" x2="23.92" y2="45.99" fill="none" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" stroke="url(#f)"/>
-	<line x1="31.08" y1="45.01" x2="30.92" y2="45.99" fill="none" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" stroke="url(#g)"/>
-	<line x1="38.08" y1="45.01" x2="37.92" y2="45.99" fill="none" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" stroke="url(#h)"/>
+	<line x1="23.59" y1="48.0" x2="23.36" y2="49.4" fill="none" stroke-linecap="round" stroke-miterlimit="10" stroke-width="3.4" stroke="#7cc4ff"/>
+	<line x1="30.59" y1="48.0" x2="30.36" y2="49.4" fill="none" stroke-linecap="round" stroke-miterlimit="10" stroke-width="3.4" stroke="#7cc4ff"/>
+	<line x1="37.59" y1="48.0" x2="37.36" y2="49.4" fill="none" stroke-linecap="round" stroke-miterlimit="10" stroke-width="3.4" stroke="#7cc4ff"/>
 </svg>

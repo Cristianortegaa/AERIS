@@ -43,10 +43,10 @@ try {
 
 // --- Iconos 3D (se guardan en el móvil) ---
 async function icon(name) {
-    const f = fm.joinPath(dir, `${name}.png`);
+    const f = fm.joinPath(dir, `${name}-v2.png`);
     if (fm.fileExists(f)) return fm.readImage(f);
     try {
-        const img = await new Request(`${BASE}/icons/meteocons-png/${name}.png`).loadImage();
+        const img = await new Request(`${BASE}/icons/meteocons-png/${name}.png?v=2`).loadImage();
         fm.writeImage(f, img);
         return img;
     } catch (e) { return null; }

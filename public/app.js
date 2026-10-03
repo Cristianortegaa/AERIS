@@ -138,6 +138,7 @@ function hideSplash() {
         return;
     }
     splashHidden = true;
+    document.documentElement.classList.add('app-ready'); // se muestra la web justo cuando el splash empieza a irse
     const splash = document.getElementById('splash-screen');
     if (splash) {
         splash.classList.add('hidden');
@@ -268,7 +269,7 @@ const renderIcon = (iconName, size = "fs-4") => {
     const big = size.includes("5.5rem") || size.includes("fs-1");
     const w = big ? 160 : 48;
     const name = METEOCON[iconName];
-    if (name) return `<img src="icons/meteocons/${name}.svg" alt="" class="wx-icon" style="width:${w}px;height:auto;vertical-align:middle;">`;
+    if (name) return `<img src="icons/meteocons/${name}.svg?v=2" alt="" class="wx-icon" style="width:${w}px;height:auto;vertical-align:middle;">`; // v=2: gotas de lluvia más visibles
     return `<i class="bi ${iconName} ${size}"></i>`;
 };
 
@@ -343,7 +344,8 @@ const syncThemeColor = () => {
     if (!color) return;
     const meta = document.getElementById('meta-theme-color');
     if (meta) meta.setAttribute('content', splashHidden ? color : SPLASH_COLOR);
-    document.documentElement.style.backgroundColor = color;
+    // Mientras se ve el splash, el fondo sigue siendo su azul
+    if (splashHidden) document.documentElement.style.backgroundColor = color;
     try { localStorage.setItem('aeris_theme_color', color); } catch (e) {}
 };
 
@@ -1287,7 +1289,9 @@ function buildNowcast(data) {
         return {
             mode: 'hourly', pill: null, isSnow,
             text: firstWetH
-                ? `Sin ${W.noun} ahora mismo. Probable hacia las <b>${startOfHour(firstWetH.displayTime)}</b>.`
+                ? (hourly.indexOf(firstWetH) === 0
+                    ? `Sin ${W.noun} ahora mismo. Probable en la <b>próxima hora</b>.` // el tramo ya ha empezado
+                    : `Sin ${W.noun} ahora mismo. Probable hacia las <b>${startOfHour(firstWetH.displayTime)}</b>.`)
                 : `Posible ${W.noun} débil en las próximas horas.`,
             summary: capitalize(INTENSITY_TXT[intensityOf(peak)]),
             bars: hourly.map((h, i) => ({ mmh: h.precip || 0, wet: (h.precip || 0) >= 0.1, isNow: i === 0 })),
@@ -2418,7 +2422,7 @@ async function renderForecastExtras(data) {
             const rain = Math.max(...days.map(d => d.rainProb));
             const worst = days.some(d => d.level === 'baja') ? 'baja' : days.some(d => d.level === 'media') ? 'media' : 'alta';
             const fmtD = (f) => new Date(f.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '');
-            const city = (document.getElementById('city')?.innerText || '').trim();
+            const city = (document.getElementById('city')?.textContent || '').trim();
             setHTMLIfChanged(document.getElementById('puente-body'), `
                 <div class="puente-title">${escapeHTML(esc[0])}${city ? ` en ${escapeHTML(city)}` : ''}</div>
                 <div class="puente-dates">${escapeHTML(fmtD(esc[1]))}${esc[1] !== esc[2] ? ` – ${escapeHTML(fmtD(esc[2]))}` : ''}</div>
@@ -2904,7 +2908,7 @@ function updateMiniHero() {
     const rain = !document.getElementById('nowcast-pill').hidden && !livePillDismissed;
     pill.classList.toggle('is-summary', !rain);
     if (!rain) {
-        pill.querySelector('.live-pill-text').textContent = `${placeLabel(document.getElementById('city').innerText)} · ${fmtTemp(d.current.temp)}° · ${d.current.desc}`;
+        pill.querySelector('.live-pill-text').textContent = `${placeLabel(document.getElementById('city').textContent.trim())} · ${fmtTemp(d.current.temp)}° · ${d.current.desc}`;
         pill.setAttribute('aria-label', 'Volver arriba');
     } else pill.setAttribute('aria-label', 'Ver la lluvia de las próximas horas');
     document.body.classList.add('has-live-pill');
@@ -2955,7 +2959,7 @@ function renderA11ySummary(data) {
     const el = document.getElementById('hero-a11y');
     if (!el) return;
     const c = data.current, t = data.daily && data.daily[0];
-    el.textContent = `${placeLabel(document.getElementById('city').innerText)}. ${fmtTemp(c.temp)} grados, ${c.desc}.`
+    el.textContent = `${placeLabel(document.getElementById('city').textContent.trim())}. ${fmtTemp(c.temp)} grados, ${c.desc}.`
         + (t ? ` Máxima ${fmtTemp(t.tempMax)}, mínima ${fmtTemp(t.tempMin)}.` : '')
         + ` ${buildDaySummary(data)}`;
 }
@@ -3208,7 +3212,7 @@ const renderWeather = (data) => {
         cityEl.innerText = displayCity || 'AERIS';
     }
     // Título de la pestaña a juego con la ciudad (también en /tiempo/<ciudad>)
-    document.title = `El tiempo en ${cityEl.innerText || 'tu zona'} · AERIS`;
+    if (cityEl.textContent.trim()) document.title = `El tiempo en ${cityEl.textContent.trim()} · AERIS`;
 
     // Temperatura con unidades (el ° va en su propio span para afinar la tipografía)
     const tempEl = document.getElementById('temp');
