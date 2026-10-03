@@ -209,7 +209,7 @@ const AEMET_CACHE_MS = 15 * 60 * 1000; // 15 min: los avisos no cambian cada min
 
 // Estado para /healthz (en memoria: se pierde al reiniciar el servidor)
 // AEMET da 503 sueltos a menudo: se guarda el último acierto y el último fallo
-const salud = { cron: null, aemet: { ultimoOk: null, ultimoFallo: null, error: null } };
+const salud = { cron: null, aemet: { ultimoOk: null, ultimoFallo: null, error: null }, monitor: null };
 const marcarAemet = (ok, detalle) => {
     if (ok) salud.aemet.ultimoOk = new Date().toISOString();
     else { salud.aemet.ultimoFallo = new Date().toISOString(); salud.aemet.error = String(detalle || '').slice(0, 120); }
@@ -282,6 +282,8 @@ async function avisosParaPunto(areaCode, lat, lon) {
 // también para "despertar" el servidor antes del cron de la mañana.
 app.get('/healthz', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
+    // Para saber que el monitor externo (UptimeRobot) sigue vigilando
+    if (/uptimerobot/i.test(req.get('user-agent') || '')) salud.monitor = new Date().toISOString();
     const uptimeMin = Math.round(process.uptime() / 60);
     const minDesde = (iso) => iso ? Math.round((Date.now() - new Date(iso).getTime()) / 60000) : null;
     const diasClave = aemetKeyCaduca ? Math.floor((aemetKeyCaduca.getTime() - Date.now()) / 86400000) : null;
@@ -314,6 +316,8 @@ app.get('/healthz', (req, res) => {
         cronSecret: !!process.env.CRON_SECRET,
         // Desde el último reinicio del servidor (null = aún no ha pasado)
         ultimoCron: salud.cron ? { ...salud.cron, haceMin: cronMin } : null,
+        // Última visita de UptimeRobot (desde el último reinicio)
+        monitorHaceMin: minDesde(salud.monitor),
         openMeteoPausado: Date.now() < openMeteoBlockedUntil
     });
 });
