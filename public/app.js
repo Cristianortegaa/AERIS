@@ -1469,21 +1469,25 @@ function avisoRango(onset, expires, tz) {
     } catch (e) { return ''; }
 }
 
-// Mismo nivel, misma franja y misma zona = un solo aviso con los fenómenos
-// juntos ("Lluvias y tormentas"). Antes salía una tarjeta por fenómeno y la
-// zona repetida en el título y en el texto.
+// Mismo nivel y misma franja = un solo aviso con los fenómenos juntos
+// ("Lluvias y tormentas") y las zonas juntas (un pueblo en el borde de dos
+// zonas de AEMET recibía el mismo aviso dos veces).
 const NIVEL_TXT = { rojo: 'rojo', naranja: 'naranja', amarillo: 'amarillo' };
+const NIVEL_ORDEN = { rojo: 0, naranja: 1, amarillo: 2 };
 function groupAvisos(avisos) {
     const groups = new Map();
     for (const a of avisos) {
-        const k = `${a.nivel}|${a.onset}|${a.expires}|${(a.zonas || []).join(',')}`;
-        if (!groups.has(k)) groups.set(k, { ...a, fenomenos: [] });
+        const k = `${a.nivel}|${a.onset}|${a.expires}`;
+        if (!groups.has(k)) groups.set(k, { ...a, fenomenos: [], zonas: [] });
         const g = groups.get(k);
         if (!g.fenomenos.includes(a.fenomeno)) g.fenomenos.push(a.fenomeno);
+        for (const z of a.zonas || []) if (!g.zonas.includes(z)) g.zonas.push(z);
         // Del texto de AEMET nos quedamos con los datos útiles (acumulados, rachas…)
         if (a.descripcion && !(g.detalles || []).includes(a.descripcion)) g.detalles = [...(g.detalles || []), a.descripcion];
     }
-    return [...groups.values()];
+    // El más grave primero y, a igual nivel, el que empieza antes
+    return [...groups.values()].sort((a, b) => ((NIVEL_ORDEN[a.nivel] ?? 9) - (NIVEL_ORDEN[b.nivel] ?? 9))
+        || String(a.onset).localeCompare(String(b.onset)));
 }
 // Qué hacer, en concreto (el texto oficial de AEMET es genérico)
 const AVISO_CONSEJOS = [
@@ -1504,32 +1508,63 @@ const avisoConsejo = (fenomenos) => {
 };
 const joinEs = (arr) => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`;
 
+function avisoCardHtml(g, tz) {
+    const cls = AEMET_NIVEL_CLASE[g.nivel] || '';
+    const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
+    const titulo = `${fen.charAt(0).toUpperCase()}${fen.slice(1)} · nivel ${NIVEL_TXT[g.nivel] || g.nivel}`;
+    const zona = (g.zonas && g.zonas.length) ? g.zonas.slice(0, 3).join(' / ') + (g.zonas.length > 3 ? '…' : '') : '';
+    const rango = avisoRango(g.onset, g.expires, tz);
+    // "Precipitación acumulada en una hora: 30 mm. Valle del…": sin la zona repetida
+    const detalle = [...new Set((g.detalles || [])
+        .map(d => (g.zonas || []).reduce((t, z) => t.split(z).join(''), d).replace(/[\s.·,]+$/, '').trim())
+        .filter(Boolean))].join(' · ');
+    const meta = [rango, zona].filter(Boolean).map(escapeHTML).join(' · ');
+    return `<div class="alert-card ${cls}">
+        <i class="bi bi-shield-fill-exclamation alert-icon"></i>
+        <div>
+            <span class="aemet-badge">AEMET OFICIAL</span>
+            <div class="fw-bold">${escapeHTML(titulo)}</div>
+            <div class="small opacity-75">${meta}</div>
+            ${detalle ? `<div class="small opacity-75">${escapeHTML(detalle)}</div>` : ''}
+            ${g.nivel !== 'amarillo' && avisoConsejo(g.fenomenos) ? `<div class="aviso-tip">${escapeHTML(avisoConsejo(g.fenomenos))}</div>` : ''}
+        </div>
+    </div>`;
+}
+// Uno solo: la tarjeta entera. Varios: una tarjeta con el más importante y
+// "Ver todos", que abre la hoja con la lista (no ocupan media pantalla).
 const renderAemetAvisos = (avisos) => {
     if (!avisos || avisos.length === 0) return '';
     const tz = window._lastFullData?.location?.timezone;
-    return groupAvisos(avisos).map(g => {
-        const cls = AEMET_NIVEL_CLASE[g.nivel] || '';
-        const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
-        const titulo = `${fen.charAt(0).toUpperCase()}${fen.slice(1)} · nivel ${NIVEL_TXT[g.nivel] || g.nivel}`;
-        const zona = (g.zonas && g.zonas.length) ? g.zonas.slice(0, 2).join(', ') + (g.zonas.length > 2 ? '…' : '') : '';
-        const rango = avisoRango(g.onset, g.expires, tz);
-        // "Precipitación acumulada en una hora: 30 mm. Valle del…": sin la zona repetida
-        const detalle = (g.detalles || [])
-            .map(d => (g.zonas || []).reduce((t, z) => t.split(z).join(''), d).replace(/[\s.·,]+$/, '').trim())
-            .filter(Boolean).join(' · ');
-        const meta = [rango, zona].filter(Boolean).map(escapeHTML).join(' · ');
-        return `<div class="alert-card ${cls}">
-            <i class="bi bi-shield-fill-exclamation alert-icon"></i>
-            <div>
-                <span class="aemet-badge">AEMET OFICIAL</span>
-                <div class="fw-bold">${escapeHTML(titulo)}</div>
-                <div class="small opacity-75">${meta}</div>
-                ${detalle ? `<div class="small opacity-75">${escapeHTML(detalle)}</div>` : ''}
-                ${g.nivel !== 'amarillo' && avisoConsejo(g.fenomenos) ? `<div class="aviso-tip">${escapeHTML(avisoConsejo(g.fenomenos))}</div>` : ''}
-            </div>
-        </div>`;
-    }).join('');
+    const groups = groupAvisos(avisos);
+    if (groups.length === 1) return avisoCardHtml(groups[0], tz);
+    const g = groups[0], cls = AEMET_NIVEL_CLASE[g.nivel] || '';
+    const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
+    const titulo = `${fen.charAt(0).toUpperCase()}${fen.slice(1)} · nivel ${NIVEL_TXT[g.nivel] || g.nivel}`;
+    const rango = avisoRango(g.onset, g.expires, tz);
+    const mas = groups.length - 1;
+    return `<div class="alert-card aviso-resumen ${cls}" role="button" tabindex="0" data-action="avisos" aria-label="Ver los ${groups.length} avisos de AEMET">
+        <i class="bi bi-shield-fill-exclamation alert-icon"></i>
+        <div class="aviso-resumen-body">
+            <span class="aemet-badge">AEMET OFICIAL · ${groups.length} AVISOS</span>
+            <div class="fw-bold">${escapeHTML(titulo)}</div>
+            ${rango ? `<div class="small opacity-75">${escapeHTML(rango)}</div>` : ''}
+            ${g.nivel !== 'amarillo' && avisoConsejo(g.fenomenos) ? `<div class="aviso-tip">${escapeHTML(avisoConsejo(g.fenomenos))}</div>` : ''}
+            <div class="aviso-mas">+${mas} aviso${mas > 1 ? 's' : ''} más · Ver todos</div>
+        </div>
+        <i class="bi bi-chevron-right aviso-chevron" aria-hidden="true"></i>
+    </div>`;
 };
+function openAvisos() {
+    const d = window._lastFullData;
+    if (!d || !detailModal) return;
+    const groups = groupAvisos(d.avisosOficiales || []);
+    document.getElementById('detailTitle').textContent = 'Avisos de AEMET';
+    document.getElementById('detailBody').innerHTML = `<div class="avisos-lista">${groups.map(g => avisoCardHtml(g, d.location?.timezone)).join('')}</div>
+        <p class="detail-note">Avisos oficiales de AEMET (Meteoalerta) para ${escapeHTML(d.location?.name || 'esta zona')}.</p>`;
+    detailModal.classList.add('show');
+    detailModal._trigger = document.activeElement;
+    document.getElementById('closeDetail')?.focus({ preventScroll: true });
+}
 
 const renderAlerts = (alerts, avisosOficiales) => {
     const container = document.getElementById('alerts-container');
@@ -1623,6 +1658,7 @@ document.addEventListener('click', (e) => {
         case 'detail':         openDetail(el.dataset.metric); break;
         case 'best-window':    showBestWindow(el.dataset.activity); break;
         case 'trip-new':       openTripPlanner(); break;
+        case 'avisos':         openAvisos(); break;
         case 'trip-open':      openTrip(el.dataset.trip); break;
         case 'trip-del':       e.stopPropagation(); setTrips(getTrips().filter(t => t.id !== el.dataset.trip)); renderTrips(); break;
         case 'trip-go': {
@@ -2219,6 +2255,7 @@ document.getElementById('closeDetail')?.addEventListener('click', closeDetail);
 document.addEventListener('keydown', (e) => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-action="detail"]')) { e.preventDefault(); openDetail(e.target.dataset.metric); }
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-action="trip-open"]')) { e.preventDefault(); openTrip(e.target.dataset.trip); }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-action="avisos"]')) { e.preventDefault(); openAvisos(); }
 });
 
 // ============================================================

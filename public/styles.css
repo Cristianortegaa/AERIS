@@ -2649,3 +2649,15 @@ html.text-large .lifestyle-grid, html.text-large #lifestyle-list { grid-template
 /* Enlace al widget de iPhone en el menú */
 .fav-widget { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px 12px; border-radius: 14px; background: var(--fill-1); border: 1px solid var(--hairline); color: var(--text); font-size: 0.88rem; font-weight: 600; text-decoration: none; }
 .fav-widget i { color: #8fd3ff; }
+
+/* ============================================================
+   AVISOS DE AEMET: resumen cuando hay varios
+   ============================================================ */
+.aviso-resumen { cursor: pointer; align-items: center; transition: transform 160ms var(--ease-out); }
+.aviso-resumen:active { transform: scale(0.98); }
+.aviso-resumen:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.aviso-resumen-body { flex: 1; min-width: 0; }
+.aviso-mas { margin-top: 6px; font-size: 0.8rem; font-weight: 700; }
+.aviso-chevron { flex-shrink: 0; font-size: 1.1rem; opacity: 0.7; }
+.avisos-lista .alert-card { animation: none; }
+.avisos-lista .alert-card:last-child { margin-bottom: 0; }
