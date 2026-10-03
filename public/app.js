@@ -2650,6 +2650,7 @@ async function ensureRadar() {
             RADAR.marker.setLatLng([lat, lon]);
         }
         if (Date.now() - RADAR.loadedAt > 10 * 60 * 1000) await loadRadarFrames();
+        drawFocosOnRadar();
         setTimeout(() => RADAR.map && RADAR.map.invalidateSize(), 50);
     } catch (e) {
         console.warn('radar', e.message);
@@ -2995,6 +2996,43 @@ function heatCardHtml(data) {
 }
 
 // ============================================================
+// 26t. FOCOS DE CALOR POR SATÉLITE (NASA FIRMS, últimas 24 h)
+// ============================================================
+// Un foco de calor puede ser un incendio, una quema agrícola o una industria:
+// se dice así. Se pintan también en el mapa del radar.
+let focosData = { place: null, focos: [] };
+async function renderFocos(data) {
+    const el = document.getElementById('focos-row');
+    const lat = data.location?.lat, lon = data.location?.lon;
+    if (!el || !Number.isFinite(+lat)) return;
+    const place = `${lat},${lon}`;
+    try {
+        const r = await fetch(`/api/focos?lat=${lat}&lon=${lon}&km=300`);
+        const j = r.ok ? await r.json() : { focos: [] };
+        if (`${window._lastFullData?.location?.lat},${window._lastFullData?.location?.lon}` !== place) return;
+        focosData = { place, focos: j.focos || [] };
+    } catch (e) { focosData = { place, focos: [] }; }
+    const cerca = focosData.focos.filter(f => f.km <= 50);
+    el.hidden = !cerca.length;
+    if (cerca.length) {
+        const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+        const nearest = cerca[0];
+        const hace = Math.max(1, Math.round((Date.now() - Date.parse(nearest.time)) / 3600e3));
+        setHTMLIfChanged(el, `<i class="bi bi-fire" aria-hidden="true"></i><div><b>${cerca.length === 1 ? '1 foco de calor' : `${cerca.length} focos de calor`} a menos de 50 km</b>`
+            + `<span>El más cercano, a ${fmt1.format(nearest.km)} km (hace ${hace} h). Detectados por satélite: pueden ser incendios, quemas agrícolas o industrias. Míralos en el radar.</span></div>`);
+    }
+    drawFocosOnRadar();
+}
+function drawFocosOnRadar() {
+    if (!RADAR.map || typeof L === 'undefined') return;
+    if (RADAR.focos) RADAR.map.removeLayer(RADAR.focos);
+    RADAR.focos = L.layerGroup(focosData.focos.map(f => L.circleMarker([f.lat, f.lon], {
+        radius: Math.min(9, 4 + Math.log2(1 + f.n)), weight: 1.5, color: '#fff', fillColor: '#ff6a2b', fillOpacity: 0.9
+    }).bindTooltip(`Foco de calor · ${new Date(f.time).toLocaleString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`))).addTo(RADAR.map);
+    if (!RADAR.focosAttrib) { RADAR.map.attributionControl.addAttribution('Focos: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a>'); RADAR.focosAttrib = true; }
+}
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -3181,6 +3219,7 @@ const renderWeather = (data) => {
     renderA11ySummary(data);
     renderObservation(data).catch(() => {});
     renderFireRisk(data);
+    renderFocos(data).catch(() => {});
 
     // Animación clima
     startWeatherAnimation(getAnimationType(cur.desc, cur.isDay));

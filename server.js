@@ -666,6 +666,67 @@ app.get('/api/observacion', weatherLimiter, async (req, res) => {
     });
 });
 
+// --- FOCOS DE CALOR POR SATÉLITE (NASA FIRMS, últimas 24 h) ---
+// Ficheros públicos de FIRMS para Europa (VIIRS de NOAA-20, NOAA-21 y Suomi
+// NPP, ~375 m), sin clave. Se bajan como mucho cada 30 min. Ojo: un foco de
+// calor puede ser un incendio, una quema agrícola o una industria.
+const FIRMS_FEEDS = [
+    'https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-20-viirs-c2/csv/J1_VIIRS_C2_Europe_24h.csv',
+    'https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-21-viirs-c2/csv/J2_VIIRS_C2_Europe_24h.csv',
+    'https://firms.modaps.eosdis.nasa.gov/data/active_fire/suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_Europe_24h.csv'
+];
+let firmsCache = { ts: 0, points: null, loading: null };
+async function loadFirms() {
+    if (firmsCache.points && Date.now() - firmsCache.ts < 30 * 60 * 1000) return firmsCache.points;
+    if (firmsCache.loading) return firmsCache.loading;
+    firmsCache.loading = (async () => {
+        const points = [];
+        const res = await Promise.allSettled(FIRMS_FEEDS.map(u => http.get(u, { timeout: 20000, responseType: 'text' })));
+        for (const r of res) {
+            if (r.status !== 'fulfilled') { log('error', 'FIRMS:', r.reason.message); continue; }
+            const lines = String(r.value.data).trim().split('\n');
+            const head = lines.shift().split(',');
+            const col = (n) => head.indexOf(n);
+            const iLat = col('latitude'), iLon = col('longitude'), iDate = col('acq_date'), iTime = col('acq_time'), iConf = col('confidence'), iFrp = col('frp'), iSat = col('satellite');
+            for (const line of lines) {
+                const c = line.split(',');
+                const lat = +c[iLat], lon = +c[iLon];
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+                if (String(c[iConf]).toLowerCase().startsWith('l')) continue; // baja confianza
+                // Solo península, Baleares, Ceuta, Melilla y alrededores
+                if (lat < 34.5 || lat > 44.5 || lon < -10.5 || lon > 5) continue;
+                const t = String(c[iTime]).padStart(4, '0');
+                points.push({ lat, lon, time: `${c[iDate]}T${t.slice(0, 2)}:${t.slice(2)}:00Z`, frp: +c[iFrp] || 0, sat: c[iSat] });
+            }
+        }
+        if (points.length || !firmsCache.points) firmsCache = { ts: Date.now(), points, loading: null };
+        return firmsCache.points || points;
+    })().finally(() => { firmsCache.loading = null; });
+    return firmsCache.loading;
+}
+
+app.get('/api/focos', weatherLimiter, async (req, res) => {
+    const lat = Number(req.query.lat), lon = Number(req.query.lon);
+    const radio = Math.min(400, Math.max(10, Number(req.query.km) || 150));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return res.status(400).json({ error: 'Coordenadas no válidas.' });
+    try {
+        const all = await loadFirms();
+        // Varios píxeles juntos suelen ser el mismo fuego: se agrupan a ~1,5 km
+        const near = all.map(p => ({ ...p, km: distKm(lat, lon, p.lat, p.lon) })).filter(p => p.km <= radio).sort((a, b) => a.km - b.km);
+        const groups = [];
+        for (const p of near) {
+            const g = groups.find(g => distKm(g.lat, g.lon, p.lat, p.lon) < 1.5);
+            if (g) { g.n++; g.frp = Math.max(g.frp, p.frp); if (p.time > g.time) g.time = p.time; }
+            else groups.push({ lat: p.lat, lon: p.lon, km: Math.round(p.km * 10) / 10, time: p.time, frp: Math.round(p.frp * 10) / 10, n: 1 });
+        }
+        res.setHeader('Cache-Control', 'public, max-age=900');
+        res.json({ fuente: 'NASA FIRMS (VIIRS), últimas 24 h', focos: groups.slice(0, 300) });
+    } catch (e) {
+        log('error', 'focos', e.message);
+        res.json({ focos: [] });
+    }
+});
+
 // --- WEATHER API ---
 // Coordenadas redondeadas a ~1 km: la caché sirve a todos los que están cerca
 // (antes la clave era la coordenada exacta del GPS y casi nunca acertaba).

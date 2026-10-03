@@ -360,8 +360,9 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
 
 - **Riesgo para la salud por calor (hecho después):** se usan las 182 zonas de meteosalud y sus umbrales oficiales (Plan Nacional 2026, Anexo I, Ministerio de Sanidad), con el índice oficial (suma en 3 días de lo que la máxima supera el umbral → niveles 0–3). Las zonas están en `lib/meteosalud-2026.json`.
 
+- **Focos de calor por satélite (hecho después):** sin clave, con los ficheros públicos de 24 h de NASA FIRMS (VIIRS de NOAA-20, NOAA-21 y Suomi NPP). Aviso en la tarjeta de aire si hay focos a menos de 50 km y puntos en el mapa del radar. Pueden ser incendios, quemas agrícolas o industrias, y así se dice. Canarias no entra en el fichero de Europa.
+
 **No hecho, y por qué:**
-- **Focos de incendio (NASA FIRMS):** necesita una clave gratuita (MAP_KEY) que hay que pedir. El índice actual es meteorológico, no oficial.
 - **"Mi viaje" a otra ciudad:** solo está el puente de la ciudad que se mira.
 - **Ilustraciones propias del tiempo:** es trabajo de arte y cambiaría el estilo, incluido el icono 3D que elegiste.
 - **Dynamic Type de iOS:** subiría la letra base en todos los iPhone; hay que probarlo en uno real antes.
