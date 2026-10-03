@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Privacitat · AERIS</title>
+    <meta name="description" content="Quines dades fa servir AERIS, per a què i com esborrar-les. Sense comptes, sense anuncis i sense rastreig.">
+    <meta name="theme-color" content="#1554c0">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100dvh;
+            padding: max(24px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            color: #fff;
+            background: #0b1a3a linear-gradient(180deg, #1554c0 0%, #0f2f6e 40%, #0b1a3a 100%) no-repeat;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.55;
+        }
+        main { max-width: 640px; margin: 0 auto; }
+        a { color: #9fd0ff; }
+        .back { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; color: #fff; opacity: 0.85; text-decoration: none; }
+        h1 { margin: 18px 0 6px; font-size: 1.8rem; font-weight: 650; letter-spacing: -0.03em; }
+        .lead { margin: 0 0 22px; font-size: 1.02rem; opacity: 0.92; }
+        h2 { margin: 28px 0 8px; font-size: 1.1rem; font-weight: 650; }
+        p, li { font-size: 0.95rem; opacity: 0.9; }
+        ul { padding-left: 20px; margin: 8px 0; }
+        li { margin: 4px 0; }
+        .card {
+            margin-top: 12px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+        .card p { margin: 0; }
+        .small { margin-top: 32px; font-size: 0.8rem; opacity: 0.65; }
+    </style>
+</head>
+<body>
+<main>
+    <a class="back" href="/ca/">← Tornar a AERIS</a>
+    <h1>Privacitat</h1>
+    <p class="lead">AERIS no té comptes, ni anuncis, ni analítica, ni galetes de seguiment. Aquí tens, sense lletra petita, quines dades es fan servir i com esborrar-les.</p>
+
+    <h2>El que es queda al teu mòbil</h2>
+    <p>Les teves ciutats preferides, els teus viatges, la configuració (tema, unitats, personalitat) i les últimes dades del temps es desen només al teu navegador, perquè l'app s'obri ràpid i funcioni sense connexió. No s'envien enlloc. S'esborren quan esborres les dades del lloc web o desinstal·les l'app.</p>
+
+    <h2>La teva ubicació</h2>
+    <p>Si li dones permís, l'app fa servir la teva ubicació per donar-te el temps d'on ets. Les coordenades s'envien al servidor d'AERIS i a Open-Meteo només per demanar aquesta previsió. El servidor desa com a màxim 24 hores una còpia del temps d'aquell punt, per no repetir peticions, sense res que la relacioni amb tu. La teva ubicació només es desa associada a tu si actives les notificacions (vegeu més avall). Pots fer servir l'app sense donar la ubicació: n'hi ha prou de cercar una ciutat.</p>
+
+    <h2>Notificacions (només si les actives)</h2>
+    <p>Per avisar-te de pluja, tempestes o avisos de l'AEMET, el servidor d'AERIS desa:</p>
+    <ul>
+        <li>l'adreça d'enviament que crea el teu navegador per a les notificacions (no porta ni el teu nom ni el teu correu);</li>
+        <li>els llocs que vigiles: coordenades, nom de la ciutat i comunitat (la teva ubicació o la ciutat que miris, i fins a 2 llocs més que afegeixis);</li>
+        <li>la teva zona horària, l'idioma de l'app, les teves preferències d'avisos i quins avisos ja t'han arribat, per no repetir-los.</li>
+    </ul>
+    <p>Es fa servir només per enviar-te aquests avisos, perquè tu ho demanes en activar-los (consentiment, art. 6.1.a del RGPD). Les notificacions les lliura el servei del teu navegador (Apple, Google o Mozilla). Les dades es conserven fins que desactives els avisos o el teu navegador anul·la la subscripció; en aquell moment s'esborren del servidor.</p>
+
+    <h2>Serveis externs</h2>
+    <p>Per funcionar, el teu mòbil es connecta directament a aquests serveis, que veuen la teva adreça IP com qualsevol web que visites:</p>
+    <ul>
+        <li><a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>: previsió, aire, pol·len i cerca de ciutats.</li>
+        <li><a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> i <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>: el radar i el mapa. <a href="https://www.windy.com/" target="_blank" rel="noopener">Windy</a>, només si obres aquella pestanya.</li>
+        <li><a href="https://www.jsdelivr.com/" target="_blank" rel="noopener">jsDelivr</a>: icones i biblioteques. La tipografia se serveix des de la mateixa app.</li>
+    </ul>
+    <p>El servidor d'AERIS està allotjat a <a href="https://render.com/" target="_blank" rel="noopener">Render</a>, que pot registrar dades tècniques de les peticions (com la IP) durant un temps limitat per seguretat. AERIS no desa registres amb la teva IP.</p>
+
+    <h2>Els teus drets</h2>
+    <ul>
+        <li><b>Esborrar el que hi ha al servidor:</b> a l'app, campana → configuració dels avisos → <b>Desactiva</b>. S'esborra tot el que AERIS desa de tu.</li>
+        <li><b>Esborrar el que hi ha al mòbil:</b> esborra les dades del lloc web al teu navegador o desinstal·la l'app.</li>
+        <li>{{CONTACTO}}</li>
+        <li>Si creus que no es respecten les teves dades, pots presentar una reclamació davant l'<a href="https://www.aepd.es/" target="_blank" rel="noopener">Agència Espanyola de Protecció de Dades</a> (AEPD).</li>
+    </ul>
+
+    <h2>Fonts de les dades</h2>
+    <div class="card">
+        <p>Dades meteorològiques: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (llicència <a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener">CC BY 4.0</a>), amb models de l'ECMWF, el DWD, Météo-France, l'AEMET i d'altres.<br>
+        Avisos i observacions: informació elaborada per l'<a href="https://www.aemet.es/" target="_blank" rel="noopener">Agència Estatal de Meteorologia</a> (© AEMET).<br>
+        Risc per a la salut per calor: llindars del Ministeri de Sanitat (Meteosalud).<br>
+        Focus de calor: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a>.<br>
+        Icones del temps: Meteocons de Bas Milius (MIT).</p>
+    </div>
+
+    <p class="small">Última actualització: 3 d'octubre de 2026. <a href="/privacidad">Versió en castellà</a></p>
+</main>
+</body>
+</html>

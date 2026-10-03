@@ -397,6 +397,16 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
   - SEO: `/en/` y `/en/weather/<ciudad>` con `hreflang` hacia `/tiempo/<ciudad>` y al revés; el sitemap lleva las dos versiones.
   - También en inglés: `/en/privacy` y el widget de iPhone, que usa el idioma del móvil.
 
+- **Catalán, gallego y euskera (hecho después):**
+  - Idioma automático por el móvil (es, ca, gl, eu; el resto, inglés) y selector con los cinco idiomas en el panel lateral.
+  - Un cargador en `index.html` descarga solo el diccionario del idioma que toca, y el service worker los guarda todos para usar la app sin conexión.
+  - Por cada idioma hay un diccionario (`public/i18n/<idioma>.js`), las personalidades adaptadas, los textos del servidor (`lib/i18n-server/<idioma>.json`) y la página de privacidad (`/<idioma>/privacy`).
+  - Páginas para Google: `/ca/temps/<ciudad>`, `/gl/tempo/<ciudad>` y `/eu/eguraldia/<ciudad>`, con `hreflang` entre los cinco idiomas. El sitemap tiene 326 direcciones.
+  - Las notificaciones y el widget salen en el idioma de cada uno.
+  - Los avisos de AEMET llevan el fenómeno traducido, pero la descripción va en castellano: AEMET solo la publica en castellano e inglés.
+  - Comprobación: `node tests/validate-lang.js <idioma>`, que también se ejecuta en `npm test`.
+  - De paso, las líneas de las fichas ya no se cortan (palabras largas en euskera y gallego).
+
 ---
 
 ## Qué más (revisión del 2026-10-03, tarde)
@@ -443,7 +453,7 @@ Casi toda la hoja de ruta está hecha. Lo que queda, por orden de importancia:
    - Texto con el aviso y el enlace a `/tiempo/<ciudad>`.
    - Es como se difunden los avisos en España, y trae usuarios.
    - Esfuerzo: S.
-8. ✅ **Idiomas** (inglés hecho; catalán, gallego y euskera pendientes, solo falta el diccionario).
+8. ✅ **Idiomas:** inglés, catalán, gallego y euskera.
    - Inglés para turistas; catalán, gallego y euskera.
    - Multiplica las búsquedas que encuentran `/tiempo/<ciudad>`.
    - Esfuerzo: L (los textos están repartidos por `app.js`).

@@ -97,10 +97,11 @@ const aiLogic = {
     novia:      { icon: "👩‍❤️‍💋‍👨", name: "Novia",     tips: { hot: ["Vamos a la playa, porfi.", "Hace demasiado calor para abrazarnos.", "¿Me compras un helado?", "Ponte guapo pero fresco.", "Quiero ir a una terraza.", "Mis pelos con esta humedad...", "Llévame a ver el atardecer."], cold: ["Tengo las manos heladas, caliéntamelas.", "Dame tu sudadera, tengo frío.", "Día de peli y manta.", "No siento los pies.", "Abrázame fuerte.", "Quiero un chocolate caliente.", "No salgamos, hace frío."], rain: ["Se me va a encrespar el pelo.", "Plan romántico en casa.", "Qué lluvia más triste... abrázame.", "Recógeme en coche.", "Día de spa en casa.", "Parece una peli romántica.", "No me quiero mojar."], snow: ["¡Qué romántico! Hazme una foto.", "Vamos a hacer un muñeco de nieve.", "Tengo frío, caliéntame.", "Todo está precioso.", "Quiero ir a esquiar contigo.", "Parece de cuento.", "Dame tu abrigo."], wind: ["Se me enreda el pelo, qué horror.", "No puedo llevar falda hoy.", "Vámonos, qué viento más molesto.", "Sujétame que me vuelo.", "Mis labios se cortan.", "Qué tiempo más loco.", "No me gusta el viento."], cloudy: ["Qué día más tonto.", "Vamos de compras.", "No hay buena luz para fotos.", "Me aburro, entretenme.", "Día de mimos.", "Está feo fuera, quedémonos dentro.", "No sé qué ponerme."], nice: ["¿Hacemos un picnic?", "Sácame una foto con este sol.", "Vamos a pasear de la mano.", "Estás muy guapo hoy.", "Qué día más bonito, como tú.", "Vamos de compras.", "Día de cita."], allergy: ["Tengo la nariz roja, no me mires.", "Tráeme pañuelos, porfi.", "Me pican los ojos.", "Cierra la ventana, que me pongo mala.", "¿Me cuidas?"] } }
 };
 
-// En inglés, nombres y frases adaptados (no traducidos al pie de la letra)
-if (LANG === 'en' && window.AERIS_PERSONAS_EN) {
+// En otros idiomas, nombres y frases adaptados (no traducidos al pie de la letra)
+const PERSONAS_LANG = window['AERIS_PERSONAS_' + LANG.toUpperCase()];
+if (LANG !== 'es' && PERSONAS_LANG) {
     Object.keys(aiLogic).forEach(k => {
-        const en = window.AERIS_PERSONAS_EN[k];
+        const en = PERSONAS_LANG[k];
         if (en) Object.assign(aiLogic[k], { name: en.name, tips: en.tips });
     });
 }
@@ -310,7 +311,9 @@ const tempColor = (t) => {
 };
 
 // Dirección del viento en el idioma de la app (el servidor la da en español)
-const dirName = (d) => LANG === 'en' ? ({ SO: 'SW', O: 'W', NO: 'NW' }[d] || d) : d;
+// (en euskera: I ipar, H hego, E ekialde, M mendebalde)
+const DIR_NAMES = { en: { SO: 'SW', O: 'W', NO: 'NW' }, eu: { N: 'I', NE: 'IE', SE: 'HE', S: 'H', SO: 'HM', O: 'M', NO: 'IM' } };
+const dirName = (d) => (DIR_NAMES[LANG] && DIR_NAMES[LANG][d]) || d;
 
 const normalizeInput = (str) => str.normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -1105,7 +1108,7 @@ const renderFavorites = () => {
     });
 };
 // La página de privacidad, en el idioma de la app
-if (LANG === 'en') document.querySelectorAll('a[data-privacy]').forEach(a => { a.href = '/en/privacy'; });
+if (LANG !== 'es') document.querySelectorAll('a[data-privacy]').forEach(a => { a.href = `/${LANG}/privacy`; });
 // Idioma: español / English (se recarga en la URL equivalente)
 document.querySelectorAll('[data-lang]').forEach(b => {
     b.setAttribute('aria-pressed', b.dataset.lang === LANG);
@@ -1501,7 +1504,7 @@ function groupAvisos(avisos) {
         const g = groups.get(k);
         if (!g.fenomenos.includes(a.fenomeno)) g.fenomenos.push(a.fenomeno);
         // Para mostrar: en inglés, el nombre que da AEMET en su versión inglesa
-        const show = LANG === 'en' ? ((a.en && a.en.fenomeno) || t(a.fenomeno)) : a.fenomeno;
+        const show = LANG === 'en' ? ((a.en && a.en.fenomeno) || t(a.fenomeno)) : t(a.fenomeno);
         if (!g.fenShow.includes(show)) g.fenShow.push(show);
         for (const z of a.zonas || []) if (!g.zonas.includes(z)) g.zonas.push(z);
         // Del texto de AEMET nos quedamos con los datos útiles (acumulados, rachas…)
@@ -1586,7 +1589,7 @@ const NIVEL_EMOJI = { rojo: '🔴', naranja: '🟠', amarillo: '🟡' };
 function avisosTextoCompartir(groups, d) {
     const name = currentCityInfo?.name || d.location?.name || '';
     const slug = slugify(name);
-    const url = slug && !/^tu ubicaci/i.test(name) ? `${location.origin}${cityPath(slug)}` : location.origin + (LANG === 'en' ? '/en/' : '');
+    const url = slug && !/^tu ubicaci/i.test(name) ? `${location.origin}${cityPath(slug)}` : location.origin + LANG_HOME;
     const lineas = groups.map(g => {
         const fen = capitalize(joinEs(g.fenShow.map(f => f.toLowerCase())));
         const rango = avisoRango(g.onset, g.expires, d.location?.timezone);
@@ -2602,7 +2605,7 @@ function renderPushSettings() {
             <button type="button" class="btn-pill ghost" data-ps="test"><i class="bi bi-send"></i>${t('Enviar prueba')}</button>
             <button type="button" class="btn-pill ghost ps-danger" data-ps="off"><i class="bi bi-bell-slash"></i>${t('Desactivar')}</button>
         </div>
-        <p class="ps-privacy">${t('Para avisarte se guardan los sitios que vigilas y tus ajustes; al desactivar se borran.')} <a href="${LANG === 'en' ? '/en/privacy' : '/privacidad'}">${t('Privacidad')}</a></p>`;
+        <p class="ps-privacy">${t('Para avisarte se guardan los sitios que vigilas y tus ajustes; al desactivar se borran.')} <a href="${LANG === 'es' ? '/privacidad' : `/${LANG}/privacy`}">${t('Privacidad')}</a></p>`;
 }
 function openPushSettings() {
     if (!settingsModal) return;
@@ -3318,7 +3321,8 @@ const renderWeather = (data) => {
     document.getElementById('hum').innerText       = cur.humidity;
     document.getElementById('wind').innerText      = fmtWind(cur.windSpeed);
     // Dirección y rachas reales (antes ponía "Viento" si no había dirección)
-    const gustTxt = cur.windGust && cur.windGust > cur.windSpeed + 5 ? t('rachas {g}', { g: fmtWind(cur.windGust) }) : '';
+    // Espacio que no se parte: la palabra y el número siempre juntos ("refachos 18")
+    const gustTxt = cur.windGust && cur.windGust > cur.windSpeed + 5 ? t('rachas {g}', { g: fmtWind(cur.windGust) }).replace(/ (?=\d)|(?<=\d) /g, '\u00a0') : '';
     document.getElementById('wind-dir').innerText  = [dirName(cur.windDir), gustTxt].filter(Boolean).join(' · ');
     document.getElementById('uv').innerText        = Math.round(cur.uv);
     document.getElementById('compare-txt').innerText = [t(cur.comparison || ''), tropicalNight(data)].filter(Boolean).join(' · ');

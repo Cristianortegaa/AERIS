@@ -1,6 +1,6 @@
-// Inglés: todo texto que pasa por t('…') en app.js tiene traducción, y las
-// traducciones conservan sus {huecos}. Si se añade un texto y se olvida
-// traducirlo, esto falla.
+// Idiomas: todo texto que pasa por t('…') en app.js tiene traducción en
+// inglés, catalán, gallego y euskera, y las traducciones conservan sus
+// {huecos}. Si se añade un texto y se olvida traducirlo, esto falla.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -54,6 +54,14 @@ test('las traducciones conservan sus {huecos}', () => {
         return a !== b;
     });
     assert.deepEqual(bad, []);
+});
+
+test('catalán, gallego y euskera: completos y con las mismas claves que el inglés', () => {
+    const { execFileSync } = require('child_process');
+    for (const l of ['ca', 'gl', 'eu']) {
+        const out = execFileSync(process.execPath, [path.join(__dirname, 'validate-lang.js'), l], { encoding: 'utf-8' });
+        assert.match(out, new RegExp(`^OK ${l}`), out);
+    }
 });
 
 test('las 15 personalidades tienen sus frases en inglés', () => {

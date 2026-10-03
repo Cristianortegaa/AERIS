@@ -1,34 +1,37 @@
 /* ============================================================
-   AERIS — idioma (español por defecto, inglés para el resto)
+   AERIS — idioma: español, inglés, catalán, gallego y euskera
    ------------------------------------------------------------
-   - El texto de origen es el español: t('Hoy') devuelve 'Today' en inglés.
+   - El idioma lo decide el cargador de index.html (window.AERIS_LANG), que
+     solo descarga el diccionario de ese idioma.
+   - El texto de origen es el español: t('Hoy') devuelve 'Today', 'Avui'…
      Con variables: t('Lluvia en {min} min', { min: 15 }).
-   - Los diccionarios (i18n/en.js) son objetos español → idioma. Para otro
-     idioma (catalán, gallego, euskera) basta con otro diccionario igual.
+   - Diccionarios: public/i18n/<idioma>.js (window.AERIS_EN, AERIS_CA…).
    - El texto fijo del HTML se traduce al cargar (nodos de texto y los
      atributos aria-label, placeholder, title y alt).
    ============================================================ */
 (function () {
-    var SUPPORTED = ['es', 'en'];
-    var lang = null;
+    var SUPPORTED = ['es', 'en', 'ca', 'gl', 'eu'];
+    var LOCALES = { es: 'es-ES', en: 'en-GB', ca: 'ca-ES', gl: 'gl-ES', eu: 'eu-ES' };
+    var HOME = { es: '/', en: '/en/', ca: '/ca/', gl: '/gl/', eu: '/eu/' };
+    var CITY_BASE = { es: '/tiempo/', en: '/en/weather/', ca: '/ca/temps/', gl: '/gl/tempo/', eu: '/eu/eguraldia/' };
 
-    // 1. ?lang=en en la URL (y se recuerda)
-    try {
-        var q = new URLSearchParams(location.search).get('lang');
-        if (SUPPORTED.indexOf(q) !== -1) { lang = q; localStorage.setItem('aeris_lang', q); }
-    } catch (e) {}
-    // 2. Las páginas /en/... son en inglés
-    if (!lang && /^\/en(\/|$)/.test(location.pathname)) lang = 'en';
-    // 3. Lo que eligió el usuario
-    if (!lang) { try { var s = localStorage.getItem('aeris_lang'); if (SUPPORTED.indexOf(s) !== -1) lang = s; } catch (e) {} }
-    // 4. El idioma del móvil: español (y lenguas de España) → español; el resto, inglés
-    if (!lang) {
-        var nav = (navigator.languages && navigator.languages[0]) || navigator.language || 'es';
-        lang = /^(es|ca|gl|eu)\b/i.test(nav) ? 'es' : 'en';
+    // Misma regla que el cargador de index.html (por si se carga sin él)
+    function detect() {
+        try {
+            var q = new URLSearchParams(location.search).get('lang');
+            if (SUPPORTED.indexOf(q) !== -1) { localStorage.setItem('aeris_lang', q); return q; }
+        } catch (e) {}
+        var m = location.pathname.match(/^\/(en|ca|gl|eu)(\/|$)/);
+        if (m) return m[1];
+        try { var s = localStorage.getItem('aeris_lang'); if (SUPPORTED.indexOf(s) !== -1) return s; } catch (e) {}
+        var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || 'es').toLowerCase();
+        var base = nav.split('-')[0];
+        return SUPPORTED.indexOf(base) !== -1 ? base : 'en';
     }
-
-    var DICT = lang === 'en' ? (window.AERIS_EN || {}) : {};
-    var PATTERNS = lang === 'en' ? (window.AERIS_EN_PATTERNS || []) : [];
+    var lang = SUPPORTED.indexOf(window.AERIS_LANG) !== -1 ? window.AERIS_LANG : detect();
+    var U = lang.toUpperCase();
+    var DICT = lang === 'es' ? {} : (window['AERIS_' + U] || {});
+    var PATTERNS = lang === 'es' ? [] : (window['AERIS_' + U + '_PATTERNS'] || []);
     var missing = {};
 
     function fill(str, vars) {
@@ -81,20 +84,17 @@
         if (SUPPORTED.indexOf(l) === -1) return;
         try { localStorage.setItem('aeris_lang', l); } catch (e) {}
         // Las URLs de ciudad cambian de idioma con la app
-        var m = location.pathname.match(/^\/(?:tiempo|en\/weather)\/([^/?#]+)/);
-        var path = m ? (l === 'en' ? '/en/weather/' : '/tiempo/') + m[1] : (l === 'en' ? '/en/' : '/');
-        location.href = path;
+        var m = location.pathname.match(/^\/(?:tiempo|en\/weather|ca\/temps|gl\/tempo|eu\/eguraldia)\/([^/?#]+)/);
+        location.href = m ? CITY_BASE[l] + m[1] : HOME[l];
     }
 
-    // URL de una ciudad en el idioma actual
-    function cityPath(slug) { return (lang === 'en' ? '/en/weather/' : '/tiempo/') + slug; }
-
     window.LANG = lang;
-    window.LOCALE = lang === 'en' ? 'en-GB' : 'es-ES';
+    window.LOCALE = LOCALES[lang];
+    window.LANG_HOME = HOME[lang];
     window.t = t;
     window.translateDOM = translateDOM;
     window.setLang = setLang;
-    window.cityPath = cityPath;
+    window.cityPath = function (slug) { return CITY_BASE[lang] + slug; };
     window.AERIS_I18N_MISSING = missing;
     document.documentElement.lang = lang;
     translateDOM(document.body);

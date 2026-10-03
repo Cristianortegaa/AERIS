@@ -1,18 +1,16 @@
-const CACHE_NAME = 'aeris-v66';
+const CACHE_NAME = 'aeris-v67';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=47',
+    '/styles.css?v=50',
     '/fonts/geist-latin.woff2',
     '/fonts/geist-mono-latin.woff2',
-    '/app.js?v=52',
+    '/app.js?v=54',
     '/vendor/bootstrap-reboot.min.css',
     '/vendor/suncalc.js',
     '/weather-core.js?v=3',
-    '/i18n/en.js?v=1',
-    '/i18n/personas-en.js?v=1',
-    '/i18n.js?v=1',
+    '/i18n.js?v=2',
     '/icons/meteocons/clear-day.svg?v=2',
     '/icons/meteocons/clear-night.svg?v=2',
     '/icons/meteocons/cloudy.svg?v=2',
@@ -51,7 +49,10 @@ const CORE_ASSETS = [
 // y el service worker nunca se activaba: sin él no hay notificaciones.)
 const CDN_ORIGINS = ['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'];
 const EXTRA_ASSETS = [
-    'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css'
+    'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
+    // Diccionarios: la app solo descarga el de su idioma; aquí se guardan
+    // todos para que funcione sin conexión en cualquiera
+    ...['en', 'ca', 'gl', 'eu'].flatMap(l => [`/i18n/${l}.js?v=1`, `/i18n/personas-${l}.js?v=1`])
 ];
 
 self.addEventListener('install', (event) => {

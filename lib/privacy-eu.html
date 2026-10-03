@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="eu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Pribatutasuna · AERIS</title>
+    <meta name="description" content="Zer datu erabiltzen dituen AERISek, zertarako eta nola ezabatu. Konturik, iragarkirik eta jarraipenik gabe.">
+    <meta name="theme-color" content="#1554c0">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100dvh;
+            padding: max(24px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            color: #fff;
+            background: #0b1a3a linear-gradient(180deg, #1554c0 0%, #0f2f6e 40%, #0b1a3a 100%) no-repeat;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.55;
+        }
+        main { max-width: 640px; margin: 0 auto; }
+        a { color: #9fd0ff; }
+        .back { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; color: #fff; opacity: 0.85; text-decoration: none; }
+        h1 { margin: 18px 0 6px; font-size: 1.8rem; font-weight: 650; letter-spacing: -0.03em; }
+        .lead { margin: 0 0 22px; font-size: 1.02rem; opacity: 0.92; }
+        h2 { margin: 28px 0 8px; font-size: 1.1rem; font-weight: 650; }
+        p, li { font-size: 0.95rem; opacity: 0.9; }
+        ul { padding-left: 20px; margin: 8px 0; }
+        li { margin: 4px 0; }
+        .card {
+            margin-top: 12px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+        .card p { margin: 0; }
+        .small { margin-top: 32px; font-size: 0.8rem; opacity: 0.65; }
+    </style>
+</head>
+<body>
+<main>
+    <a class="back" href="/eu/">← AERISera itzuli</a>
+    <h1>Pribatutasuna</h1>
+    <p class="lead">AERISek ez du konturik, ez iragarkirik, ez analitikarik, ez jarraipen-cookierik. Hemen duzu, letra txikirik gabe, zer datu erabiltzen diren eta nola ezabatu.</p>
+
+    <h2>Zure mugikorrean geratzen dena</h2>
+    <p>Zure hiri gogokoenak, bidaiak, ezarpenak (gaia, unitateak, nortasuna) eta eguraldiaren azken datuak zure nabigatzailean bakarrik gordetzen dira, aplikazioa azkar ireki dadin eta konexiorik gabe ibil dadin. Ez dira inora bidaltzen. Webgunearen datuak ezabatzean edo aplikazioa desinstalatzean ezabatzen dira.</p>
+
+    <h2>Zure kokapena</h2>
+    <p>Baimena ematen badiozu, aplikazioak zure kokapena erabiltzen du zauden lekuko eguraldia emateko. Koordenatuak AERISen zerbitzarira eta Open-Meteora bidaltzen dira, iragarpen hori eskatzeko soilik. Zerbitzariak puntu horretako eguraldiaren kopia bat gordetzen du gehienez 24 orduz, eskaerak ez errepikatzeko, zurekin lotzen duen ezer gabe. Zure kokapena zurekin lotuta gordetzen da jakinarazpenak aktibatzen badituzu bakarrik (ikus behean). Aplikazioa kokapena eman gabe erabil dezakezu: nahikoa da hiri bat bilatzea.</p>
+
+    <h2>Jakinarazpenak (aktibatzen badituzu bakarrik)</h2>
+    <p>Euriaz, ekaitzez edo AEMETen abisuez ohartarazteko, AERISen zerbitzariak hau gordetzen du:</p>
+    <ul>
+        <li>zure nabigatzaileak jakinarazpenetarako sortzen duen bidalketa-helbidea (ez darama zure izenik ez emailik);</li>
+        <li>zaintzen dituzun lekuak: koordenatuak, hiriaren izena eta autonomia-erkidegoa (zure kokapena edo begiratzen duzun hiria, eta gehitzen dituzun beste 2 leku gehienez);</li>
+        <li>zure ordu-zona, aplikazioaren hizkuntza, abisuen hobespenak eta zer abisu bidali zaizkizun dagoeneko, ez errepikatzeko.</li>
+    </ul>
+    <p>Abisu horiek bidaltzeko bakarrik erabiltzen da, zuk eskatzen duzulako aktibatzean (baimena, DBEOren 6.1.a art.). Jakinarazpenak zure nabigatzailearen zerbitzuak entregatzen ditu (Apple, Google edo Mozilla). Datuak abisuak desaktibatu arte edo zure nabigatzaileak harpidetza baliogabetu arte gordetzen dira; une horretan, zerbitzaritik ezabatzen dira.</p>
+
+    <h2>Kanpoko zerbitzuak</h2>
+    <p>Funtzionatzeko, zure mugikorra zuzenean konektatzen da zerbitzu hauetara, eta haiek zure IP helbidea ikusten dute, bisitatzen duzun edozein webgunek bezala:</p>
+    <ul>
+        <li><a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>: iragarpena, airea, polena eta hiri-bilaketa.</li>
+        <li><a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> eta <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>: radarra eta mapa. <a href="https://www.windy.com/" target="_blank" rel="noopener">Windy</a>, fitxa hori irekitzen baduzu bakarrik.</li>
+        <li><a href="https://www.jsdelivr.com/" target="_blank" rel="noopener">jsDelivr</a>: ikonoak eta liburutegiak. Tipografia aplikaziotik bertatik zerbitzatzen da.</li>
+    </ul>
+    <p>AERISen zerbitzaria <a href="https://render.com/" target="_blank" rel="noopener">Render</a>-en ostatatuta dago, eta hark eskaeren datu teknikoak (IPa, adibidez) erregistra ditzake denbora mugatu batez, segurtasunagatik. AERISek ez du zure IPa duen erregistrorik gordetzen.</p>
+
+    <h2>Zure eskubideak</h2>
+    <ul>
+        <li><b>Zerbitzarian dagoena ezabatu:</b> aplikazioan, kanpaia → abisuen ezarpenak → <b>Desaktibatu</b>. AERISek zutaz gordetzen duen guztia ezabatzen da.</li>
+        <li><b>Mugikorrean dagoena ezabatu:</b> ezabatu webgunearen datuak nabigatzailean edo desinstalatu aplikazioa.</li>
+        <li>{{CONTACTO}}</li>
+        <li>Zure datuak errespetatzen ez direla uste baduzu, erreklamazioa aurkez dezakezu <a href="https://www.aepd.es/" target="_blank" rel="noopener">Datuak Babesteko Espainiako Agentzian (AEPD)</a>.</li>
+    </ul>
+
+    <h2>Datuen iturriak</h2>
+    <div class="card">
+        <p>Datu meteorologikoak: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (<a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener">CC BY 4.0</a> lizentzia), ECMWF, DWD, Météo-France, AEMET eta beste batzuen ereduekin.<br>
+        Abisuak eta behaketak: <a href="https://www.aemet.es/" target="_blank" rel="noopener">Meteorologiako Estatu Agentziak</a> landutako informazioa (© AEMET).<br>
+        Beroak osasunerako duen arriskua: Osasun Ministerioaren atalaseak (Meteosalud).<br>
+        Bero-guneak: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a>.<br>
+        Eguraldi-ikonoak: Bas Miliusen Meteocons (MIT).</p>
+    </div>
+
+    <p class="small">Azken eguneratzea: 2026ko urriaren 3a. <a href="/privacidad">Gaztelaniazko bertsioa</a></p>
+</main>
+</body>
+</html>
