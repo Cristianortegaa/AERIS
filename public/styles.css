@@ -2639,3 +2639,7 @@ html.text-large .trend-conf { display: none; }
 html.text-large .trip-day { grid-template-columns: auto 1fr auto; }
 html.text-large .trip-day .trend-conf { display: none; }
 html.text-large .lifestyle-grid, html.text-large #lifestyle-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Enlace al widget de iPhone en el menú */
+.fav-widget { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px 12px; border-radius: 14px; background: var(--fill-1); border: 1px solid var(--hairline); color: var(--text); font-size: 0.88rem; font-weight: 600; text-decoration: none; }
+.fav-widget i { color: #8fd3ff; }

@@ -593,7 +593,7 @@ app.get('/tiempo/:slug', async (req, res) => {
 // Sitemap con las ciudades principales
 app.get('/sitemap.xml', (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
-    const urls = [`${SITE}/`, ...CIUDADES.filter(c => c.slug !== 'santiago').map(c => `${SITE}/tiempo/${c.slug}`)];
+    const urls = [`${SITE}/`, `${SITE}/widget/`, ...CIUDADES.filter(c => c.slug !== 'santiago').map(c => `${SITE}/tiempo/${c.slug}`)];
     res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`
         + urls.map((u, i) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod><changefreq>hourly</changefreq><priority>${i === 0 ? '1.0' : '0.8'}</priority></url>`).join('\n')
         + `\n</urlset>\n`);
@@ -766,7 +766,7 @@ async function reverseGeocode(lat, lon) {
     }
 }
 
-app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
+const weatherHandler = async (req, res) => {
     let locationId = req.params.id;
     let forcedName = req.query.name;
     let forcedRegion = req.query.region || "";
@@ -854,6 +854,55 @@ app.get('/api/weather/:id', weatherLimiter, async (req, res) => {
         // El motivo (sin datos sensibles) ayuda a diagnosticar sin acceso a los logs
         res.status(500).json({ error: "Error interno al obtener el tiempo.", code: String(e.message || '').slice(0, 160) });
     }
+};
+app.get('/api/weather/:id', weatherLimiter, weatherHandler);
+
+// Lo mismo que /api/weather, pero como función (para el widget)
+const weatherFor = (id, query = {}) => new Promise((resolve) => {
+    const fake = {
+        statusCode: 200,
+        status(c) { this.statusCode = c; return this; },
+        json(body) { resolve({ status: this.statusCode, body }); },
+        setHeader() {}
+    };
+    weatherHandler({ params: { id }, query }, fake).catch(e => resolve({ status: 500, body: { error: e.message } }));
+});
+
+// --- WIDGET (Scriptable en iPhone) ---
+// Datos justos para el widget de pantalla de inicio: ?lat=&lon= o ?q=ciudad
+const widgetLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
+const METEOCON_SRV = {
+    'bi-sun': 'clear-day', 'bi-moon': 'clear-night', 'bi-cloud-moon': 'partly-cloudy-night', 'bi-cloud-sun': 'partly-cloudy-day', 'bi-cloud': 'partly-cloudy-day',
+    'bi-clouds': 'overcast', 'bi-cloud-haze2': 'fog', 'bi-cloud-drizzle': 'drizzle', 'bi-cloud-rain': 'rain', 'bi-cloud-rain-heavy': 'rain',
+    'bi-cloud-snow': 'snow', 'bi-snow': 'snow', 'bi-cloud-lightning': 'thunderstorms', 'bi-cloud-lightning-rain': 'thunderstorms-rain'
+};
+app.get('/api/widget', widgetLimiter, async (req, res) => {
+    const lat = Number(req.query.lat), lon = Number(req.query.lon);
+    const q = String(req.query.q || '').slice(0, 80).trim();
+    const id = Number.isFinite(lat) && Number.isFinite(lon) ? `${lat},${lon}` : q;
+    if (!id) return res.status(400).json({ error: 'Falta la ubicación (lat y lon, o q).' });
+    const { status, body: d } = await weatherFor(id, { name: req.query.name || '' });
+    if (status !== 200 || !d || !d.current) return res.status(status === 200 ? 502 : status).json({ error: (d && d.error) || 'Sin datos', fallback: d && d.fallback });
+    // Lluvia en la próxima hora (tramos de 15 min)
+    const nc = d.nowcast || { time: [], precipitation: [] };
+    const nowWet = (nc.precipitation[0] || 0) >= 0.05;
+    const firstWet = nc.precipitation.slice(0, 8).findIndex(v => (v || 0) >= 0.05);
+    const lastWet = nowWet ? nc.precipitation.slice(0, 8).findIndex(v => (v || 0) < 0.05) : -1;
+    const lluvia = nowWet ? (lastWet > 0 ? `Para en ${lastWet * 15} min` : 'Lloviendo') : firstWet > 0 ? `Lluvia en ${firstWet * 15} min` : null;
+    const aviso = (d.avisosOficiales || []).find(a => a.nivel === 'rojo' || a.nivel === 'naranja') || (d.avisosOficiales || [])[0];
+    const t = d.daily && d.daily[0];
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+        city: String(d.location.name || '').replace(/^Tu ubicacion \((.*)\)$/, '$1').replace(/^Tu ubicacion$/, 'Tu ubicación'),
+        lat: d.location.lat, lon: d.location.lon,
+        temp: d.current.temp, desc: d.current.desc, isDay: d.current.isDay,
+        icon: METEOCON_SRV[d.current.icon] || 'overcast',
+        max: t ? t.tempMax : null, min: t ? t.tempMin : null,
+        lluvia,
+        aviso: aviso ? { nivel: aviso.nivel, texto: `Aviso ${aviso.nivel} · ${String(aviso.fenomeno || '').toLowerCase()}` } : null,
+        horas: (d.hourly || []).slice(1, 6).map(h => ({ h: h.displayTime, t: h.temp, icon: METEOCON_SRV[h.icon] || 'overcast', p: h.rainProb || 0 })),
+        updatedAt: d.updatedAt
+    });
 });
 
 // Lluvia/nieve en la próxima hora a partir de minutely_15 de Open-Meteo.

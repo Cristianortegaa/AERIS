@@ -362,9 +362,10 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
 
 - **Focos de calor por satélite (hecho después):** sin clave, con los ficheros públicos de 24 h de NASA FIRMS (VIIRS de NOAA-20, NOAA-21 y Suomi NPP). Aviso en la tarjeta de aire si hay focos a menos de 50 km y puntos en el mapa del radar. Pueden ser incendios, quemas agrícolas o industrias, y así se dice. Canarias sale del fichero de "norte y centro de África" (solo los focos dentro de las islas).
 
+- **Mis viajes (hecho después):** destino y fechas con previsión del ensemble, qué llevar y día a día.
+- **Iconos 3D (hecho después):** Meteocons "fill" (MIT) en toda la app; el sol y nube plano de antes ya no se usa.
+- **Tamaño de texto de iOS (hecho después):** escala respecto al tamaño por defecto (16 px sin cambios), tope +35 % y maquetación holgada con letra grande.
+- **Widget de iPhone (hecho después):** con Scriptable. Página /widget con instrucciones y script, /api/widget e iconos PNG. Android sigue sin widget (haría falta una app nativa).
+
 **No hecho, y por qué:**
-- **"Mi viaje" a otra ciudad:** solo está el puente de la ciudad que se mira.
-- **Ilustraciones propias del tiempo:** es trabajo de arte y cambiaría el estilo, incluido el icono 3D que elegiste.
-- **Dynamic Type de iOS:** subiría la letra base en todos los iPhone; hay que probarlo en uno real antes.
-- **Widgets nativos:** una PWA no puede.
 - **Pendiente de confirmar en Render:** que `DATABASE_URL` esté configurada, para que las suscripciones no se borren en cada despliegue.
