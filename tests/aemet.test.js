@@ -81,6 +81,54 @@ test('cuenta cuántos avisos ha entendido (para detectar un cambio de formato)',
     assert.deepEqual(stats2, { xmls: 23, leidos: 0 });
 });
 
+// Madrid, 3-10-2026: amarillos en "Metropolitana y Henares" y en "Sur, Vegas
+// y Oeste". Getafe está en la primera, a 3,9 km del borde de la segunda.
+const TAR_MADRID = fs.readFileSync(path.join(__dirname, 'fixtures', 'aemet-madrid.tar'));
+const { parseZonasCap, zonasDelPunto, avisosEnPunto } = require('../lib/aemet-cap');
+
+test('zonas de aviso de la comunidad (también las que están en verde)', async () => {
+    const zonas = parseZonasCap(await extractXmlsFromTar(TAR_MADRID));
+    assert.deepEqual([...zonas.keys()].sort(), ['Metropolitana y Henares', 'Sierra de Madrid', 'Sur, Vegas y Oeste']);
+});
+
+test('cada sitio, en su zona', async () => {
+    const zonas = parseZonasCap(await extractXmlsFromTar(TAR_MADRID));
+    assert.deepEqual(zonasDelPunto(zonas, 40.305, -3.733), ['Metropolitana y Henares']); // Getafe
+    assert.deepEqual(zonasDelPunto(zonas, 40.4168, -3.7038), ['Metropolitana y Henares']); // Madrid
+    assert.deepEqual(zonasDelPunto(zonas, 40.241, -3.700), ['Sur, Vegas y Oeste']); // Pinto
+    assert.deepEqual(zonasDelPunto(zonas, 40.659, -3.766), ['Sierra de Madrid']); // Colmenar Viejo
+    assert.deepEqual(zonasDelPunto(zonas, 41.65, -0.89), []); // Zaragoza: fuera de la comunidad
+});
+
+test('solo salen los avisos de la zona del sitio, no los de la vecina', async () => {
+    const xmls = await extractXmlsFromTar(TAR_MADRID);
+    const avisos = parseAvisosCap(xmls, DURANTE);
+    const zonas = parseZonasCap(xmls);
+    const getafe = avisosEnPunto(avisos, zonas, 40.305, -3.733);
+    assert.ok(getafe.length > 0);
+    assert.ok(getafe.every(a => a.zonas.includes('Metropolitana y Henares')), getafe.map(a => a.zonas.join('/')).join(', '));
+    const pinto = avisosEnPunto(avisos, zonas, 40.241, -3.700);
+    assert.ok(pinto.every(a => a.zonas.includes('Sur, Vegas y Oeste')));
+});
+
+test('en la costa: su zona de tierra y la de mar', async () => {
+    const zonas = parseZonasCap(await extractXmlsFromTar(TAR));
+    const santander = zonasDelPunto(zonas, ...SANTANDER);
+    assert.equal(santander[0], 'Litoral cántabro');
+    assert.ok(santander.every(z => z === 'Litoral cántabro' || z === 'Costa - Litoral cántabro'), santander.join(' + '));
+    assert.deepEqual(zonasDelPunto(zonas, ...REINOSA).filter(z => z.startsWith('Costa')), []); // interior: nada de mar
+});
+
+test('fuera de todas las zonas por poco (costa): la más cercana', () => {
+    const cuadrado = (la, lo, d) => [[la, lo], [la + d, lo], [la + d, lo + d], [la, lo + d]];
+    const zonas = new Map([['A', [cuadrado(40, -4, 0.5)]], ['B', [cuadrado(40, -3.4, 0.5)]]]);
+    assert.deepEqual(zonasDelPunto(zonas, 40.2, -3.98), ['A']); // dentro de A
+    assert.deepEqual(zonasDelPunto(zonas, 40.2, -4.02), ['A']); // 2 km fuera de A
+    assert.deepEqual(zonasDelPunto(zonas, 40.2, -4.2), []); // lejos de todo
+    const avisos = [{ nivel: 'amarillo', zonas: ['A'] }, { nivel: 'naranja', zonas: ['B'] }];
+    assert.deepEqual(avisosEnPunto(avisos, zonas, 40.2, -3.98).map(a => a.nivel), ['amarillo']);
+});
+
 test('polígono CAP', () => {
     assert.deepEqual(parseCapPolygon('43.1,-3.9 43.5,-3.7 43.2,-3.5'), [[43.1, -3.9], [43.5, -3.7], [43.2, -3.5]]);
     assert.deepEqual(parseCapPolygon(''), []);

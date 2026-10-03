@@ -200,11 +200,12 @@ const getAemetAreaCode = (regionName) => {
     return null;
 };
 
-const { extractXmlsFromTar, pointInPolygon, distToPolygon, avisoAfecta, parseAvisosCap } = require('./lib/aemet-cap');
+const { extractXmlsFromTar, pointInPolygon, distToPolygon, parseAvisosCap, parseZonasCap, avisosEnPunto } = require('./lib/aemet-cap');
 // Lo que se manda al cliente (sin los polígonos, que pesan)
 const avisoPublico = ({ poligonos, ...a }) => a;
 
 const aemetAvisosCache = new Map(); // areaCode -> { data, ts }
+const aemetZonasCache = new Map();  // areaCode -> Map(zona -> polígonos)
 const AEMET_CACHE_MS = 15 * 60 * 1000; // 15 min: los avisos no cambian cada minuto
 
 // Estado para /healthz (en memoria: se pierde al reiniciar el servidor)
@@ -264,6 +265,9 @@ async function fetchAemetAvisos(areaCode) {
         const stats = {};
         const avisos = parseAvisosCap(xmls, undefined, stats);
         salud.aemetFormato = { hora: new Date().toISOString(), area: areaCode, ...stats };
+        // Las zonas (con sus polígonos) casi nunca cambian: se guarda la última buena
+        const zonas = parseZonasCap(xmls);
+        if (zonas.size) aemetZonasCache.set(areaCode, zonas);
         aemetAvisosCache.set(areaCode, { data: avisos, ts: Date.now() });
         marcarAemet(true);
         return avisos;
@@ -274,9 +278,10 @@ async function fetchAemetAvisos(areaCode) {
     }
 }
 
-// Avisos de la comunidad que afectan a un punto concreto
+// Avisos de la zona de AEMET en la que está el punto (no los de las vecinas)
 async function avisosParaPunto(areaCode, lat, lon) {
-    return (await fetchAemetAvisos(areaCode)).filter(a => avisoAfecta(a, Number(lat), Number(lon)));
+    const avisos = await fetchAemetAvisos(areaCode);
+    return avisosEnPunto(avisos, aemetZonasCache.get(areaCode), lat, lon);
 }
 
 // --- RUTAS ---
