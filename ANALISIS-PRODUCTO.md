@@ -367,5 +367,72 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
 - **Tamaño de texto de iOS (hecho después):** escala respecto al tamaño por defecto (16 px sin cambios), tope +35 % y maquetación holgada con letra grande.
 - **Widget de iPhone (hecho después):** con Scriptable. Página /widget con instrucciones y script, /api/widget e iconos PNG. Android sigue sin widget (haría falta una app nativa).
 
-**No hecho, y por qué:**
-- **Pendiente de confirmar en Render:** que `DATABASE_URL` esté configurada, para que las suscripciones no se borren en cada despliegue.
+- **Clave de AEMET en Render, `/healthz` y avisos agrupados (hecho después):**
+  - La clave está puesta y caduca el 10-12-2026.
+  - `/healthz` dice si todo va bien, cuándo pasó el último cron, el estado de AEMET y los días que le quedan a la clave.
+  - Si hay varios avisos, sale una tarjeta resumen y la lista completa al tocarla. El mismo aviso en dos zonas sale una sola vez.
+
+**Comprobado:** `/healthz` dice `db: postgres`, así que `DATABASE_URL` está configurada.
+
+---
+
+## Qué más (revisión del 2026-10-03, tarde)
+
+Casi toda la hoja de ruta está hecha. Lo que queda, por orden de importancia:
+
+### A. Para no perder nada (lo primero)
+
+1. **¿La base de datos es la Postgres gratis de Render?**
+   - Si lo es, caduca a los 30 días y se pierden las suscripciones.
+   - Se mira en Render → Databases.
+   - Si es así, conviene pasarla a Neon o Supabase (gratis y sin caducidad).
+   - Esfuerzo: 15 min.
+2. **Que te avise solo si algo se rompe.**
+   - UptimeRobot (gratis), con un monitor de palabra clave `"todoBien":true` en `/healthz`, que te manda un email.
+   - Así te enteras si caduca la clave, se para el cron o AEMET deja de responder.
+   - Sin código. Esfuerzo: 5 min.
+3. **Pruebas automáticas mínimas.**
+   - AEMET ya cambió el formato una vez (de `.tar.gz` a `.tar`) y los avisos estuvieron rotos sin que nadie lo viera.
+   - Propuesta:
+     - tests con un paquete de avisos real guardado, `generateAlerts` y `buildPayload`;
+     - GitHub Actions que los pase en cada push.
+   - Esfuerzo: ~1 h.
+
+### B. Legal
+
+4. **Página de privacidad.**
+   - Se guarda la ubicación de quien activa las notificaciones, y el RGPD pide explicar qué se guarda, para qué y cómo borrarlo (la baja ya existe).
+   - Propuesta: `/privacidad` y un enlace en el panel lateral y al activar los avisos.
+   - Esfuerzo: 30 min.
+5. **Atribución con enlace.**
+   - Hoy pone «Datos: Open-Meteo · AEMET» sin enlazar.
+   - Open-Meteo (CC BY 4.0) pide enlace.
+   - AEMET pide citarla como fuente («Información elaborada por la Agencia Estatal de Meteorología»).
+   - Esfuerzo: 10 min.
+
+### C. Producto (lo que más se notaría)
+
+6. **Lluvia caída de verdad.**
+   - «Han caído 23 l/m² en las últimas 24 h», con la estación de AEMET más cercana (sus datos ya se descargan).
+   - En España es de lo que más se mira después de una tormenta.
+   - Esfuerzo: S.
+7. **Compartir un aviso por WhatsApp.**
+   - Texto con el aviso y el enlace a `/tiempo/<ciudad>`.
+   - Es como se difunden los avisos en España, y trae usuarios.
+   - Esfuerzo: S.
+8. **Idiomas.**
+   - Inglés para turistas; catalán, gallego y euskera.
+   - Multiplica las búsquedas que encuentran `/tiempo/<ciudad>`.
+   - Esfuerzo: L (los textos están repartidos por `app.js`).
+9. **Estar en Google Play (TWA con Bubblewrap).**
+   - La misma app, en la tienda de Android.
+   - Pide una cuenta de desarrollador (25 $ una vez).
+   - No da widget en Android: eso seguiría necesitando una app nativa.
+   - Esfuerzo: M.
+
+### D. Ver y medir
+
+10. **Saber qué se usa sin rastrear a nadie.**
+    - Contadores agregados en el servidor (ciudades consultadas al día, aperturas, notificaciones enviadas), sin cookies ni IDs.
+    - Encaja con «sin rastreo» y sirve para decidir qué mejorar.
+    - Esfuerzo: S.
