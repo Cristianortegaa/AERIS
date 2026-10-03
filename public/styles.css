@@ -2172,7 +2172,7 @@ body:not(.is-ready) .alert-card { animation-play-state: paused; }
 .bnav-indicator {
     position: absolute;
     top: 6px; bottom: 6px; left: 6px;
-    width: calc((100% - 12px) / 4);
+    width: calc((100% - 12px) / 5);
     border-radius: 99px;
     background: rgba(255, 255, 255, 0.16);
     border: 1px solid rgba(255, 255, 255, 0.14);
@@ -2777,3 +2777,27 @@ html.text-large .lifestyle-grid, html.text-large #lifestyle-list { grid-template
 .trip-notify input { width: 18px; height: 18px; accent-color: #60a5fa; }
 .trip-bell { font-size: 0.75rem; color: #93c5fd; margin-left: 4px; }
 .trip-name small { font-weight: 500; color: var(--text-3); }
+
+/* ============================================================
+   MENÚ «MÁS» Y PERSONALIZAR
+   ============================================================ */
+.is-user-hidden { display: none !important; }
+.more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; }
+.more-tile {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    min-height: 78px; padding: 10px 6px; border: 1px solid var(--stroke); border-radius: 18px;
+    background: var(--fill-1); color: var(--text); font: inherit; font-size: 0.78rem; font-weight: 600;
+    line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer;
+    transition: transform 160ms var(--ease-out), background-color 150ms ease;
+}
+.more-tile i { font-size: 1.3rem; color: var(--text-2); }
+.more-tile:active { transform: scale(0.95); }
+@media (hover: hover) and (pointer: fine) { .more-tile:hover { background: var(--fill-2); } }
+.more-langs { justify-content: flex-start; margin-top: 0; }
+.more-edit { width: 100%; justify-content: center; margin-top: 18px; }
+.edit-row { display: grid; grid-template-columns: 28px 1fr auto auto auto; align-items: center; gap: 6px; padding: 8px 0; border-top: 1px solid var(--hairline); }
+.edit-row > i { color: var(--text-2); text-align: center; }
+.edit-name { font-size: 0.92rem; font-weight: 600; }
+.edit-name small { display: block; font-size: 0.72rem; font-weight: 500; color: var(--text-3); }
+.edit-row.is-off .edit-name, .edit-row.is-off > i { opacity: 0.45; }
+.edit-row .btn-icon[disabled] { opacity: 0.25; }

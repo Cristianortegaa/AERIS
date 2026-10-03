@@ -372,3 +372,28 @@ Object.assign(window.AERIS_EU, {
     'Nieve y esquí': 'Elurra eta eskia', 'Espesor · nieve nueva en 7 días': 'Lodiera · elur berria 7 egunetan',
     'Tal día como hoy': 'Gaur bezalako egun batean', 'En casa': 'Etxean'
 });
+
+// ---------- «Gehiago» menua eta pertsonalizatu ----------
+Object.assign(window.AERIS_EU, {
+    "Más": "Gehiago",
+    "Todo": "Dena",
+    "Todas las secciones y ajustes": "Atal eta ezarpen guztiak",
+    "Personalizar": "Pertsonalizatu",
+    "En la barra de abajo": "Beheko barran",
+    "Subir {name}": "Igo: {name}",
+    "Bajar {name}": "Jaitsi: {name}",
+    "Mostrar {name}": "Erakutsi: {name}",
+    "Oculta las tarjetas que no uses y ordénalas a tu gusto. Se guarda en este móvil.": "Ezkutatu erabiltzen ez dituzun txartelak eta ordenatu nahi duzun bezala. Mugikor honetan gordetzen da.",
+    "Bloque principal": "Bloke nagusia",
+    "Bloque secundario": "Bigarren blokea",
+    "Restablecer": "Berrezarri",
+    "Listo": "Eginda",
+    "Ajustes": "Ezarpenak",
+    "Este finde": "Asteburu hau",
+    "Planes": "Planak",
+    "Salud y aire": "Osasuna eta airea",
+    "Casa y ropa": "Etxea eta arropa",
+    "Cielo": "Zerua",
+    "Avisos y notificaciones": "Abisuak eta jakinarazpenak",
+    "Personalidad": "Nortasuna"
+});

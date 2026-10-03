@@ -1110,9 +1110,10 @@ const renderFavorites = () => {
 // La página de privacidad, en el idioma de la app
 if (LANG !== 'es') document.querySelectorAll('a[data-privacy]').forEach(a => { a.href = `/${LANG}/privacy`; });
 // Idioma: español / English (se recarga en la URL equivalente)
-document.querySelectorAll('[data-lang]').forEach(b => {
-    b.setAttribute('aria-pressed', b.dataset.lang === LANG);
-    b.addEventListener('click', () => { if (b.dataset.lang !== LANG) setLang(b.dataset.lang); });
+document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === LANG));
+document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-lang]');
+    if (b && b.dataset.lang !== LANG) setLang(b.dataset.lang);
 });
 const openSidebar  = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); refreshFavoriteTemps(); };
 const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
@@ -1127,7 +1128,8 @@ document.getElementById('favList').addEventListener('keydown', (e) => {
 // Escape cierra la capa que esté abierta (sin animación extra: es teclado)
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (document.getElementById('pushSettingsModal')?.classList.contains('show')) closePushSettings();
+    if (document.getElementById('moreModal')?.classList.contains('show')) closeMore();
+    else if (document.getElementById('pushSettingsModal')?.classList.contains('show')) closePushSettings();
     else if (document.getElementById('detailModal')?.classList.contains('show')) closeDetail();
     else if (modal.classList.contains('show')) closePersonaModal();
     else if (document.getElementById('iosInstallModal')?.classList.contains('show')) closeIosModal();
@@ -1705,6 +1707,7 @@ document.addEventListener('click', (e) => {
         case 'best-window':    showBestWindow(el.dataset.activity); break;
         case 'trip-new':       openTripPlanner(); break;
         case 'avisos':         openAvisos(); break;
+        case 'more':           openMore(); break;
         case 'finde-go':       selectCity({ id: `${el.dataset.lat},${el.dataset.lon}`, name: el.dataset.name, region: el.dataset.region, lat: +el.dataset.lat, lon: +el.dataset.lon }); break;
         case 'nieve-todas':    snowShowAll = !snowShowAll; renderSnow(); break;
         case 'nieve-avisar':   snowAlertFor(Number(el.dataset.i)); break;
@@ -3654,6 +3657,166 @@ function renderOnThisDay(data) {
 }
 
 // ============================================================
+// 26z. MENÚ «MÁS» (todas las secciones) Y PERSONALIZAR
+// ============================================================
+// Las secciones, agrupadas: [id del elemento, icono, nombre]. Solo salen
+// las que se ven en ese momento (la nieve en invierno, el mar en la costa…)
+const MORE_GROUPS = [
+    ['Hoy', [['capture-card', 'bi-house', 'Ahora'], ['alerts-container', 'bi-shield-exclamation', 'Avisos'], ['section-horas', 'bi-clock', 'Próximas 24 h'], ['rain-card', 'bi-cloud-drizzle', 'Lluvia']]],
+    ['Próximos días', [['section-semana', 'bi-calendar3', 'Próximos días'], ['trend-card', 'bi-graph-up', 'Tendencia 2 semanas'], ['puente-card', 'bi-calendar-event', 'Próximo puente'], ['temp-chart-card', 'bi-graph-up-arrow', 'Temperatura 7 días']]],
+    ['Planes', [['finde-card', 'bi-signpost-split', 'Este finde'], ['trips-card', 'bi-airplane', 'Mis viajes'], ['nieve-card', 'bi-snow', 'Nieve y esquí'], ['marine-card', 'bi-water', 'Mar y playa']]],
+    ['Salud y aire', [['section-ambiente', 'bi-lungs', 'Calidad del aire'], ['pollen-card', 'bi-flower1', 'Alergias y polen']]],
+    ['Casa y ropa', [['home-card', 'bi-house-heart', 'En casa'], ['section-outfit', 'bi-bag-heart', 'Outfit recomendado'], ['section-vida', 'bi-activity', 'Estilo de vida']]],
+    ['Cielo', [['solar-card', 'bi-brightness-alt-high', 'Sol y luna'], ['hoy-card', 'bi-calendar-heart', 'Tal día como hoy'], ['section-mapa', 'bi-broadcast', 'Radar']]]
+];
+const SECTION_NAME = Object.fromEntries(MORE_GROUPS.flatMap(([, items]) => items.map(([id, , name]) => [id, name])));
+const SECTION_ICON = Object.fromEntries(MORE_GROUPS.flatMap(([, items]) => items.map(([id, icon]) => [id, icon])));
+// Las de la barra de abajo no se pueden ocultar (el botón se quedaría sin destino)
+const LOCKED_SECTIONS = ['section-semana', 'section-ambiente', 'section-mapa'];
+
+const sectionVisible = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    if (id === 'alerts-container') return el.children.length > 0;
+    return !el.hidden && !el.classList.contains('is-user-hidden') && getComputedStyle(el).display !== 'none';
+};
+
+// --- Personalizar: tarjetas ocultas y orden (en el móvil, guardado en el navegador)
+const LAYOUT_KEY = 'aeris_layout';
+const getLayout = () => ({ hidden: [], order: {}, ...(lsGet(LAYOUT_KEY) || {}) });
+const setLayout = (l) => lsSet(LAYOUT_KEY, l);
+const COLUMNS = { main: '.col-main', side: '.col-side' };
+// Tarjetas de una columna, en su orden actual (la principal del tiempo, fija arriba)
+const columnCards = (col) => [...document.querySelector(COLUMNS[col]).children].filter(el => el.id && el.id !== 'capture-card' && el.tagName === 'SECTION');
+function applyLayout() {
+    const l = getLayout();
+    for (const col of Object.keys(COLUMNS)) {
+        const box = document.querySelector(COLUMNS[col]);
+        if (!box) continue;
+        const saved = (l.order[col] || []).map(id => document.getElementById(id)).filter(el => el && el.parentElement === box);
+        const rest = columnCards(col).filter(el => !saved.includes(el));
+        [...saved, ...rest].forEach(el => box.appendChild(el));
+        const hero = document.getElementById('capture-card');
+        if (hero && hero.parentElement === box) box.prepend(hero);
+    }
+    document.querySelectorAll('.is-user-hidden').forEach(el => el.classList.remove('is-user-hidden'));
+    l.hidden.filter(id => !LOCKED_SECTIONS.includes(id)).forEach(id => document.getElementById(id)?.classList.add('is-user-hidden'));
+}
+applyLayout();
+
+const moreModal = document.getElementById('moreModal');
+let moreMode = 'nav';
+function renderMore() {
+    const body = document.getElementById('moreBody');
+    if (!body) return;
+    document.getElementById('moreTitle').textContent = moreMode === 'edit' ? t('Personalizar') : t('Todo');
+    if (moreMode === 'edit') {
+        const l = getLayout();
+        const rows = (col) => columnCards(col).map((el, i, all) => {
+            const locked = LOCKED_SECTIONS.includes(el.id), on = !l.hidden.includes(el.id) || locked;
+            const raw = SECTION_NAME[el.id] || el.querySelector('h2')?.textContent || el.id;
+            const name = t(raw);
+            return `<div class="edit-row${on ? '' : ' is-off'}">
+                <i class="bi ${SECTION_ICON[el.id] || 'bi-square'}" aria-hidden="true"></i>
+                <span class="edit-name">${escapeHTML(name)}${locked ? `<small>${escapeHTML(t('En la barra de abajo'))}</small>` : ''}</span>
+                <button type="button" class="btn-icon sm" data-edit="up" data-id="${el.id}" aria-label="${escapeHTML(t('Subir {name}', { name }))}" ${i === 0 ? 'disabled' : ''}><i class="bi bi-chevron-up"></i></button>
+                <button type="button" class="btn-icon sm" data-edit="down" data-id="${el.id}" aria-label="${escapeHTML(t('Bajar {name}', { name }))}" ${i === all.length - 1 ? 'disabled' : ''}><i class="bi bi-chevron-down"></i></button>
+                <input type="checkbox" class="ps-switch" data-edit="toggle" data-id="${el.id}" aria-label="${escapeHTML(t('Mostrar {name}', { name }))}" ${on ? 'checked' : ''} ${locked ? 'disabled' : ''}>
+            </div>`;
+        }).join('');
+        body.innerHTML = `<p class="detail-note">${escapeHTML(t('Oculta las tarjetas que no uses y ordénalas a tu gusto. Se guarda en este móvil.'))}</p>
+            <h3 class="ps-h">${escapeHTML(t('Bloque principal'))}</h3>${rows('main')}
+            <h3 class="ps-h">${escapeHTML(t('Bloque secundario'))}</h3>${rows('side')}
+            <div class="ps-actions">
+                <button type="button" class="btn-pill ghost" data-edit="reset"><i class="bi bi-arrow-counterclockwise"></i>${escapeHTML(t('Restablecer'))}</button>
+                <button type="button" class="btn-pill solid" data-edit="done"><i class="bi bi-check-lg"></i>${escapeHTML(t('Listo'))}</button>
+            </div>`;
+        return;
+    }
+    const groups = MORE_GROUPS.map(([g, items]) => {
+        const tiles = items.filter(([id]) => sectionVisible(id)).map(([id, icon, name]) =>
+            `<button type="button" class="more-tile" data-goto="${id}"><i class="bi ${icon}" aria-hidden="true"></i><span>${escapeHTML(t(name))}</span></button>`).join('');
+        return tiles ? `<h3 class="ps-h">${escapeHTML(t(g))}</h3><div class="more-grid">${tiles}</div>` : '';
+    }).join('');
+    const act = (a, icon, name) => `<button type="button" class="more-tile" data-more="${a}"><i class="bi ${icon}" aria-hidden="true"></i><span>${escapeHTML(t(name))}</span></button>`;
+    const link = (href, icon, name) => `<a class="more-tile" href="${href}"><i class="bi ${icon}" aria-hidden="true"></i><span>${escapeHTML(t(name))}</span></a>`;
+    const langs = [['es', 'Español'], ['ca', 'Català'], ['gl', 'Galego'], ['eu', 'Euskara'], ['en', 'English']]
+        .map(([l, n]) => `<button type="button" data-lang="${l}" lang="${l}" aria-pressed="${l === LANG}">${n}</button>`).join('');
+    body.innerHTML = groups
+        + `<h3 class="ps-h">${escapeHTML(t('Ajustes'))}</h3><div class="more-grid">`
+        + act('avisos', 'bi-bell', 'Avisos y notificaciones') + act('persona', 'bi-emoji-smile', 'Personalidad')
+        + act('lugares', 'bi-list-stars', 'Mis lugares') + act('compartir', 'bi-box-arrow-up', 'Compartir el tiempo')
+        + link('/widget/', 'bi-phone', 'Widget para iPhone') + link(LANG === 'es' ? '/privacidad' : `/${LANG}/privacy`, 'bi-shield-check', 'Privacidad')
+        + `</div><h3 class="ps-h">${escapeHTML(t('Idioma'))}</h3><div class="lang-switch more-langs">${langs}</div>`
+        + `<button type="button" class="btn-pill ghost more-edit" data-edit="start"><i class="bi bi-sliders"></i>${escapeHTML(t('Personalizar'))}</button>`;
+}
+function openMore() {
+    if (!moreModal) return;
+    moreMode = 'nav';
+    renderMore();
+    moreModal.classList.add('show');
+    moreModal._trigger = document.activeElement;
+}
+function closeMore() {
+    if (!moreModal) return;
+    moreModal.classList.remove('show');
+    const sheet = document.getElementById('moreSheet');
+    if (sheet) { sheet.style.transform = ''; sheet.style.transition = ''; }
+}
+function gotoSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    closeMore();
+    const navH = document.querySelector('.nav-bar')?.offsetHeight || 0;
+    const y = id === 'capture-card' ? 0 : el.getBoundingClientRect().top + window.pageYOffset - navH - 8;
+    window.scrollTo({ top: y, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
+moreModal?.addEventListener('click', (e) => {
+    if (e.target === moreModal) return closeMore();
+    const go = e.target.closest('[data-goto]');
+    if (go) return gotoSection(go.dataset.goto);
+    const more = e.target.closest('[data-more]');
+    if (more) {
+        closeMore();
+        const a = more.dataset.more;
+        if (a === 'avisos') document.getElementById('bellBtn')?.click();
+        else if (a === 'persona') openPersonaModal();
+        else if (a === 'lugares') openSidebar();
+        else if (a === 'compartir') document.getElementById('shareBtn')?.click();
+        return;
+    }
+    const ed = e.target.closest('[data-edit]');
+    if (!ed || ed.dataset.edit === 'toggle') return;
+    const l = getLayout();
+    if (ed.dataset.edit === 'start') { moreMode = 'edit'; renderMore(); return; }
+    if (ed.dataset.edit === 'done') { moreMode = 'nav'; renderMore(); return; }
+    if (ed.dataset.edit === 'reset') { setLayout({ hidden: [], order: {} }); location.reload(); return; }
+    // Subir / bajar dentro de su bloque
+    const el = document.getElementById(ed.dataset.id);
+    const col = Object.keys(COLUMNS).find(c => el && el.parentElement === document.querySelector(COLUMNS[c]));
+    if (!col) return;
+    const ids = columnCards(col).map(x => x.id), i = ids.indexOf(el.id), j = ed.dataset.edit === 'up' ? i - 1 : i + 1;
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    l.order[col] = ids;
+    setLayout(l);
+    applyLayout();
+    renderMore();
+    document.querySelector(`[data-edit="${ed.dataset.edit}"][data-id="${el.id}"]:not([disabled])`)?.focus();
+});
+moreModal?.addEventListener('change', (e) => {
+    const sw = e.target.closest('[data-edit="toggle"]');
+    if (!sw) return;
+    const l = getLayout();
+    l.hidden = sw.checked ? l.hidden.filter(x => x !== sw.dataset.id) : [...new Set([...l.hidden, sw.dataset.id])];
+    setLayout(l);
+    applyLayout();
+    sw.closest('.edit-row')?.classList.toggle('is-off', !sw.checked);
+});
+document.getElementById('closeMore')?.addEventListener('click', closeMore);
+initSheetDrag(document.getElementById('moreDragZone'), document.getElementById('moreSheet'), () => closeMore());
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -4225,7 +4388,7 @@ if ('serviceWorker' in navigator) {
             let activeId = sections[0];
             sections.forEach(id => {
                 const el = document.getElementById(id);
-                if (el && el.getBoundingClientRect().top + window.pageYOffset - 20 <= pivot) {
+                if (el && el.offsetParent !== null && el.getBoundingClientRect().top + window.pageYOffset - 20 <= pivot) {
                     activeId = id;
                 }
             });

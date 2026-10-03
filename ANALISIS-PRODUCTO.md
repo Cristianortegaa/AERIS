@@ -418,6 +418,11 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
   - **Tal día como hoy:** hace un año y los récords de calor y frío de esa fecha (reanálisis ERA5 desde 1991), con las mismas peticiones que «lo normal»; la media de lo normal sigue siendo 1991–2020.
   - Todo en los cinco idiomas.
 
+- **Menú «Más» y Personalizar (hecho después):**
+  - Quinto botón en la barra de abajo, «Más». Abre una hoja con todas las secciones agrupadas (Hoy, Próximos días, Planes, Salud y aire, Casa y ropa, Cielo); solo salen las que se ven en ese momento. Tocar una lleva directamente a ella.
+  - En la misma hoja, los ajustes que antes estaban desperdigados: avisos, personalidad, mis lugares, compartir, widget, privacidad e idioma.
+  - «Personalizar»: ocultar tarjetas y cambiar su orden dentro de cada bloque. Se guarda en el móvil (`aeris_layout`). Las tarjetas de la barra de abajo (Semana, Ambiente, Radar) no se pueden ocultar, y la principal del tiempo queda fija arriba.
+
 ---
 
 ## Qué más (revisión del 2026-10-03, tarde)

@@ -1,12 +1,12 @@
-const CACHE_NAME = 'aeris-v70';
+const CACHE_NAME = 'aeris-v71';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=51',
+    '/styles.css?v=52',
     '/fonts/geist-latin.woff2',
     '/fonts/geist-mono-latin.woff2',
-    '/app.js?v=56',
+    '/app.js?v=57',
     '/vendor/bootstrap-reboot.min.css',
     '/vendor/suncalc.js',
     '/weather-core.js?v=3',
@@ -52,7 +52,7 @@ const EXTRA_ASSETS = [
     'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
     // Diccionarios: la app solo descarga el de su idioma; aquí se guardan
     // todos para que funcione sin conexión en cualquiera
-    ...['en', 'ca', 'gl', 'eu'].flatMap(l => [`/i18n/${l}.js?v=3`, `/i18n/personas-${l}.js?v=1`])
+    ...['en', 'ca', 'gl', 'eu'].flatMap(l => [`/i18n/${l}.js?v=4`, `/i18n/personas-${l}.js?v=1`])
 ];
 
 self.addEventListener('install', (event) => {

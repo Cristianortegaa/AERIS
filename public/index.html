@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=51">
+    <link rel="stylesheet" href="styles.css?v=52">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -168,6 +168,20 @@
             </div>
         </div>
         <div class="detail-body" id="pushSettingsBody"></div>
+    </div>
+</div>
+
+<!-- MENÚ «MÁS»: todas las secciones, ajustes y personalizar -->
+<div class="persona-modal" id="moreModal" role="dialog" aria-modal="true" aria-labelledby="moreTitle">
+    <div class="persona-content" id="moreSheet">
+        <div class="persona-drag-zone" id="moreDragZone">
+            <div class="sheet-grabber"></div>
+            <div class="persona-head">
+                <h2 id="moreTitle">Todo</h2>
+                <button class="btn-icon sm" id="closeMore" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        <div class="detail-body" id="moreBody"></div>
     </div>
 </div>
 
@@ -714,6 +728,10 @@
         <span class="bnav-icon"><i class="bi bi-broadcast"></i></span>
         <span>Radar</span>
     </button>
+    <button class="bottom-nav-item" data-action="more" aria-label="Todas las secciones y ajustes">
+        <span class="bnav-icon"><i class="bi bi-grid"></i></span>
+        <span>Más</span>
+    </button>
 </nav>
 
 <!-- APP JS -->
@@ -729,7 +747,7 @@
         if (!L) { try { var s = localStorage.getItem('aeris_lang'); if (SUP.indexOf(s) !== -1) L = s; } catch (e) {} }
         if (!L) { var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || 'es').toLowerCase().split('-')[0]; L = SUP.indexOf(nav) !== -1 ? nav : 'en'; }
         window.AERIS_LANG = L;
-        var files = (L === 'es' ? [] : ['i18n/' + L + '.js?v=3', 'i18n/personas-' + L + '.js?v=1']).concat(['i18n.js?v=2', 'app.js?v=56']);
+        var files = (L === 'es' ? [] : ['i18n/' + L + '.js?v=4', 'i18n/personas-' + L + '.js?v=1']).concat(['i18n.js?v=2', 'app.js?v=57']);
         files.forEach(function (src) { var el = document.createElement('script'); el.src = src; el.async = false; document.body.appendChild(el); });
     })();
 </script>

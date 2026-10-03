@@ -372,3 +372,28 @@ Object.assign(window.AERIS_CA, {
     'Nieve y esquí': "Neu i esquí", 'Espesor · nieve nueva en 7 días': "Gruix · neu nova en 7 dies",
     'Tal día como hoy': "Tal dia com avui", 'En casa': "A casa"
 });
+
+// ---------- Menú «Més» i personalitzar ----------
+Object.assign(window.AERIS_CA, {
+    "Más": "Més",
+    "Todo": "Tot",
+    "Todas las secciones y ajustes": "Totes les seccions i la configuració",
+    "Personalizar": "Personalitza",
+    "En la barra de abajo": "A la barra de baix",
+    "Subir {name}": "Puja {name}",
+    "Bajar {name}": "Baixa {name}",
+    "Mostrar {name}": "Mostra {name}",
+    "Oculta las tarjetas que no uses y ordénalas a tu gusto. Se guarda en este móvil.": "Amaga les targetes que no facis servir i ordena-les com vulguis. Es desa en aquest mòbil.",
+    "Bloque principal": "Bloc principal",
+    "Bloque secundario": "Bloc secundari",
+    "Restablecer": "Restableix",
+    "Listo": "Fet",
+    "Ajustes": "Configuració",
+    "Este finde": "Aquest cap de setmana",
+    "Planes": "Plans",
+    "Salud y aire": "Salut i aire",
+    "Casa y ropa": "Casa i roba",
+    "Cielo": "Cel",
+    "Avisos y notificaciones": "Avisos i notificacions",
+    "Personalidad": "Personalitat"
+});

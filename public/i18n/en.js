@@ -372,3 +372,15 @@ Object.assign(window.AERIS_EN, {
     'Nieve y esquí': 'Snow and skiing', 'Espesor · nieve nueva en 7 días': 'Depth · new snow in 7 days',
     'Tal día como hoy': 'On this day', 'En casa': 'At home'
 });
+
+// ---------- Menú «Más» y personalizar ----------
+Object.assign(window.AERIS_EN, {
+    'Más': 'More', 'Todo': 'Everything', 'Todas las secciones y ajustes': 'All sections and settings',
+    'Personalizar': 'Customise', 'En la barra de abajo': 'In the bottom bar',
+    'Subir {name}': 'Move {name} up', 'Bajar {name}': 'Move {name} down', 'Mostrar {name}': 'Show {name}',
+    'Oculta las tarjetas que no uses y ordénalas a tu gusto. Se guarda en este móvil.': "Hide the cards you don't use and put them in the order you like. It's saved on this phone.",
+    'Bloque principal': 'Main section', 'Bloque secundario': 'Second section',
+    'Restablecer': 'Reset', 'Listo': 'Done', 'Ajustes': 'Settings',
+    'Este finde': 'This weekend', 'Planes': 'Plans', 'Salud y aire': 'Health and air', 'Casa y ropa': 'Home and clothes',
+    'Cielo': 'Sky', 'Avisos y notificaciones': 'Alerts and notifications', 'Personalidad': 'Personality'
+});
