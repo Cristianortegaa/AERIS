@@ -833,6 +833,8 @@ function openShareCard(data) {
     document.getElementById('share-city-name').textContent = (loc.name || '').toUpperCase();
     document.getElementById('share-temp-big').textContent  = fmtTemp(cur.temp) + (useFahrenheit ? '°F' : '°');
     document.getElementById('share-desc').textContent      = cur.desc;
+    const sp = document.getElementById('share-phrase');
+    if (sp) sp.textContent = `${aiLogic[currentPersona]?.icon || ''} ${document.getElementById('tip-text')?.innerText || ''}`.trim();
     document.getElementById('share-feels').textContent     = `💧 ${cur.humidity}%`;
     document.getElementById('share-wind').textContent      = `💨 ${fmtWind(cur.windSpeed)} ${windUnit()}`;
     document.getElementById('share-uv').textContent        = `☀️ UV: ${Math.round(cur.uvMax ?? cur.uv)}`;
@@ -880,7 +882,15 @@ const updateAIText = (cur, highPollen = false) => {
         document.getElementById('tip-icon').innerText = '⚠️';
         document.getElementById('tip-text').innerText = serious.text;
     } else {
-        document.getElementById('tip-text').innerText = frases[Math.floor(Math.random() * frases.length)];
+        let frase = frases[Math.floor(Math.random() * frases.length)];
+        // Si ahora no llueve pero va a llover en unas horas, se avisa
+        const d = window._lastFullData;
+        if (key !== 'rain' && key !== 'snow' && d) {
+            const up = upcomingHours(d).slice(0, 10);
+            const wet = up.find(h => (h.precip || 0) >= 0.2 || (h.rainProb || 0) >= 60); // mismo criterio que el resumen
+            if (wet) frase += ` (Ojo: lluvia hacia las ${String((wet.hour + 23) % 24).padStart(2, '0')}:00.)`;
+        }
+        document.getElementById('tip-text').innerText = frase;
     }
     // Para la ropa cuenta el UV máximo del día, no el de este momento
     const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, Math.round(cur.uvMax ?? cur.uv));
@@ -1054,7 +1064,7 @@ const toggleFavorite = () => {
 const renderFavorites = () => {
     const list = document.getElementById('favList');
     if (!list) return;
-    list.innerHTML = '';
+    list.innerHTML = favorites.length ? '' : '<li class="fav-empty"><i class="bi bi-heart" aria-hidden="true"></i>Toca el corazón en cualquier ciudad para tenerla aquí y pasar de una a otra deslizando.</li>';
     favorites.forEach(city => {
         const li = document.createElement('li');
         li.className = 'fav-item';
@@ -1106,9 +1116,15 @@ if (searchInput) {
         if (e.target.value.length < 3) { showSearchHistory(); return; }
         searchTimeout = setTimeout(async () => {
             try {
-                const res = await fetch(`/api/search/${encodeURIComponent(normalizeInput(e.target.value))}`);
-                const cities = await res.json();
+                const q = normalizeInput(e.target.value);
+                const cities = await searchCities(q);
                 suggestionsList.innerHTML = '';
+                // Sin resultados: se dice, en vez de no enseñar nada
+                if (!cities.length) {
+                    suggestionsList.innerHTML = `<li class="suggestion-empty">No encuentro «${escapeHTML(e.target.value)}». Prueba con otro nombre o sin tildes.</li>`;
+                    suggestionsList.classList.add('show');
+                    return;
+                }
                 cities.forEach(c => {
                     const li = document.createElement('li');
                     li.className = 'suggestion-item';
@@ -1951,7 +1967,7 @@ function updateLivePill() {
     if (!active) livePillDismissed = false; // terminó el episodio: el siguiente se vuelve a mostrar
     pill.querySelector('.live-pill-text').textContent = document.getElementById('nowcast-pill-text')?.textContent || '';
     pill.classList.toggle('is-snow', src.classList.contains('is-snow'));
-    document.body.classList.toggle('has-live-pill', active && !livePillDismissed);
+    updateMiniHero();
 }
 
 // ============================================================
@@ -2775,6 +2791,168 @@ function renderFireRisk(data) {
 }
 
 // ============================================================
+// 26o. DESLIZAR ENTRE CIUDADES GUARDADAS (como en el tiempo del iPhone)
+// ============================================================
+// Sobre el hero, en horizontal: el dedo arrastra la tarjeta 1:1 (con
+// resistencia en los extremos) y al soltar pasa a la ciudad siguiente si se
+// ha arrastrado lo bastante o con un gesto rápido. Puntos de página debajo.
+// La primera página es la última ciudad vista que no está en favoritos (como
+// "Mi ubicación" en el iPhone): así se puede volver a ella tras deslizar.
+let swipeHome = null;
+function swipeCities() {
+    const list = [...(favorites || [])];
+    const isFav = (id) => list.some(f => String(f.id) === String(id));
+    const here = currentCityInfo && currentCityInfo.id;
+    if (here && !isFav(here)) swipeHome = { id: here, name: currentCityInfo.name, region: currentCityInfo.region, lat: currentCityInfo.lat, lon: currentCityInfo.lon, _current: true };
+    if (swipeHome && !isFav(swipeHome.id)) list.unshift(swipeHome);
+    return list;
+}
+function renderCityDots() {
+    const el = document.getElementById('city-dots');
+    if (!el) return;
+    const list = swipeCities();
+    const idx = list.findIndex(c => String(c.id) === String(currentCityInfo.id));
+    el.hidden = list.length < 2;
+    el.setAttribute('aria-label', `Ciudad ${idx + 1} de ${list.length}`);
+    el.innerHTML = list.slice(0, 9).map((c, i) => `<span class="${i === idx ? 'on' : ''}${c._current ? ' here' : ''}"></span>`).join('');
+}
+(function initCitySwipe() {
+    const card = document.getElementById('capture-card');
+    if (!card) return;
+    let sx = 0, sy = 0, dx = 0, t0 = 0, pid = null, axis = null;
+    const reset = () => { card.style.transition = ''; card.style.transform = ''; card.style.opacity = ''; };
+    card.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' || e.target.closest('button, a, input, [role="button"], .hour-curve')) return;
+        if (swipeCities().length < 2) return;
+        pid = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; t0 = performance.now(); axis = null;
+    });
+    card.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== pid) return;
+        const mx = e.clientX - sx, my = e.clientY - sy;
+        if (!axis) {
+            if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+            axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+            if (axis === 'y') { pid = null; return; }
+            card.setPointerCapture(pid);
+            card.style.transition = 'none';
+        }
+        const list = swipeCities(), idx = list.findIndex(c => String(c.id) === String(currentCityInfo.id));
+        const atEdge = (mx > 0 && idx <= 0) || (mx < 0 && idx >= list.length - 1);
+        dx = atEdge ? Math.sign(mx) * Math.pow(Math.abs(mx), 0.7) : mx; // resistencia en los extremos
+        card.style.transform = `translateX(${dx}px)`;
+        card.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / card.offsetWidth));
+    });
+    const end = (e) => {
+        if (e.pointerId !== pid) return;
+        pid = null;
+        if (axis !== 'x') return;
+        const list = swipeCities(), idx = list.findIndex(c => String(c.id) === String(currentCityInfo.id));
+        const v = dx / Math.max(1, performance.now() - t0);
+        const dir = (dx < -card.offsetWidth / 3 || v < -0.4) ? 1 : (dx > card.offsetWidth / 3 || v > 0.4) ? -1 : 0;
+        const next = list[idx + dir];
+        card.style.transition = 'transform 220ms var(--ease-out), opacity 220ms ease';
+        if (!dir || !next) { reset(); card.style.transition = 'transform 300ms var(--ease-out), opacity 200ms ease'; card.style.transform = ''; card.style.opacity = ''; return; }
+        card.style.transform = `translateX(${-dir * card.offsetWidth}px)`;
+        card.style.opacity = '0';
+        if (navigator.vibrate && matchMedia('(pointer: coarse)').matches) navigator.vibrate(6);
+        setTimeout(() => {
+            selectCity(next);
+            card.style.transition = 'none';
+            card.style.transform = `translateX(${dir * card.offsetWidth * 0.3}px)`;
+            requestAnimationFrame(() => { card.style.transition = 'transform 320ms var(--ease-out), opacity 220ms ease'; card.style.transform = ''; card.style.opacity = ''; });
+            setTimeout(reset, 450); // por si el navegador no llegó a pintar el frame
+        }, 200);
+    };
+    card.addEventListener('pointerup', end);
+    card.addEventListener('pointercancel', end);
+})();
+
+// ============================================================
+// 26p. RESUMEN ARRIBA AL HACER SCROLL Y TIRAR PARA RECARGAR
+// ============================================================
+// Cuando el hero sale de pantalla, la píldora de arriba dice dónde estás
+// ("Madrid · 19° · Nublado") si no hay lluvia que contar. Tocarla sube.
+function updateMiniHero() {
+    const pill = document.getElementById('live-pill'), d = window._lastFullData;
+    if (!pill || !d) return;
+    const rain = !document.getElementById('nowcast-pill').hidden && !livePillDismissed;
+    pill.classList.toggle('is-summary', !rain);
+    if (!rain) {
+        pill.querySelector('.live-pill-text').textContent = `${placeLabel(document.getElementById('city').innerText)} · ${fmtTemp(d.current.temp)}° · ${d.current.desc}`;
+        pill.setAttribute('aria-label', 'Volver arriba');
+    } else pill.setAttribute('aria-label', 'Ver la lluvia de las próximas horas');
+    document.body.classList.add('has-live-pill');
+}
+document.getElementById('live-pill')?.addEventListener('click', (e) => {
+    const pill = e.currentTarget;
+    if (pill.classList.contains('is-summary')) { e.stopPropagation(); window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' }); }
+}, true);
+
+// Tirar hacia abajo para recargar, solo en la app instalada (en el navegador
+// ya lo hace el propio navegador). Recarga los datos, no la página.
+(function initPullToRefresh() {
+    if (!matchMedia('(display-mode: standalone)').matches && navigator.standalone !== true) return;
+    document.documentElement.classList.add('ptr-enabled');
+    const ind = document.getElementById('ptr');
+    let y0 = null, pull = 0, armed = false, busy = false;
+    const set = (px) => { if (ind) { ind.style.transform = `translate(-50%, ${px - 50}px) rotate(${px * 3}deg)`; ind.style.opacity = String(Math.min(1, px / 60)); } };
+    window.addEventListener('touchstart', (e) => { if (window.scrollY <= 0 && !busy && !document.documentElement.classList.contains('is-locked')) { y0 = e.touches[0].clientY; pull = 0; armed = false; } }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+        if (y0 == null) return;
+        const dy = e.touches[0].clientY - y0;
+        if (dy <= 0) { set(0); return; }
+        pull = Math.min(110, Math.pow(dy, 0.85)); // resistencia
+        set(pull);
+        if (!armed && pull >= 72) { armed = true; if (navigator.vibrate) navigator.vibrate(10); ind?.classList.add('armed'); }
+        else if (armed && pull < 60) { armed = false; ind?.classList.remove('armed'); }
+    }, { passive: true });
+    window.addEventListener('touchend', async () => {
+        if (y0 == null) return;
+        y0 = null;
+        if (!armed) { if (ind) { ind.style.transition = 'transform 250ms var(--ease-out), opacity 200ms ease'; set(0); setTimeout(() => ind.style.transition = '', 260); } return; }
+        busy = true; ind?.classList.add('spinning');
+        if (ind) ind.style.transform = 'translate(-50%, 16px)';
+        const t = Date.now();
+        try { await getWeather(currentId); } finally {
+            await new Promise(r => setTimeout(r, Math.max(0, 450 - (Date.now() - t)))); // que no parpadee
+            ind?.classList.remove('spinning', 'armed');
+            if (ind) { ind.style.transition = 'transform 250ms var(--ease-out), opacity 200ms ease'; set(0); setTimeout(() => ind.style.transition = '', 260); }
+            busy = false;
+        }
+    });
+})();
+
+// ============================================================
+// 26q. ACCESIBILIDAD: resumen para el lector de pantalla
+// ============================================================
+function renderA11ySummary(data) {
+    const el = document.getElementById('hero-a11y');
+    if (!el) return;
+    const c = data.current, t = data.daily && data.daily[0];
+    el.textContent = `${placeLabel(document.getElementById('city').innerText)}. ${fmtTemp(c.temp)} grados, ${c.desc}.`
+        + (t ? ` Máxima ${fmtTemp(t.tempMax)}, mínima ${fmtTemp(t.tempMin)}.` : '')
+        + ` ${buildDaySummary(data)}`;
+}
+
+// ============================================================
+// 26r. BÚSQUEDA DIRECTA (con el cupo del navegador; el servidor de respaldo)
+// ============================================================
+async function searchCities(q) {
+    try {
+        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=es&format=json`);
+        if (!r.ok) throw new Error(r.status);
+        const j = await r.json();
+        return (j.results || []).map(c => ({
+            id: `${c.latitude},${c.longitude}`, name: c.name, lat: c.latitude, lon: c.longitude,
+            region: [c.admin1 && c.admin1 !== c.name ? c.admin1 : null, c.country].filter(Boolean).join(', ')
+        }));
+    } catch (e) {
+        const res = await fetch(`/api/search/${encodeURIComponent(q)}`);
+        return res.ok ? res.json() : [];
+    }
+}
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -2892,7 +3070,7 @@ const renderWeather = (data) => {
     const hCont = document.getElementById('hourly');
     if (hCont) {
         const changed = setHTMLIfChanged(hCont, data.hourly.map(h =>
-            `<div class="hourly-item" role="listitem">
+            `<div class="hourly-item" role="listitem" aria-label="${h.displayTime}, ${fmtTemp(h.temp)} grados${h.desc ? ', ' + h.desc : ''}${h.rainProb ? ', ' + h.rainProb + ' % de lluvia' : ''}">
                 <span class="h-time">${h.displayTime}</span>
                 <span class="h-icon">${renderIcon(h.icon, "")}</span>
                 <span class="h-rain">${h.rainProb > 0 ? h.rainProb + '%' : ''}</span>
@@ -2957,6 +3135,8 @@ const renderWeather = (data) => {
 
     renderForecastExtras(data).catch(e => console.warn('extras', e.message));
     renderMarine(data).catch(() => {});
+    renderCityDots();
+    renderA11ySummary(data);
     renderObservation(data).catch(() => {});
     renderFireRisk(data);
 
@@ -3113,7 +3293,7 @@ async function getWeather(id) {
     pill.querySelector('.live-pill-close')?.addEventListener('click', (e) => {
         e.stopPropagation();
         livePillDismissed = true;
-        document.body.classList.remove('has-live-pill');
+        updateMiniHero();
     });
 })();
 

@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=32">
+    <link rel="stylesheet" href="styles.css?v=34">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -149,6 +149,9 @@
     </div>
 </div>
 
+<!-- TIRAR PARA RECARGAR (app instalada) -->
+<div class="ptr" id="ptr" aria-hidden="true"><i class="bi bi-arrow-clockwise"></i></div>
+
 <!-- PÍLDORA DE LLUVIA FIJA (al hacer scroll) -->
 <button type="button" class="live-pill" id="live-pill" data-action="goto-rain" aria-label="Ver la lluvia de las próximas horas">
     <i class="bi bi-umbrella-fill live-pill-icon" aria-hidden="true"></i>
@@ -229,6 +232,7 @@
                 <div class="share-city-name" id="share-city-name">—</div>
                 <div class="share-temp-big" id="share-temp-big">—</div>
                 <div class="share-desc" id="share-desc">—</div>
+                <div class="share-phrase" id="share-phrase"></div>
                 <div class="share-stats">
                     <span id="share-feels">💧 —</span>
                     <span id="share-wind">💨 —</span>
@@ -312,9 +316,11 @@
 
             <!-- 1. TARJETA PRINCIPAL -->
             <section class="glass-card hero-card" id="capture-card" aria-label="Tiempo actual">
+                <p class="visually-hidden" id="hero-a11y" aria-live="polite"></p>
                 <div class="hero-top">
                     <div class="hero-place">
                         <h1 id="city" class="hero-city skeleton" style="width:130px;"></h1>
+                        <div class="city-dots" id="city-dots" hidden></div>
                         <div id="local-time" class="hero-time" style="display:none;"></div>
                         <button type="button" id="freshness" class="hero-fresh" hidden aria-label="De dónde salen los datos"></button>
                     </div>
@@ -621,7 +627,7 @@
 <!-- APP JS -->
 <script src="vendor/suncalc.js"></script>
 <script src="weather-core.js?v=2"></script>
-<script src="app.js?v=37"></script>
+<script src="app.js?v=39"></script>
 
 </body>
 </html>

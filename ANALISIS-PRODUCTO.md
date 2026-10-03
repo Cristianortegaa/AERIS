@@ -325,3 +325,44 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
   - [RainViewer API](https://www.rainviewer.com/api.html)
 
 ⚠ Algunas cifras de reseñas salen de agregadores (unstar, tuapppara), no de las tiendas. Hay que verificar la tabla de umbrales Meteosalud, las condiciones actuales de RainViewer y los endpoints de AEMET, que fallaron por mantenimiento durante las pruebas.
+
+
+---
+
+## Estado (2026-10-03)
+
+**Hecho y en producción:**
+- **Fase 1 (datos correctos):** todos los fallos de la sección 0. Además, los avisos de AEMET llevaban tiempo sin funcionar (AEMET pasó de `.tar.gz` a `.tar`), y ya funcionan y se filtran por zona.
+- **Imprevisto:** el servidor se quedaba sin el cupo diario de Open-Meteo (IP compartida en Render). Ahora, si pasa, la app pide los datos desde el móvil con el mismo código (`weather-core.js`).
+- **Fase 2:** modo serio, frescura y procedencia, resumen en una frase, tarjeta Aire con calima, ICA y polen, comparación con ayer, píldora de lluvia, accesos directos y globo en el icono.
+- **Fase 3:** curva de 24 h con el dedo, detalle por dato (humedad, viento, presión, UV, sensación), mejor momento, favoritos con temperatura en vivo, cielo según el sol y consejos en los avisos.
+- **Fase 4:**
+  - fiabilidad por día con el ensemble AIFS de ECMWF y tendencia a 15 días;
+  - próximo puente;
+  - lo normal (ERA5 1991–2020) y noches tropicales;
+  - ajustes de avisos (tipos, nivel de AEMET, hasta 2 sitios más, parte a la hora local con calima y polen, baja);
+  - "Tu parte de hoy";
+  - bienvenida personalizada;
+  - `/tiempo/<ciudad>` con SEO y sitemap.
+- **Fase 5:**
+  - radar propio (RainViewer + Leaflet, con el modelo de Windy como pestaña);
+  - mar y playa;
+  - estación de AEMET más cercana;
+  - riesgo meteorológico de incendio (Fosberg);
+  - deslizar entre ciudades con puntos de página;
+  - resumen arriba al hacer scroll;
+  - tirar para recargar en la app instalada;
+  - búsqueda directa;
+  - accesibilidad (resumen para el lector de pantalla y horas con etiqueta);
+  - frase de la personalidad en la imagen para compartir;
+  - estados vacíos;
+  - aviso de lluvia más tarde en la frase.
+
+**No hecho, y por qué:**
+- **Riesgo de calor por zona Meteosalud:** hace falta la tabla oficial de umbrales de Sanidad. Mientras tanto, la app compara con lo normal de la zona.
+- **Focos de incendio (NASA FIRMS):** necesita una clave gratuita (MAP_KEY) que hay que pedir. El índice actual es meteorológico, no oficial.
+- **"Mi viaje" a otra ciudad:** solo está el puente de la ciudad que se mira.
+- **Ilustraciones propias del tiempo:** es trabajo de arte y cambiaría el estilo, incluido el icono 3D que elegiste.
+- **Dynamic Type de iOS:** subiría la letra base en todos los iPhone; hay que probarlo en uno real antes.
+- **Widgets nativos:** una PWA no puede.
+- **Pendiente de confirmar en Render:** que `DATABASE_URL` esté configurada, para que las suscripciones no se borren en cada despliegue.
