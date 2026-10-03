@@ -823,6 +823,8 @@ const weatherHandler = async (req, res) => {
             if (cache) {
                 const data = JSON.parse(cache.data);
                 if (forcedName && forcedName !== "Tu ubicacion") data.location.name = forcedName;
+                // La previsión puede ser vieja, los avisos no
+                if (avisosRes.status === 'fulfilled') data.avisosOficiales = avisosRes.value.map(avisoPublico);
                 return res.json(data);
             }
             if (errorReal.response && errorReal.response.status === 429) openMeteoBlockedUntil = Date.now() + 10 * 60 * 1000;
