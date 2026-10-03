@@ -1,9 +1,9 @@
-const CACHE_NAME = 'aeris-v60';
+const CACHE_NAME = 'aeris-v61';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=41',
+    '/styles.css?v=42',
     '/app.js?v=48',
     '/vendor/bootstrap-reboot.min.css',
     '/vendor/suncalc.js',

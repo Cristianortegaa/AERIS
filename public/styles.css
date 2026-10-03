@@ -161,7 +161,7 @@ html {
 }
 /* Mientras se ve el splash, el fondo es su mismo azul (si asoma algo por
    abajo al moverse la barra del navegador, no se nota) */
-html:not(.app-ready) { background-color: #1554c0; }
+html:not(.app-ready), html:not(.app-ready) body { background: #1554c0; overflow: hidden; }
 
 body {
     font-family: var(--font-sans);
@@ -294,8 +294,10 @@ body.is-scrolled .topbar-scrim { opacity: 1; }
     align-items: center;
     justify-content: center;
     gap: 18px;
-    /* Siempre el azul de la marca, haga el tiempo que haga detrás */
-    background: linear-gradient(180deg, #1554c0 0%, #2f7fe0 55%, #5ea6ec 100%);
+    /* Siempre el azul de la marca, haga el tiempo que haga detrás. Brillo en
+       el centro y los bordes en el azul exacto del fondo y de la barra de
+       estado: así no se nota ninguna franja arriba ni abajo */
+    background: #1554c0 radial-gradient(110% 60% at 50% 46%, #4f9be8 0%, #2f7fe0 35%, #1554c0 75%);
     transition: opacity 450ms var(--ease-out), visibility 0s linear 450ms;
 }
 #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
