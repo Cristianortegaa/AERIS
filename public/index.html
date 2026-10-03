@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=30">
+    <link rel="stylesheet" href="styles.css?v=31">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -549,9 +549,19 @@
             <!-- 11. RADAR EN VIVO -->
             <section class="glass-card radar-card" id="section-mapa" aria-label="Radar meteorológico en vivo">
                 <div class="skeleton" id="radar-skeleton"></div>
-                <iframe id="radar-frame" src="" title="Radar meteorológico en vivo" loading="lazy"></iframe>
+                <div class="radar-map" id="radar-map" hidden aria-label="Mapa del radar de lluvia"></div>
+                <iframe id="radar-frame" src="" title="Precipitación prevista por el modelo" loading="lazy"></iframe>
                 <button type="button" class="radar-cover" aria-label="Activar el mapa del radar"><span><i class="bi bi-hand-index-thumb" aria-hidden="true"></i> Toca para mover el mapa</span></button>
-                <div class="radar-badge"><span class="live-dot"></span>PRECIPITACIÓN · MODELO</div>
+                <div class="radar-badge"><span class="live-dot"></span><span id="radar-badge-text">LLUVIA OBSERVADA</span></div>
+                <div class="radar-tabs" role="tablist" aria-label="Tipo de mapa">
+                    <button type="button" role="tab" data-radar-tab="radar" aria-selected="true">Radar</button>
+                    <button type="button" role="tab" data-radar-tab="modelo" aria-selected="false">Modelo</button>
+                </div>
+                <div class="radar-timeline">
+                    <button type="button" class="radar-play" id="radar-play" aria-label="Reproducir las últimas 2 horas"><i class="bi bi-play-fill"></i></button>
+                    <input type="range" id="radar-range" min="0" max="0" value="0" step="1" aria-label="Momento del radar" disabled>
+                    <span class="radar-time" id="radar-time">Cargando…</span>
+                </div>
             </section>
         </div>
     </div>
@@ -601,7 +611,7 @@
 <!-- APP JS -->
 <script src="vendor/suncalc.js"></script>
 <script src="weather-core.js?v=2"></script>
-<script src="app.js?v=32"></script>
+<script src="app.js?v=35"></script>
 
 </body>
 </html>

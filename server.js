@@ -46,7 +46,8 @@ app.use(helmet({
             // instalación y, sin service worker, no hay notificaciones).
             "connect-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com",
                 "https://api.open-meteo.com", "https://air-quality-api.open-meteo.com", "https://geocoding-api.open-meteo.com",
-                "https://ensemble-api.open-meteo.com", "https://archive-api.open-meteo.com"],
+                "https://ensemble-api.open-meteo.com", "https://archive-api.open-meteo.com", "https://marine-api.open-meteo.com",
+                "https://api.rainviewer.com"],
             "frame-src": ["https://embed.windy.com"],
             "object-src": ["'none'"],
             "upgrade-insecure-requests": null

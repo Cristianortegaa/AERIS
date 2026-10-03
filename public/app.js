@@ -2555,6 +2555,133 @@ function openParte() {
 }
 
 // ============================================================
+// 26k. RADAR PROPIO (lluvia observada de RainViewer sobre Leaflet)
+// ============================================================
+// Últimas 2 h cada 10 min, con línea de tiempo y reproducir. Windy queda
+// como pestaña "Modelo". Leaflet se carga solo cuando la tarjeta se acerca.
+const RADAR = { map: null, base: null, layers: [], frames: [], host: '', idx: -1, timer: null, marker: null, loadedAt: 0, mode: 'radar', loading: null };
+const loadCSS = (href) => new Promise((res) => {
+    if (document.querySelector(`link[href="${href}"]`)) return res();
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; l.onload = res; l.onerror = res; document.head.appendChild(l);
+});
+const loadLeaflet = () => RADAR.loading || (RADAR.loading = Promise.all([
+    loadCSS('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'),
+    (typeof L !== 'undefined') ? Promise.resolve() : loadScriptOnce('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js')
+]));
+
+function radarFrameLabel(t) {
+    const mins = Math.round((Date.now() / 1000 - t) / 60);
+    const hm = new Date(t * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    return mins <= 10 ? `Ahora · ${hm}` : `Hace ${mins} min · ${hm}`;
+}
+function showRadarFrame(i) {
+    if (!RADAR.frames.length) return;
+    i = (i + RADAR.frames.length) % RADAR.frames.length;
+    if (!RADAR.layers[i]) {
+        RADAR.layers[i] = L.tileLayer(`${RADAR.host}${RADAR.frames[i].path}/256/{z}/{x}/{y}/2/1_1.png`, {
+            opacity: 0, maxNativeZoom: 7, maxZoom: 10, zIndex: 10, attribution: '<a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>'
+        }).addTo(RADAR.map);
+    }
+    RADAR.layers.forEach((l, k) => l && l.setOpacity(k === i ? 0.78 : 0));
+    // Precarga el siguiente para que la reproducción no parpadee
+    const n = (i + 1) % RADAR.frames.length;
+    if (!RADAR.layers[n]) RADAR.layers[n] = L.tileLayer(`${RADAR.host}${RADAR.frames[n].path}/256/{z}/{x}/{y}/2/1_1.png`, { opacity: 0, maxNativeZoom: 7, maxZoom: 10, zIndex: 10 }).addTo(RADAR.map);
+    RADAR.idx = i;
+    const range = document.getElementById('radar-range'), label = document.getElementById('radar-time');
+    if (range) range.value = i;
+    if (label) label.textContent = radarFrameLabel(RADAR.frames[i].time);
+}
+async function loadRadarFrames() {
+    const r = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    const j = await r.json();
+    RADAR.host = j.host;
+    RADAR.frames = (j.radar && j.radar.past) || [];
+    RADAR.layers.forEach(l => l && RADAR.map.removeLayer(l));
+    RADAR.layers = [];
+    RADAR.loadedAt = Date.now();
+    const range = document.getElementById('radar-range');
+    if (range) { range.max = Math.max(0, RADAR.frames.length - 1); range.disabled = !RADAR.frames.length; }
+    showRadarFrame(RADAR.frames.length - 1);
+}
+function stopRadarPlay() {
+    clearInterval(RADAR.timer); RADAR.timer = null;
+    const b = document.getElementById('radar-play');
+    if (b) { b.querySelector('i').className = 'bi bi-play-fill'; b.setAttribute('aria-label', 'Reproducir las últimas 2 horas'); }
+}
+async function ensureRadar() {
+    const d = window._lastFullData;
+    const box = document.getElementById('radar-map');
+    if (!box || !d || !Number.isFinite(+d.location?.lat)) return;
+    const lat = +d.location.lat, lon = +d.location.lon;
+    try {
+        await loadLeaflet();
+        if (!RADAR.map) {
+            box.hidden = false;
+            RADAR.map = L.map(box, { zoomControl: false, attributionControl: true, minZoom: 4, maxZoom: 10, zoomSnap: 0.5 }).setView([lat, lon], 7);
+            RADAR.map.attributionControl.setPrefix(false);
+            // Mapa base oscuro de Esri (sin clave) y sus nombres por encima de la lluvia
+            const esri = (layer) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${layer}/MapServer/tile/{z}/{y}/{x}`;
+            RADAR.base = L.tileLayer(esri('World_Dark_Gray_Base'), { maxZoom: 10, maxNativeZoom: 16, attribution: 'Mapa © <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>' }).addTo(RADAR.map);
+            L.tileLayer(esri('World_Dark_Gray_Reference'), { maxZoom: 10, zIndex: 20 }).addTo(RADAR.map);
+            RADAR.marker = L.circleMarker([lat, lon], { radius: 6, weight: 3, color: '#fff', fillColor: '#3b82f6', fillOpacity: 1 }).addTo(RADAR.map);
+            document.getElementById('radar-skeleton').style.display = 'none';
+        } else {
+            RADAR.map.setView([lat, lon], RADAR.map.getZoom() < 6 ? 7 : RADAR.map.getZoom());
+            RADAR.marker.setLatLng([lat, lon]);
+        }
+        if (Date.now() - RADAR.loadedAt > 10 * 60 * 1000) await loadRadarFrames();
+        setTimeout(() => RADAR.map && RADAR.map.invalidateSize(), 50);
+    } catch (e) {
+        console.warn('radar', e.message);
+        setRadarMode('modelo'); // si falla, al menos el modelo
+    }
+}
+function setRadarMode(mode) {
+    RADAR.mode = mode;
+    const card = document.getElementById('section-mapa');
+    card.classList.toggle('mode-modelo', mode === 'modelo');
+    document.querySelectorAll('[data-radar-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.radarTab === mode));
+    document.getElementById('radar-badge-text').textContent = mode === 'modelo' ? 'LLUVIA PREVISTA' : 'LLUVIA OBSERVADA';
+    if (mode === 'modelo') {
+        stopRadarPlay();
+        const d = window._lastFullData, iframe = document.getElementById('radar-frame');
+        if (d && iframe) {
+            const loc = d.location;
+            const url = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
+            if (iframe.src !== url) iframe.src = url;
+        }
+    } else ensureRadar();
+}
+(function initRadar() {
+    const card = document.getElementById('section-mapa');
+    if (!card) return;
+    card.addEventListener('click', (e) => {
+        const tab = e.target.closest('[data-radar-tab]');
+        if (tab) { setRadarMode(tab.dataset.radarTab); return; }
+        if (e.target.closest('#radar-play')) {
+            if (RADAR.timer) return stopRadarPlay();
+            if (!RADAR.frames.length) return;
+            const b = document.getElementById('radar-play');
+            b.querySelector('i').className = 'bi bi-pause-fill';
+            b.setAttribute('aria-label', 'Pausar');
+            if (RADAR.idx === RADAR.frames.length - 1) showRadarFrame(0);
+            // 600 ms por fotograma; al llegar al último se para en "ahora"
+            RADAR.timer = setInterval(() => {
+                if (RADAR.idx >= RADAR.frames.length - 1) return stopRadarPlay();
+                showRadarFrame(RADAR.idx + 1);
+            }, prefersReducedMotion() ? 1200 : 600);
+        }
+    });
+    document.getElementById('radar-range')?.addEventListener('input', (e) => { stopRadarPlay(); showRadarFrame(Number(e.target.value)); });
+    // Se carga al acercarse la tarjeta (no en el arranque)
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver((entries) => {
+            if (entries.some(en => en.isIntersecting) && RADAR.mode === 'radar') ensureRadar();
+        }, { rootMargin: '600px 0px' }).observe(card);
+    }
+})();
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -2662,11 +2789,10 @@ const renderWeather = (data) => {
     }
     if (loc.timezone) startLocalTime(loc.timezone);
 
-    // Radar
+    // Radar: si ya está cargado, se recentra en la ciudad (si no, se carga al acercarse)
     if (loc.lat && loc.lon) {
-        const radarUrl = `https://embed.windy.com/embed2.html?lat=${loc.lat}&lon=${loc.lon}&detailLat=${loc.lat}&detailLon=${loc.lon}&width=650&height=450&zoom=8&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
-        const iframe = document.getElementById('radar-frame');
-        if (iframe && iframe.src !== radarUrl) iframe.src = radarUrl;
+        if (RADAR.mode === 'modelo') setRadarMode('modelo');
+        else if (RADAR.map) ensureRadar();
     }
 
     // Hourly

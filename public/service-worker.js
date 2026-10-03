@@ -1,10 +1,10 @@
-const CACHE_NAME = 'aeris-v41';
+const CACHE_NAME = 'aeris-v44';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=30',
-    '/app.js?v=32',
+    '/styles.css?v=31',
+    '/app.js?v=35',
     '/vendor/bootstrap-reboot.min.css',
     '/vendor/suncalc.js',
     '/weather-core.js?v=2',
@@ -18,6 +18,7 @@ const CORE_ASSETS = [
 // Lo de CDNs es un extra para el modo sin conexión: si alguno no se puede
 // guardar, se ignora. (Antes un solo fallo aquí tumbaba la instalación entera
 // y el service worker nunca se activaba: sin él no hay notificaciones.)
+const CDN_ORIGINS = ['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
 const EXTRA_ASSETS = [
     'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
     'https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400..600&display=swap'
@@ -48,9 +49,12 @@ self.addEventListener('fetch', (event) => {
     if (req.method !== 'GET') return; // POST (suscripción) va directo a la red
 
     const url = new URL(req.url);
-    // De otros dominios solo servimos lo que ya esté en caché; si no, el
-    // navegador lo pide él mismo (así no dependemos de la CSP del worker).
+    // De otros dominios solo se interceptan los CDN que se guardan para el modo
+    // sin conexión. El resto (teselas del radar, APIs del tiempo...) va directo:
+    // desde el worker, fetch() queda limitado por la CSP (connect-src) y las
+    // imágenes de mapas fallarían.
     if (url.origin !== self.location.origin) {
+        if (!CDN_ORIGINS.includes(url.origin)) return;
         event.respondWith(caches.match(req).then(r => r || fetch(req)));
         return;
     }

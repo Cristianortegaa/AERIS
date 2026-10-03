@@ -2530,3 +2530,31 @@ body.hero-out.has-live-pill .live-pill {
 .ob-persona { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 16px; font-size: 0.75rem; }
 .ob-persona span { font-size: 1.4rem; }
 .ob-preview { min-height: 2.8em; margin-top: 14px !important; font-style: italic; }
+
+/* ============================================================
+   RADAR PROPIO
+   ============================================================ */
+.radar-map { position: absolute; inset: 0; z-index: 2; background: #0b1220; }
+.radar-map[hidden] { display: none; }
+.radar-card #radar-frame { display: none; }
+.radar-card.mode-modelo #radar-frame { display: block; }
+.radar-card.mode-modelo .radar-map, .radar-card.mode-modelo .radar-timeline { display: none; }
+.radar-tabs {
+    position: absolute; top: 10px; right: 10px; z-index: 6;
+    display: flex; padding: 3px; border-radius: 99px;
+    background: rgba(0, 0, 0, 0.52); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.radar-tabs button { padding: 5px 12px; border: 0; border-radius: 99px; background: transparent; color: rgba(255, 255, 255, 0.75); font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.radar-tabs button[aria-selected="true"] { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.radar-timeline {
+    position: absolute; left: 10px; right: 10px; bottom: 26px; z-index: 6;
+    display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 99px;
+    background: rgba(0, 0, 0, 0.55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.radar-play { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fff; color: #0b1220; font-size: 1.1rem; cursor: pointer; }
+.radar-play:active { transform: scale(0.95); }
+#radar-range { flex: 1; min-width: 0; accent-color: #8fd3ff; }
+.radar-time { flex: none; min-width: 7.5rem; text-align: right; font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: #fff; }
+.radar-card .leaflet-control-attribution { background: rgba(0, 0, 0, 0.5); color: rgba(255, 255, 255, 0.7); font-size: 9px; }
+.radar-card .leaflet-control-attribution a { color: rgba(255, 255, 255, 0.85); }
+.radar-card .leaflet-container { background: #0b1220; font-family: var(--font-sans); }
