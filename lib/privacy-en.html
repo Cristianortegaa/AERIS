@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Privacy · AERIS</title>
+    <meta name="description" content="What data AERIS uses, why, and how to delete it. No accounts, no ads, no tracking.">
+    <meta name="theme-color" content="#1554c0">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100dvh;
+            padding: max(24px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            color: #fff;
+            background: #0b1a3a linear-gradient(180deg, #1554c0 0%, #0f2f6e 40%, #0b1a3a 100%) no-repeat;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.55;
+        }
+        main { max-width: 640px; margin: 0 auto; }
+        a { color: #9fd0ff; }
+        .back { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; color: #fff; opacity: 0.85; text-decoration: none; }
+        h1 { margin: 18px 0 6px; font-size: 1.8rem; font-weight: 650; letter-spacing: -0.03em; }
+        .lead { margin: 0 0 22px; font-size: 1.02rem; opacity: 0.92; }
+        h2 { margin: 28px 0 8px; font-size: 1.1rem; font-weight: 650; }
+        p, li { font-size: 0.95rem; opacity: 0.9; }
+        ul { padding-left: 20px; margin: 8px 0; }
+        li { margin: 4px 0; }
+        .card {
+            margin-top: 12px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+        .card p { margin: 0; }
+        .small { margin-top: 32px; font-size: 0.8rem; opacity: 0.65; }
+    </style>
+</head>
+<body>
+<main>
+    <a class="back" href="/en/">← Back to AERIS</a>
+    <h1>Privacy</h1>
+    <p class="lead">AERIS has no accounts, no ads, no analytics and no tracking cookies. Here, with no small print, is what data is used and how to delete it.</p>
+
+    <h2>What stays on your phone</h2>
+    <p>Your favourite cities, your trips, your settings (theme, units, personality, language) and the latest weather data are stored only in your browser, so the app opens fast and works offline. They aren't sent anywhere. They're deleted when you clear the site's data or uninstall the app.</p>
+
+    <h2>Your location</h2>
+    <p>If you allow it, the app uses your location to show the weather where you are. The coordinates are sent to the AERIS server and to Open-Meteo only to get that forecast. The server keeps a copy of the weather for that point for 24 hours at most, to avoid repeating requests, with nothing linking it to you. Your location is only stored linked to you if you turn on notifications (see below). You can use the app without sharing your location: just search for a city.</p>
+
+    <h2>Notifications (only if you turn them on)</h2>
+    <p>To alert you about rain, storms or AEMET warnings, the AERIS server stores:</p>
+    <ul>
+        <li>the delivery address your browser creates for notifications (it doesn't include your name or email);</li>
+        <li>the places you watch: coordinates, city and region name (your location or the city you look at, plus up to 2 more places you add);</li>
+        <li>your time zone, the app language, your alert preferences and which alerts you've already been sent, so they aren't repeated.</li>
+    </ul>
+    <p>It's used only to send you those alerts, because you ask for them when you turn them on (consent, Article 6(1)(a) GDPR). Notifications are delivered by your browser's service (Apple, Google or Mozilla). The data is kept until you turn alerts off or your browser cancels the subscription; it's then deleted from the server.</p>
+
+    <h2>External services</h2>
+    <p>To work, your phone connects directly to these services, which see your IP address like any website you visit:</p>
+    <ul>
+        <li><a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>: forecast, air quality, pollen and city search.</li>
+        <li><a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> and <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>: the radar and the map. <a href="https://www.windy.com/" target="_blank" rel="noopener">Windy</a>, only if you open that tab.</li>
+        <li><a href="https://www.jsdelivr.com/" target="_blank" rel="noopener">jsDelivr</a>: icons and libraries. The font is served by the app itself.</li>
+    </ul>
+    <p>The AERIS server is hosted by <a href="https://render.com/" target="_blank" rel="noopener">Render</a>, which may log technical request data (such as the IP address) for a limited time for security. AERIS doesn't keep logs with your IP.</p>
+
+    <h2>Your rights</h2>
+    <ul>
+        <li><b>Delete what's on the server:</b> in the app, bell → alert settings → <b>Turn off</b>. Everything AERIS stores about you is deleted.</li>
+        <li><b>Delete what's on your phone:</b> clear the site's data in your browser or uninstall the app.</li>
+        <li>{{CONTACTO}}</li>
+        <li>If you think your data isn't being respected, you can complain to the <a href="https://www.aepd.es/en" target="_blank" rel="noopener">Spanish Data Protection Agency (AEPD)</a>.</li>
+    </ul>
+
+    <h2>Data sources</h2>
+    <div class="card">
+        <p>Weather data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> licence), with models from ECMWF, DWD, Météo-France, AEMET and others.<br>
+        Warnings and observations: information produced by the <a href="https://www.aemet.es/en/portada" target="_blank" rel="noopener">Spanish State Meteorological Agency</a> (© AEMET).<br>
+        Heat health risk: thresholds from Spain's Ministry of Health (Meteosalud).<br>
+        Heat spots: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a>.<br>
+        Weather icons: Meteocons by Bas Milius (MIT).</p>
+    </div>
+
+    <p class="small">Last updated: 3 October 2026. <a href="/privacidad">Versión en español</a></p>
+</main>
+</body>
+</html>

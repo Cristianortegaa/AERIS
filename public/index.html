@@ -19,6 +19,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
     <title>AERIS - Tu App del Tiempo</title>
     <meta name="description" content="AERIS es tu app del tiempo con personalidad. Pronóstico, alertas de lluvia, calidad del aire, polen y recomendaciones de ropa según el clima.">
+    <!--hreflang: el servidor lo cambia en /en/ y en las páginas de cada ciudad-->
+    <link rel="alternate" hreflang="es" href="https://aeris-ghg8.onrender.com/">
+    <link rel="alternate" hreflang="en" href="https://aeris-ghg8.onrender.com/en/">
+    <link rel="alternate" hreflang="x-default" href="https://aeris-ghg8.onrender.com/">
+    <!--/hreflang-->
 
     <!-- Open Graph -->
     <meta property="og:title" content="AERIS - El tiempo con personalidad 🤖⚡">
@@ -38,7 +43,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=46">
+    <link rel="stylesheet" href="styles.css?v=47">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -295,7 +300,11 @@
         <div class="fav-credits">
             <span>AERIS WEATHER</span>
             <span>Datos: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0) · <a href="https://www.aemet.es/" target="_blank" rel="noopener">© AEMET</a></span>
-            <a href="/privacidad">Privacidad</a>
+            <a href="/privacidad" data-privacy>Privacidad</a>
+        </div>
+        <div class="lang-switch" role="group" aria-label="Idioma">
+            <button type="button" data-lang="es">Español</button>
+            <button type="button" data-lang="en">English</button>
         </div>
     </div>
 </aside>
@@ -669,8 +678,12 @@
 
 <!-- APP JS -->
 <script src="vendor/suncalc.js"></script>
-<script src="weather-core.js?v=2"></script>
-<script src="app.js?v=51"></script>
+<script src="weather-core.js?v=3"></script>
+<!-- Idioma: diccionarios (español → inglés) y el módulo que elige el idioma -->
+<script src="i18n/en.js?v=1"></script>
+<script src="i18n/personas-en.js?v=1"></script>
+<script src="i18n.js?v=1"></script>
+<script src="app.js?v=52"></script>
 
 </body>
 </html>

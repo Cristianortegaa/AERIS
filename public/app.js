@@ -97,6 +97,14 @@ const aiLogic = {
     novia:      { icon: "👩‍❤️‍💋‍👨", name: "Novia",     tips: { hot: ["Vamos a la playa, porfi.", "Hace demasiado calor para abrazarnos.", "¿Me compras un helado?", "Ponte guapo pero fresco.", "Quiero ir a una terraza.", "Mis pelos con esta humedad...", "Llévame a ver el atardecer."], cold: ["Tengo las manos heladas, caliéntamelas.", "Dame tu sudadera, tengo frío.", "Día de peli y manta.", "No siento los pies.", "Abrázame fuerte.", "Quiero un chocolate caliente.", "No salgamos, hace frío."], rain: ["Se me va a encrespar el pelo.", "Plan romántico en casa.", "Qué lluvia más triste... abrázame.", "Recógeme en coche.", "Día de spa en casa.", "Parece una peli romántica.", "No me quiero mojar."], snow: ["¡Qué romántico! Hazme una foto.", "Vamos a hacer un muñeco de nieve.", "Tengo frío, caliéntame.", "Todo está precioso.", "Quiero ir a esquiar contigo.", "Parece de cuento.", "Dame tu abrigo."], wind: ["Se me enreda el pelo, qué horror.", "No puedo llevar falda hoy.", "Vámonos, qué viento más molesto.", "Sujétame que me vuelo.", "Mis labios se cortan.", "Qué tiempo más loco.", "No me gusta el viento."], cloudy: ["Qué día más tonto.", "Vamos de compras.", "No hay buena luz para fotos.", "Me aburro, entretenme.", "Día de mimos.", "Está feo fuera, quedémonos dentro.", "No sé qué ponerme."], nice: ["¿Hacemos un picnic?", "Sácame una foto con este sol.", "Vamos a pasear de la mano.", "Estás muy guapo hoy.", "Qué día más bonito, como tú.", "Vamos de compras.", "Día de cita."], allergy: ["Tengo la nariz roja, no me mires.", "Tráeme pañuelos, porfi.", "Me pican los ojos.", "Cierra la ventana, que me pongo mala.", "¿Me cuidas?"] } }
 };
 
+// En inglés, nombres y frases adaptados (no traducidos al pie de la letra)
+if (LANG === 'en' && window.AERIS_PERSONAS_EN) {
+    Object.keys(aiLogic).forEach(k => {
+        const en = window.AERIS_PERSONAS_EN[k];
+        if (en) Object.assign(aiLogic[k], { name: en.name, tips: en.tips });
+    });
+}
+
 // ============================================================
 // 3. ESTADO GLOBAL
 // ============================================================
@@ -197,7 +205,7 @@ const showSearchHistory = () => {
     const history = JSON.parse(localStorage.getItem('aeris_history') || '[]');
     if (history.length === 0) return;
     const sl = document.getElementById('suggestions');
-    sl.innerHTML = '<li class="history-header text-uppercase fw-bold">Recientes</li>';
+    sl.innerHTML = `<li class="history-header text-uppercase fw-bold">${t('Recientes')}</li>`;
     history.forEach(c => {
         const li = document.createElement('li');
         li.className = 'suggestion-item';
@@ -300,6 +308,9 @@ const tempColor = (t) => {
     }
     return `rgb(${TEMP_STOPS[TEMP_STOPS.length - 1][1]})`;
 };
+
+// Dirección del viento en el idioma de la app (el servidor la da en español)
+const dirName = (d) => LANG === 'en' ? ({ SO: 'SW', O: 'W', NO: 'NW' }[d] || d) : d;
 
 const normalizeInput = (str) => str.normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -539,8 +550,8 @@ function renderSolarClock(sunrise, sunset, timezone) {
     const pct = total > 0 ? elapsed / total : 0;
 
     const pctEl = document.getElementById('solar-pct');
-    if (pctEl) pctEl.textContent = nowMin < srMin ? 'Antes del amanecer' :
-        nowMin > ssMin ? 'Sol bajo el horizonte' : `${Math.round(pct * 100)}% del día transcurrido`;
+    if (pctEl) pctEl.textContent = nowMin < srMin ? t('Antes del amanecer') :
+        nowMin > ssMin ? t('Sol bajo el horizonte') : t('{pct}% del día transcurrido', { pct: Math.round(pct * 100) });
 
     // Dibujar después de que el DOM actualice las dimensiones
     requestAnimationFrame(() => {
@@ -604,7 +615,7 @@ function renderSolarClock(sunrise, sunset, timezone) {
 // SunCalc (vendor/suncalc.js) da la fase y la iluminación reales y la
 // salida/puesta de la luna para ese sitio; antes era un emoji con un ciclo medio.
 const MOON_NAMES = ['Luna nueva', 'Creciente', 'Cuarto creciente', 'Gibosa creciente', 'Luna llena', 'Gibosa menguante', 'Cuarto menguante', 'Menguante'];
-const moonName = (phase) => MOON_NAMES[Math.round(phase * 8) % 8];
+const moonName = (phase) => t(MOON_NAMES[Math.round(phase * 8) % 8]);
 
 // Dibujo de la fase: disco oscuro + parte iluminada (dos arcos)
 function moonSVG(phase, size = 22) {
@@ -628,13 +639,13 @@ function renderMoon(lat, lon, timezone) {
     const pct = Math.round(ill.fraction * 100);
     let times = '';
     if (Number.isFinite(+lat) && Number.isFinite(+lon)) {
-        const t = SunCalc.getMoonTimes(now, +lat, +lon);
-        const fmt = (d) => d ? new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone || undefined }).format(d) : null;
-        const rise = fmt(t.rise), set = fmt(t.set);
-        times = [rise && `sale ${rise}`, set && `se pone ${set}`].filter(Boolean).join(' · ');
+        const mt = SunCalc.getMoonTimes(now, +lat, +lon);
+        const fmt = (d) => d ? new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone || undefined }).format(d) : null;
+        const rise = fmt(mt.rise), set = fmt(mt.set);
+        times = [rise && t('sale {h}', { h: rise }), set && t('se pone {h}', { h: set })].filter(Boolean).join(' · ');
     }
     el.innerHTML = `${moonSVG(ill.phase)}<span>${moonName(ill.phase)} · ${pct}%</span>`;
-    el.title = times ? `${moonName(ill.phase)}, ${pct} % iluminada. ${times}` : `${moonName(ill.phase)}, ${pct} % iluminada`;
+    el.title = t('{name}, {pct} % iluminada', { name: moonName(ill.phase), pct }) + (times ? `. ${times}` : '');
     const timesEl = document.getElementById('moon-times');
     if (timesEl) timesEl.textContent = times;
 }
@@ -649,8 +660,8 @@ function startLocalTime(timezone) {
     if (localTimeInterval) clearInterval(localTimeInterval);
     const update = () => {
         try {
-            const time = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: timezone, hour12: false }).format(new Date());
-            el.textContent = `${time} · hora local`;
+            const time = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', timeZone: timezone, hour12: false }).format(new Date());
+            el.textContent = `${time} · ${t('hora local')}`;
             el.style.display = 'block';
         } catch { el.style.display = 'none'; }
     };
@@ -691,7 +702,7 @@ function calcComfort(temp, humidity, windSpeed, uv, desc) {
     if (score < 30) { label = 'Malo 😰'; color = '#ef4444'; }
     else if (score < 55) { label = 'Regular 😐'; color = '#facc15'; }
     else if (score < 75) { label = 'Bueno 🙂'; color = '#86efac'; }
-    return { score, label, color };
+    return { score, label: t(label), color };
 }
 
 function renderComfort(temp, humidity, windSpeed, uv, desc) {
@@ -716,9 +727,9 @@ function updatePressureTrend(diff) {
     const trendEl = document.getElementById('pressure-trend');
     if (!trendEl) return;
     if (diff == null) { trendEl.textContent = ''; return; }
-    if (diff > 1) { trendEl.textContent = '↑'; trendEl.className = 'ms-1 trend-up'; trendEl.title = 'Subiendo: puede mejorar'; }
-    else if (diff < -1) { trendEl.textContent = '↓'; trendEl.className = 'ms-1 trend-down'; trendEl.title = 'Bajando: puede empeorar'; }
-    else { trendEl.textContent = '→'; trendEl.className = 'ms-1 trend-stable'; trendEl.title = 'Estable'; }
+    if (diff > 1) { trendEl.textContent = '↑'; trendEl.className = 'ms-1 trend-up'; trendEl.title = t('Subiendo: puede mejorar'); }
+    else if (diff < -1) { trendEl.textContent = '↓'; trendEl.className = 'ms-1 trend-down'; trendEl.title = t('Bajando: puede empeorar'); }
+    else { trendEl.textContent = '→'; trendEl.className = 'ms-1 trend-stable'; trendEl.title = t('Estable'); }
 }
 
 // ============================================================
@@ -729,7 +740,7 @@ async function renderTempChart(daily, placeChanged = true) {
     const card = document.getElementById('temp-chart-card');
     if (!card || !daily || daily.length < 3) { if (card) card.style.display = 'none'; return; }
     card.style.display = 'block';
-    const labels  = daily.map(d => { const dt = new Date(d.fecha.replace(/-/g, '/')); return dt.toLocaleDateString('es-ES', { weekday: 'short' }); });
+    const labels  = daily.map(d => { const dt = new Date(d.fecha.replace(/-/g, '/')); return dt.toLocaleDateString(LOCALE, { weekday: 'short' }); });
     const maxTemps = daily.map(d => useFahrenheit ? toF(d.tempMax) : d.tempMax);
     const minTemps = daily.map(d => useFahrenheit ? toF(d.tempMin) : d.tempMin);
     const cCtx = document.getElementById('tempChart');
@@ -751,8 +762,8 @@ async function renderTempChart(daily, placeChanged = true) {
         data: {
             labels,
             datasets: [
-                { label: 'Máx', data: maxTemps, borderColor: '#ffb070', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#ffb070', pointBorderWidth: 0, fill: false, tension: 0.4 },
-                { label: 'Mín', data: minTemps, borderColor: '#8cc8ff', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#8cc8ff', pointBorderWidth: 0, fill: false, tension: 0.4 }
+                { label: t('Máx'), data: maxTemps, borderColor: '#ffb070', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#ffb070', pointBorderWidth: 0, fill: false, tension: 0.4 },
+                { label: t('Mín'), data: minTemps, borderColor: '#8cc8ff', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#8cc8ff', pointBorderWidth: 0, fill: false, tension: 0.4 }
             ]
         },
         options: {
@@ -823,7 +834,7 @@ window.downloadShareCard = async (btn) => {
         const blob = await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob')), 'image/png'));
         const file = new File([blob], `aeris-${(currentCityInfo.name || 'weather').toLowerCase()}.png`, { type: 'image/png' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try { await navigator.share({ files: [file], title: 'El tiempo en AERIS' }); return; }
+            try { await navigator.share({ files: [file], title: t('El tiempo en AERIS') }); return; }
             catch (e) { if (e.name === 'AbortError') return; } // cancelado por el usuario: nada más
         }
         const link = document.createElement('a');
@@ -833,7 +844,7 @@ window.downloadShareCard = async (btn) => {
         setTimeout(() => URL.revokeObjectURL(link.href), 4000);
     } catch (e) {
         console.error(e);
-        showToast('No se pudo generar la imagen. Inténtalo de nuevo.', 'warn');
+        showToast(t('No se pudo generar la imagen. Inténtalo de nuevo.'), 'warn');
     } finally {
         setBusy(btn, false);
     }
@@ -845,7 +856,7 @@ function openShareCard(data) {
     const cur = data.current, loc = data.location;
     document.getElementById('share-city-name').textContent = (loc.name || '').toUpperCase();
     document.getElementById('share-temp-big').textContent  = fmtTemp(cur.temp) + (useFahrenheit ? '°F' : '°');
-    document.getElementById('share-desc').textContent      = cur.desc;
+    document.getElementById('share-desc').textContent      = t(cur.desc);
     const sp = document.getElementById('share-phrase');
     if (sp) sp.textContent = `${aiLogic[currentPersona]?.icon || ''} ${document.getElementById('tip-text')?.innerText || ''}`.trim();
     document.getElementById('share-feels').textContent     = `💧 ${cur.humidity}%`;
@@ -878,13 +889,13 @@ const updateAIText = (cur, highPollen = false) => {
     const p = aiLogic[currentPersona];
     document.getElementById('tip-icon').innerText = p.icon;
     let key = 'nice';
-    const d = cur.desc.toLowerCase(), t = cur.temp, w = cur.windSpeed;
+    const d = cur.desc.toLowerCase(), temp = cur.temp, w = cur.windSpeed;
     if (highPollen) key = 'allergy';
     else if (d.includes('nieve') || d.includes('nevada') || d.includes('granizo') || d.includes('aguanieve')) key = 'snow';
     else if (d.includes('tormenta') || d.includes('trueno') || d.includes('lluvia') || d.includes('llovizna') || d.includes('chubasco')) key = 'rain';
     else if (w > 25) key = 'wind';
-    else if (t > 28) key = 'hot';
-    else if (t < 12) key = 'cold';
+    else if (temp > 28) key = 'hot';
+    else if (temp < 12) key = 'cold';
     else if (d.includes('nublado') || d.includes('cubierto') || d.includes('nubes') || d.includes('niebla')) key = 'cloudy';
     const frases = p.tips[key] || p.tips['nice'];
     // Con un aviso naranja o rojo la personalidad no bromea: tono neutro
@@ -901,7 +912,7 @@ const updateAIText = (cur, highPollen = false) => {
         if (key !== 'rain' && key !== 'snow' && d) {
             const up = upcomingHours(d).slice(0, 10);
             const wet = up.find(h => (h.precip || 0) >= 0.2 || (h.rainProb || 0) >= 60); // mismo criterio que el resumen
-            if (wet) frase += ` (Ojo: lluvia hacia las ${String((wet.hour + 23) % 24).padStart(2, '0')}:00.)`;
+            if (wet) frase += t(' (Ojo: lluvia hacia las {h}:00.)', { h: String((wet.hour + 23) % 24).padStart(2, '0') });
         }
         document.getElementById('tip-text').innerText = frase;
     }
@@ -912,15 +923,15 @@ const updateAIText = (cur, highPollen = false) => {
         // Solo texto: un icono que no representa la prenda solo añade ruido
         const tag = (i, kind) => `<span class="clothing-tag ${kind}">${i.text}</span>`;
         let html =
-            `<div class="outfit-group"><span class="outfit-group-label">Ellos</span><div class="outfit-tags">${clothes.boys.map(i => tag(i, 'boy')).join('')}</div></div>` +
-            `<div class="outfit-group"><span class="outfit-group-label">Ellas</span><div class="outfit-tags">${clothes.girls.map(i => tag(i, 'girl')).join('')}</div></div>`;
+            `<div class="outfit-group"><span class="outfit-group-label">${t('Ellos')}</span><div class="outfit-tags">${clothes.boys.map(i => tag(i, 'boy')).join('')}</div></div>` +
+            `<div class="outfit-group"><span class="outfit-group-label">${t('Ellas')}</span><div class="outfit-tags">${clothes.girls.map(i => tag(i, 'girl')).join('')}</div></div>`;
         if (clothes.tip) html += `<div class="outfit-tip"><i class="bi ${clothes.tip.icon}" aria-hidden="true"></i><span>${clothes.tip.text}</span></div>`;
         clothingContainer.innerHTML = html;
     }
 };
 
 const getClothingList = (temp, desc, wind, uv) => {
-    const item = (text) => ({ text });
+    const item = (text) => ({ text: t(text) });
     let boys = [], girls = [], tip = null;
     desc = desc.toLowerCase();
     const isRain = desc.includes('lluvia') || desc.includes('llovizna') || desc.includes('tormenta');
@@ -939,12 +950,12 @@ const getClothingList = (temp, desc, wind, uv) => {
     if (isSnow)    { boys.push(item('Botas Nieve')); girls.push(item('Botas Nieve')); boys.push(item('Guantes')); girls.push(item('Guantes')); }
     if (uv > 5 && isClear) { boys.push(item('Gafas Sol')); girls.push(item('Gafas Sol')); boys.push(item('Gorra')); girls.push(item('Sombrero')); }
     // Un consejo práctico según el tiempo (sin enlaces: la app no es comercial)
-    if (isRain && wind > 25) tip = { text: 'Viento y lluvia: mejor un paraguas antiviento o chubasquero', icon: 'bi-umbrella-fill' };
-    else if (isRain)    tip = { text: 'Lleva paraguas: hoy toca mojarse', icon: 'bi-umbrella-fill' };
-    else if (isSnow)    tip = { text: 'Si vas a conducir, lleva cadenas en el coche', icon: 'bi-snow2' };
-    else if (uv > 7)    tip = { text: `UV muy alto (${uv}): crema solar 50+ y gafas`, icon: 'bi-sun-fill' };
-    else if (temp > 32) tip = { text: 'Calor fuerte: ropa clara, agua y sombra', icon: 'bi-thermometer-sun' };
-    else if (temp < 4)  tip = { text: 'Frío intenso: abrígate por capas y protege manos y orejas', icon: 'bi-thermometer-snow' };
+    if (isRain && wind > 25) tip = { text: t('Viento y lluvia: mejor un paraguas antiviento o chubasquero'), icon: 'bi-umbrella-fill' };
+    else if (isRain)    tip = { text: t('Lleva paraguas: hoy toca mojarse'), icon: 'bi-umbrella-fill' };
+    else if (isSnow)    tip = { text: t('Si vas a conducir, lleva cadenas en el coche'), icon: 'bi-snow2' };
+    else if (uv > 7)    tip = { text: t('UV muy alto ({uv}): crema solar 50+ y gafas', { uv }), icon: 'bi-sun-fill' };
+    else if (temp > 32) tip = { text: t('Calor fuerte: ropa clara, agua y sombra'), icon: 'bi-thermometer-sun' };
+    else if (temp < 4)  tip = { text: t('Frío intenso: abrígate por capas y protege manos y orejas'), icon: 'bi-thermometer-snow' };
     return { boys: boys.slice(0, 5), girls: girls.slice(0, 5), tip };
 };
 
@@ -1056,7 +1067,7 @@ const updateHeartUI = () => {
     const exists = favorites.some(f => String(f.id) === String(currentCityInfo.id));
     heart.classList.toggle('is-active', exists);
     heart.setAttribute('aria-pressed', exists);
-    heart.setAttribute('aria-label', exists ? 'Quitar de favoritos' : 'Añadir a favoritos');
+    heart.setAttribute('aria-label', exists ? t('Quitar de favoritos') : t('Añadir a favoritos'));
     const icon = heart.querySelector('i');
     if (icon) icon.className = exists ? 'bi bi-heart-fill' : 'bi bi-heart';
 };
@@ -1077,12 +1088,12 @@ const toggleFavorite = () => {
 const renderFavorites = () => {
     const list = document.getElementById('favList');
     if (!list) return;
-    list.innerHTML = favorites.length ? '' : '<li class="fav-empty"><i class="bi bi-heart" aria-hidden="true"></i>Toca el corazón en cualquier ciudad para tenerla aquí y pasar de una a otra deslizando.</li>';
+    list.innerHTML = favorites.length ? '' : `<li class="fav-empty"><i class="bi bi-heart" aria-hidden="true"></i>${t('Toca el corazón en cualquier ciudad para tenerla aquí y pasar de una a otra deslizando.')}</li>`;
     favorites.forEach(city => {
         const li = document.createElement('li');
         li.className = 'fav-item';
         li.dataset.favId = String(city.id);
-        li.innerHTML = `<div class="fav-item-info" role="button" tabindex="0"><span class="fav-name">${escapeHTML(city.name)}</span><span class="fav-region">${escapeHTML(city.region)}</span></div><button type="button" class="fav-delete" aria-label="Eliminar ${escapeHTML(city.name)}"><i class="bi bi-trash3"></i></button>`;
+        li.innerHTML = `<div class="fav-item-info" role="button" tabindex="0"><span class="fav-name">${escapeHTML(city.name)}</span><span class="fav-region">${escapeHTML(city.region)}</span></div><button type="button" class="fav-delete" aria-label="${t('Eliminar {name}', { name: escapeHTML(city.name) })}"><i class="bi bi-trash3"></i></button>`;
         li.querySelector('.fav-item-info').onclick = () => { closeSidebar(); selectCity(city); };
         li.querySelector('.fav-delete').onclick = (e) => {
             e.stopPropagation();
@@ -1093,6 +1104,13 @@ const renderFavorites = () => {
         list.appendChild(li);
     });
 };
+// La página de privacidad, en el idioma de la app
+if (LANG === 'en') document.querySelectorAll('a[data-privacy]').forEach(a => { a.href = '/en/privacy'; });
+// Idioma: español / English (se recarga en la URL equivalente)
+document.querySelectorAll('[data-lang]').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.lang === LANG);
+    b.addEventListener('click', () => { if (b.dataset.lang !== LANG) setLang(b.dataset.lang); });
+});
 const openSidebar  = () => { document.getElementById('favSidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); renderFavorites(); refreshFavoriteTemps(); };
 const closeSidebar = () => { document.getElementById('favSidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); };
 document.getElementById('favMenuBtn').addEventListener('click', openSidebar);
@@ -1134,7 +1152,7 @@ if (searchInput) {
                 suggestionsList.innerHTML = '';
                 // Sin resultados: se dice, en vez de no enseñar nada
                 if (!cities.length) {
-                    suggestionsList.innerHTML = `<li class="suggestion-empty">No encuentro «${escapeHTML(e.target.value)}». Prueba con otro nombre o sin tildes.</li>`;
+                    suggestionsList.innerHTML = `<li class="suggestion-empty">${t('No encuentro «{q}». Prueba con otro nombre o sin tildes.', { q: escapeHTML(e.target.value) })}</li>`;
                     suggestionsList.classList.add('show');
                     return;
                 }
@@ -1170,7 +1188,7 @@ const selectCity = (city) => {
     addToHistory(currentCityInfo);
     // URL bonita y compartible: /tiempo/<ciudad>
     const slug = slugify(city.name);
-    if (slug) window.history.replaceState({}, '', `/tiempo/${slug}`);
+    if (slug) window.history.replaceState({}, '', cityPath(slug));
     document.querySelectorAll('#city, #desc, #temp, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); });
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     getWeather(id);
@@ -1203,7 +1221,7 @@ const localNowKey = (tz) => {
 const naiveMs = (s) => Date.parse(s.slice(0, 16) + ':00Z');
 
 const intensityOf = (mmh) => mmh >= 10 ? 'heavy' : mmh >= 2 ? 'moderate' : 'light';
-const INTENSITY_TXT = { light: 'débil', moderate: 'moderada', heavy: 'fuerte' };
+const INTENSITY_TXT = { light: t('débil'), moderate: t('moderada'), heavy: t('fuerte') };
 const capitalize = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 const roundTo5 = (m) => Math.max(5, Math.round(m / 5) * 5);
 const fmtMins = (m) => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`;
@@ -1212,8 +1230,8 @@ function buildNowcast(data) {
     const nc = data.nowcast, tz = data.location && data.location.timezone;
     const isSnow = !!(data.current && data.current.temp <= 1);
     const W = isSnow
-        ? { noun: 'nieve', verb: 'nevar', now: 'Nevando ahora', stop: 'Deja de nevar' }
-        : { noun: 'lluvia', verb: 'llover', now: 'Lloviendo ahora', stop: 'Para de llover' };
+        ? { noun: t('nieve'), verb: t('nevar'), now: t('Nevando ahora'), stop: t('Deja de nevar') }
+        : { noun: t('lluvia'), verb: t('llover'), now: t('Lloviendo ahora'), stop: t('Para de llover') };
     const nowKey = tz ? localNowKey(tz) : null;
 
     // --- Modo minuto a minuto (próximas 2 h) ---
@@ -1242,28 +1260,28 @@ function buildNowcast(data) {
             if (firstWet === 0) {
                 const firstDry = slots.findIndex(sl => !sl.wet);
                 if (firstDry === -1) {
-                    text = `<b>${W.now}</b>, ${peakTxt}. Seguirá al menos las próximas 2 horas.`;
-                    pill = `${W.now} · sigue las próximas 2 h`;
+                    text = t('<b>{now}</b>, {peak}. Seguirá al menos las próximas 2 horas.', { now: W.now, peak: peakTxt });
+                    pill = t('{now} · sigue las próximas 2 h', { now: W.now });
                 } else {
                     const lastWet = slots[firstDry - 1];
-                    text = `<b>${W.now}</b> (${peakTxt}). ${W.stop} hacia las <b>${clock(lastWet)}</b>.`;
-                    pill = `${W.stop} en ${fmtMins(roundTo5(lastWet.endOff))}`;
+                    text = t('<b>{now}</b> ({peak}). {stop} hacia las <b>{time}</b>.', { now: W.now, peak: peakTxt, stop: W.stop, time: clock(lastWet) });
+                    pill = t('{stop} en {mins}', { stop: W.stop, mins: fmtMins(roundTo5(lastWet.endOff)) });
                 }
             } else if (firstWet > 0) {
                 const startMin = roundTo5(slots[firstWet].startOff);
                 const rest = slots.slice(firstWet);
                 const dryAfter = rest.findIndex(sl => !sl.wet);
                 const dur = dryAfter === -1 ? null : roundTo5(rest[dryAfter - 1].endOff - slots[firstWet].startOff);
-                text = `Empieza a ${W.verb} en <b>${fmtMins(startMin)}</b> (${peakTxt})` +
-                    (dur ? `, durante unos ${fmtMins(dur)}.` : ' y seguirá un buen rato.') +
-                    `<small>Hacia las ${clockStart(slots[firstWet])}</small>`;
-                pill = `${capitalize(W.noun)} en ${fmtMins(startMin)}`;
+                text = t('Empieza a {verb} en <b>{mins}</b> ({peak})', { verb: W.verb, mins: fmtMins(startMin), peak: peakTxt }) +
+                    (dur ? t(', durante unos {mins}.', { mins: fmtMins(dur) }) : t(' y seguirá un buen rato.')) +
+                    `<small>${t('Hacia las {time}', { time: clockStart(slots[firstWet]) })}</small>`;
+                pill = t('{noun} en {mins}', { noun: capitalize(W.noun), mins: fmtMins(startMin) });
             }
 
             if (text) {
                 // Marcas del eje según cuántos tramos hay (cada tramo = 15 min)
                 const n = slots.length;
-                const marks = [['Ahora', 0]];
+                const marks = [[t('Ahora'), 0]];
                 [[2, '30 min'], [4, '1 h'], [6, '1 h 30'], [8, '2 h']].forEach(([k, label]) => { if (k <= n) marks.push([label, (k / n) * 100]); });
                 return {
                     mode: 'minutely', text, pill, isSnow,
@@ -1290,13 +1308,13 @@ function buildNowcast(data) {
             mode: 'hourly', pill: null, isSnow,
             text: firstWetH
                 ? (hourly.indexOf(firstWetH) === 0
-                    ? `Sin ${W.noun} ahora mismo. Probable en la <b>próxima hora</b>.` // el tramo ya ha empezado
-                    : `Sin ${W.noun} ahora mismo. Probable hacia las <b>${startOfHour(firstWetH.displayTime)}</b>.`)
-                : `Posible ${W.noun} débil en las próximas horas.`,
+                    ? t('Sin {noun} ahora mismo. Probable en la <b>próxima hora</b>.', { noun: W.noun }) // el tramo ya ha empezado
+                    : t('Sin {noun} ahora mismo. Probable hacia las <b>{time}</b>.', { noun: W.noun, time: startOfHour(firstWetH.displayTime) }))
+                : t('Posible {noun} débil en las próximas horas.', { noun: W.noun }),
             summary: capitalize(INTENSITY_TXT[intensityOf(peak)]),
             bars: hourly.map((h, i) => ({ mmh: h.precip || 0, wet: (h.precip || 0) >= 0.1, isNow: i === 0 })),
             axis: hourly
-                .map((h, i) => [i === 0 ? 'Ahora' : startOfHour(h.displayTime), (i / n) * 100])
+                .map((h, i) => [i === 0 ? t('Ahora') : startOfHour(h.displayTime), (i / n) * 100])
                 .filter((_, i) => i % 2 === 0)
         };
     }
@@ -1319,7 +1337,7 @@ function renderNowcast(data) {
     }
     card.style.display = 'block';
     document.getElementById('rain-title').textContent =
-        `${nc.isSnow ? 'Nieve' : 'Lluvia'} ${nc.mode === 'minutely' ? 'próximas 2 h' : 'próximas horas'}`;
+        t(`${nc.isSnow ? 'Nieve' : 'Lluvia'} ${nc.mode === 'minutely' ? 'próximas 2 h' : 'próximas horas'}`);
     document.getElementById('rain-summary').textContent = nc.summary;
     // Texto montado aquí con números y horas propias: no lleva datos externos sin escapar
     setHTMLIfChanged(document.getElementById('nowcast-text'), nc.text);
@@ -1435,14 +1453,14 @@ const renderPollen = (pollen) => {
     const days = (window._lastFullData?.airDaily || []).slice(1, 4);
     const peak = (k) => {
         const d = days.find(d => (d[k] || 0) > 50);
-        return d ? new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '') : '';
+        return d ? new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString(LOCALE, { weekday: 'short' }).replace('.', '') : '';
     };
     const html = activeTypes.map(t => {
         const val = pollen[t.k] || 0, percent = Math.min((val / 100) * 100, 100);
         if (val > 50 || (allergies.includes(t.k) && val > 20)) isHigh = true;
         const p = peak(t.k);
-        return `<div class="pollen-item"><span class="pollen-name">${t.n}${p ? `<small>alto el ${p}</small>` : ''}</span><div class="pollen-bar-bg"><div class="pollen-bar-fill" style="width:${percent}%;background-color:${t.color}"></div></div><span class="pollen-val">${val}</span></div>`;
-    }).join('') + '<p class="pollen-note">No incluye cupresáceas ni plátano de sombra.</p>';
+        return `<div class="pollen-item"><span class="pollen-name">${window.t(t.n)}${p ? `<small>${window.t('alto el {day}', { day: p })}</small>` : ''}</span><div class="pollen-bar-bg"><div class="pollen-bar-fill" style="width:${percent}%;background-color:${t.color}"></div></div><span class="pollen-val">${val}</span></div>`;
+    }).join('') + `<p class="pollen-note">${window.t('No incluye cupresáceas ni plátano de sombra.')}</p>`;
     // Igual que el nowcast: las barras se revelan al cambiar de sitio, no en cada refresco
     if (setHTMLIfChanged(list, html)) list.classList.toggle('is-animated', list._place !== currentId);
     list._place = currentId;
@@ -1459,12 +1477,13 @@ function avisoRango(onset, expires, tz) {
     const opt = tz ? { timeZone: tz } : {};
     try {
         const day = (d) => new Intl.DateTimeFormat('sv-SE', { ...opt, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
-        const hm = (d) => new Intl.DateTimeFormat('es-ES', { ...opt, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+        const hm = (d) => new Intl.DateTimeFormat(LOCALE, { ...opt, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
         const a = new Date(onset), b = expires ? new Date(expires) : null;
         const today = day(new Date()), tomorrow = day(new Date(Date.now() + 86400000));
-        const label = day(a) === today ? 'Hoy' : day(a) === tomorrow ? 'Mañana' : new Intl.DateTimeFormat('es-ES', { ...opt, weekday: 'long' }).format(a);
+        const wd = (d) => new Intl.DateTimeFormat(LOCALE, { ...opt, weekday: 'long' }).format(d);
+        const label = day(a) === today ? t('Hoy') : day(a) === tomorrow ? t('Mañana') : capitalize(wd(a));
         // Si ya ha empezado, lo que importa es hasta cuándo
-        if (a <= new Date() && b) return `Hasta las ${hm(b)}${day(b) !== today ? ' de ' + (day(b) === tomorrow ? 'mañana' : new Intl.DateTimeFormat('es-ES', { ...opt, weekday: 'long' }).format(b)) : ''}`;
+        if (a <= new Date() && b) return t('Hasta las {time}', { time: hm(b) }) + (day(b) !== today ? t(' de {day}', { day: day(b) === tomorrow ? t('mañana') : wd(b) }) : '');
         return `${label} ${hm(a)}${b ? '–' + hm(b) : ''}`;
     } catch (e) { return ''; }
 }
@@ -1472,18 +1491,22 @@ function avisoRango(onset, expires, tz) {
 // Mismo nivel y misma franja = un solo aviso con los fenómenos juntos
 // ("Lluvias y tormentas") y las zonas juntas (un pueblo en el borde de dos
 // zonas de AEMET recibía el mismo aviso dos veces).
-const NIVEL_TXT = { rojo: 'rojo', naranja: 'naranja', amarillo: 'amarillo' };
+const NIVEL_TXT = { rojo: t('rojo'), naranja: t('naranja'), amarillo: t('amarillo') };
 const NIVEL_ORDEN = { rojo: 0, naranja: 1, amarillo: 2 };
 function groupAvisos(avisos) {
     const groups = new Map();
     for (const a of avisos) {
         const k = `${a.nivel}|${a.onset}|${a.expires}`;
-        if (!groups.has(k)) groups.set(k, { ...a, fenomenos: [], zonas: [] });
+        if (!groups.has(k)) groups.set(k, { ...a, fenomenos: [], fenShow: [], zonas: [] });
         const g = groups.get(k);
         if (!g.fenomenos.includes(a.fenomeno)) g.fenomenos.push(a.fenomeno);
+        // Para mostrar: en inglés, el nombre que da AEMET en su versión inglesa
+        const show = LANG === 'en' ? ((a.en && a.en.fenomeno) || t(a.fenomeno)) : a.fenomeno;
+        if (!g.fenShow.includes(show)) g.fenShow.push(show);
         for (const z of a.zonas || []) if (!g.zonas.includes(z)) g.zonas.push(z);
         // Del texto de AEMET nos quedamos con los datos útiles (acumulados, rachas…)
-        if (a.descripcion && !(g.detalles || []).includes(a.descripcion)) g.detalles = [...(g.detalles || []), a.descripcion];
+        const desc = (LANG === 'en' && a.en && a.en.descripcion) || a.descripcion;
+        if (desc && !(g.detalles || []).includes(desc)) g.detalles = [...(g.detalles || []), desc];
     }
     // El más grave primero y, a igual nivel, el que empieza antes
     return [...groups.values()].sort((a, b) => ((NIVEL_ORDEN[a.nivel] ?? 9) - (NIVEL_ORDEN[b.nivel] ?? 9))
@@ -1504,14 +1527,18 @@ const AVISO_CONSEJOS = [
 const avisoConsejo = (fenomenos) => {
     const tips = [];
     for (const f of fenomenos) for (const [re, tip] of AVISO_CONSEJOS) if (re.test(f) && !tips.includes(tip)) tips.push(tip);
-    return tips.slice(0, 2).join(' ');
+    return tips.slice(0, 2).map(x => t(x)).join(' ');
 };
-const joinEs = (arr) => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`;
+const joinEs = (arr) => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')}${t(' y ')}${arr[arr.length - 1]}`;
+// "Lluvias y tormentas · nivel amarillo" / "Rain and thunderstorms · yellow level"
+const avisoTitulo = (g) => {
+    const fen = joinEs(g.fenShow.map(f => f.toLowerCase()));
+    return t('{fen} · nivel {nivel}', { fen: capitalize(fen), nivel: NIVEL_TXT[g.nivel] || g.nivel });
+};
 
 function avisoCardHtml(g, tz, attrs = '') {
     const cls = AEMET_NIVEL_CLASE[g.nivel] || '';
-    const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
-    const titulo = `${fen.charAt(0).toUpperCase()}${fen.slice(1)} · nivel ${NIVEL_TXT[g.nivel] || g.nivel}`;
+    const titulo = avisoTitulo(g);
     const zona = (g.zonas && g.zonas.length) ? g.zonas.slice(0, 3).join(' / ') + (g.zonas.length > 3 ? '…' : '') : '';
     const rango = avisoRango(g.onset, g.expires, tz);
     // "Precipitación acumulada en una hora: 30 mm. Valle del…": sin la zona repetida
@@ -1522,7 +1549,7 @@ function avisoCardHtml(g, tz, attrs = '') {
     return `<div class="alert-card ${cls}${attrs ? ' aviso-resumen' : ''}" ${attrs}>
         <i class="bi bi-shield-fill-exclamation alert-icon"></i>
         <div class="aviso-resumen-body">
-            <span class="aemet-badge">AEMET OFICIAL</span>
+            <span class="aemet-badge">${t('AEMET OFICIAL')}</span>
             <div class="fw-bold">${escapeHTML(titulo)}</div>
             <div class="small opacity-75">${meta}</div>
             ${detalle ? `<div class="small opacity-75">${escapeHTML(detalle)}</div>` : ''}
@@ -1537,20 +1564,19 @@ const renderAemetAvisos = (avisos) => {
     const tz = window._lastFullData?.location?.timezone;
     const groups = groupAvisos(avisos);
     // Uno solo: entero, y al tocarlo se abre la hoja (para compartirlo)
-    if (groups.length === 1) return avisoCardHtml(groups[0], tz, 'role="button" tabindex="0" data-action="avisos" aria-label="Ver el aviso de AEMET y compartirlo"');
+    if (groups.length === 1) return avisoCardHtml(groups[0], tz, `role="button" tabindex="0" data-action="avisos" aria-label="${t('Ver el aviso de AEMET y compartirlo')}"`);
     const g = groups[0], cls = AEMET_NIVEL_CLASE[g.nivel] || '';
-    const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
-    const titulo = `${fen.charAt(0).toUpperCase()}${fen.slice(1)} · nivel ${NIVEL_TXT[g.nivel] || g.nivel}`;
+    const titulo = avisoTitulo(g);
     const rango = avisoRango(g.onset, g.expires, tz);
     const mas = groups.length - 1;
-    return `<div class="alert-card aviso-resumen ${cls}" role="button" tabindex="0" data-action="avisos" aria-label="Ver los ${groups.length} avisos de AEMET">
+    return `<div class="alert-card aviso-resumen ${cls}" role="button" tabindex="0" data-action="avisos" aria-label="${t('Ver los {n} avisos de AEMET', { n: groups.length })}">
         <i class="bi bi-shield-fill-exclamation alert-icon"></i>
         <div class="aviso-resumen-body">
-            <span class="aemet-badge">AEMET OFICIAL · ${groups.length} AVISOS</span>
+            <span class="aemet-badge">${t('AEMET OFICIAL · {n} AVISOS', { n: groups.length })}</span>
             <div class="fw-bold">${escapeHTML(titulo)}</div>
             ${rango ? `<div class="small opacity-75">${escapeHTML(rango)}</div>` : ''}
             ${g.nivel !== 'amarillo' && avisoConsejo(g.fenomenos) ? `<div class="aviso-tip">${escapeHTML(avisoConsejo(g.fenomenos))}</div>` : ''}
-            <div class="aviso-mas">+${mas} aviso${mas > 1 ? 's' : ''} más · Ver todos</div>
+            <div class="aviso-mas">${t(mas > 1 ? '+{n} avisos más · Ver todos' : '+{n} aviso más · Ver todos', { n: mas })}</div>
         </div>
         <i class="bi bi-chevron-right aviso-chevron" aria-hidden="true"></i>
     </div>`;
@@ -1560,24 +1586,24 @@ const NIVEL_EMOJI = { rojo: '🔴', naranja: '🟠', amarillo: '🟡' };
 function avisosTextoCompartir(groups, d) {
     const name = currentCityInfo?.name || d.location?.name || '';
     const slug = slugify(name);
-    const url = slug && !/^tu ubicaci/i.test(name) ? `${location.origin}/tiempo/${slug}` : location.origin;
+    const url = slug && !/^tu ubicaci/i.test(name) ? `${location.origin}${cityPath(slug)}` : location.origin + (LANG === 'en' ? '/en/' : '');
     const lineas = groups.map(g => {
-        const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
+        const fen = capitalize(joinEs(g.fenShow.map(f => f.toLowerCase())));
         const rango = avisoRango(g.onset, g.expires, d.location?.timezone);
-        return `${NIVEL_EMOJI[g.nivel] || '⚠️'} ${fen.charAt(0).toUpperCase()}${fen.slice(1)} (nivel ${g.nivel})${rango ? ' · ' + rango : ''}`;
+        return `${NIVEL_EMOJI[g.nivel] || '⚠️'} ${fen} ${t('(nivel {nivel})', { nivel: NIVEL_TXT[g.nivel] || g.nivel })}${rango ? ' · ' + rango : ''}`;
     });
-    const titulo = groups.length === 1 ? 'Aviso de AEMET' : 'Avisos de AEMET';
-    const lugar = name && !/^tu ubicaci/i.test(name) ? ' en ' + name : '';
-    return [`⚠️ ${titulo}${lugar}:`, ...lineas, '', `Más detalles en AERIS: ${url}`].join('\n');
+    const titulo = groups.length === 1 ? t('Aviso de AEMET') : t('Avisos de AEMET');
+    const lugar = name && !/^tu ubicaci/i.test(name) ? t(' en {place}', { place: name }) : '';
+    return [`⚠️ ${titulo}${lugar}:`, ...lineas, '', t('Más detalles en AERIS: {url}', { url })].join('\n');
 }
 function openAvisos() {
     const d = window._lastFullData;
     if (!d || !detailModal) return;
     const groups = groupAvisos(d.avisosOficiales || []);
-    document.getElementById('detailTitle').textContent = 'Avisos de AEMET';
+    document.getElementById('detailTitle').textContent = t('Avisos de AEMET');
     document.getElementById('detailBody').innerHTML = `<div class="avisos-lista">${groups.map(g => avisoCardHtml(g, d.location?.timezone)).join('')}</div>
-        ${groups.length ? `<a class="btn-pill solid aviso-share" href="https://wa.me/?text=${encodeURIComponent(avisosTextoCompartir(groups, d))}" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i>Compartir por WhatsApp</a>` : ''}
-        <p class="detail-note">Avisos oficiales de AEMET (Meteoalerta) para ${escapeHTML(d.location?.name || 'esta zona')}.</p>`;
+        ${groups.length ? `<a class="btn-pill solid aviso-share" href="https://wa.me/?text=${encodeURIComponent(avisosTextoCompartir(groups, d))}" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i>${t('Compartir por WhatsApp')}</a>` : ''}
+        <p class="detail-note">${t('Avisos oficiales de AEMET (Meteoalerta) para {place}.', { place: escapeHTML(placeLabel(d.location?.name) || t('esta zona')) })}</p>`;
     detailModal.classList.add('show');
     detailModal._trigger = document.activeElement;
     document.getElementById('closeDetail')?.focus({ preventScroll: true });
@@ -1588,7 +1614,7 @@ const renderAlerts = (alerts, avisosOficiales) => {
     const heat = heatCardHtml(window._lastFullData);
     if (heat && alerts) alerts = alerts.filter(a => !/calor/i.test(a.title));
     const propias = (!alerts || alerts.length === 0) ? '' :
-        alerts.map(a => `<div class="alert-card ${a.level}"><i class="bi bi-exclamation-triangle-fill alert-icon"></i><div><div class="fw-bold">${a.title}</div><div class="small opacity-75">${a.msg}</div></div></div>`).join('');
+        alerts.map(a => `<div class="alert-card ${a.level}"><i class="bi bi-exclamation-triangle-fill alert-icon"></i><div><div class="fw-bold">${t(a.title)}</div><div class="small opacity-75">${t(a.msg)}</div></div></div>`).join('');
     setHTMLIfChanged(container, renderAemetAvisos(avisosOficiales) + heat + propias);
 };
 
@@ -1621,14 +1647,14 @@ const renderLifestyle = (cur, daily, hourly) => {
     const probToday    = daily[0] ? (daily[0].rainProbMax || 0) : 0;
     const probTomorrow = daily[1] ? (daily[1].rainProbMax || 0) : 0;
     const activities = [
-        { id: 'run',   name: 'Running',       check: () => { if (isRain || isSnow || cur.temp > 32 || cur.temp < -5 || cur.windSpeed > 35) return 'bad'; if (probToday > 50 || cur.temp > 26 || cur.temp < 5 || cur.windSpeed > 20) return 'fair'; return 'good'; } },
-        { id: 'cycle', name: 'Ciclismo',      check: () => { if (isRain || isSnow || cur.windSpeed > 30 || cur.temp > 35) return 'bad'; if (cur.windSpeed > 15 || cur.temp < 5 || cur.temp > 28) return 'fair'; return 'good'; } },
-        { id: 'bbq',   name: 'Barbacoa',      check: () => { if (isRain || isSnow || probToday > 30 || cur.windSpeed > 25) return 'bad'; if (cur.temp < 15 || probToday > 10 || cur.windSpeed > 15) return 'fair'; return 'good'; } },
-        { id: 'car',   name: 'Lavar Coche',   check: () => { if (isRain || isSnow || probToday >= 10 || probTomorrow >= 10) return 'bad'; if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair'; return 'good'; } },
-        { id: 'star',  name: 'Estrellas',     check: () => { if (cur.isDay || cur.cloudCover > 50 || isRain || isSnow) return 'bad'; if (cur.cloudCover > 20) return 'fair'; return 'good'; } },
-        { id: 'dog',   name: 'Paseo Perro',   check: () => { if (isStorm || isRain || cur.temp > 30 || cur.temp < -10) return 'bad'; if (probToday > 50 || cur.temp > 25 || cur.temp < 5) return 'fair'; return 'good'; } },
-        { id: 'beach', name: 'Playa',         check: () => { if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad'; if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair'; return 'good'; } },
-        { id: 'drive', name: 'Conducir',      check: () => { if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad'; if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair'; return 'good'; } }
+        { id: 'run',   name: t('Running'),       check: () => { if (isRain || isSnow || cur.temp > 32 || cur.temp < -5 || cur.windSpeed > 35) return 'bad'; if (probToday > 50 || cur.temp > 26 || cur.temp < 5 || cur.windSpeed > 20) return 'fair'; return 'good'; } },
+        { id: 'cycle', name: t('Ciclismo'),      check: () => { if (isRain || isSnow || cur.windSpeed > 30 || cur.temp > 35) return 'bad'; if (cur.windSpeed > 15 || cur.temp < 5 || cur.temp > 28) return 'fair'; return 'good'; } },
+        { id: 'bbq',   name: t('Barbacoa'),      check: () => { if (isRain || isSnow || probToday > 30 || cur.windSpeed > 25) return 'bad'; if (cur.temp < 15 || probToday > 10 || cur.windSpeed > 15) return 'fair'; return 'good'; } },
+        { id: 'car',   name: t('Lavar Coche'),   check: () => { if (isRain || isSnow || probToday >= 10 || probTomorrow >= 10) return 'bad'; if (cur.temp < 4 || probToday > 0 || probTomorrow > 0) return 'fair'; return 'good'; } },
+        { id: 'star',  name: t('Estrellas'),     check: () => { if (cur.isDay || cur.cloudCover > 50 || isRain || isSnow) return 'bad'; if (cur.cloudCover > 20) return 'fair'; return 'good'; } },
+        { id: 'dog',   name: t('Paseo Perro'),   check: () => { if (isStorm || isRain || cur.temp > 30 || cur.temp < -10) return 'bad'; if (probToday > 50 || cur.temp > 25 || cur.temp < 5) return 'fair'; return 'good'; } },
+        { id: 'beach', name: t('Playa'),         check: () => { if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad'; if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair'; return 'good'; } },
+        { id: 'drive', name: t('Conducir'),      check: () => { if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad'; if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair'; return 'good'; } }
     ];
     const mine = getUserPrefs().activities;
     if (mine.length) activities.sort((a, b) => (mine.includes(b.id) ? 1 : 0) - (mine.includes(a.id) ? 1 : 0));
@@ -1638,9 +1664,9 @@ const renderLifestyle = (cur, daily, hourly) => {
         // Si el estado actual es malo pero hay ventana, mostrarla como "rescue window"
         const timeLabel = window
             ? (status === 'bad' ? `↗ ${window}` : window)
-            : (status === 'bad' ? 'Hoy no' : '');
-        const ariaLabel = `${act.name}: ${status === 'good' ? 'Ideal' : status === 'fair' ? 'Regular' : 'Malo'}${timeLabel ? '. ' + timeLabel : ''}`;
-        return `<button type="button" class="activity-item" data-action="best-window" data-activity="${act.id}" aria-label="${ariaLabel}. Ver el mejor momento">
+            : (status === 'bad' ? t('Hoy no') : '');
+        const ariaLabel = `${act.name}: ${status === 'good' ? t('Ideal') : status === 'fair' ? t('Regular') : t('Malo')}${timeLabel ? '. ' + timeLabel : ''}`;
+        return `<button type="button" class="activity-item" data-action="best-window" data-activity="${act.id}" aria-label="${ariaLabel}. ${t('Ver el mejor momento')}">
             ${activityIcon(act.id)}
             <span class="status-dot status-${status}"></span>
             <span class="activity-name">${act.name}</span>
@@ -1764,8 +1790,8 @@ async function registerPush(silent = false) {
     const say = (msg, type) => { if (!silent) showToast(msg, type); };
     if (!pushSupported()) {
         return say(isIOS()
-            ? 'En iPhone, instala AERIS en la pantalla de inicio (Compartir → Añadir a inicio) para recibir avisos.'
-            : 'Este navegador no admite notificaciones.', 'warn');
+            ? t('En iPhone, instala AERIS en la pantalla de inicio (Compartir → Añadir a inicio) para recibir avisos.')
+            : t('Este navegador no admite notificaciones.'), 'warn');
     }
     if (silent && notifPermission() !== 'granted') return;
     try {
@@ -1774,10 +1800,10 @@ async function registerPush(silent = false) {
         const permission = notifPermission() === 'granted' ? 'granted' : await Notification.requestPermission();
         if (permission !== 'granted') {
             updateBellUI();
-            return say('Has bloqueado las notificaciones. Actívalas en los ajustes del navegador para esta web.', 'warn');
+            return say(t('Has bloqueado las notificaciones. Actívalas en los ajustes del navegador para esta web.'), 'warn');
         }
         const key = await getVapidKey();
-        if (!key) return say('Las notificaciones no están disponibles ahora mismo. Inténtalo más tarde.', 'warn');
+        if (!key) return say(t('Las notificaciones no están disponibles ahora mismo. Inténtalo más tarde.'), 'warn');
         const register = await swReady();
         const serverKey = urlBase64ToUint8Array(key);
         let subscription = await register.pushManager.getSubscription();
@@ -1795,8 +1821,9 @@ async function registerPush(silent = false) {
         }
         const where = pushLocation();
         const lat = where.lat, lon = where.lon;
-        if (!lat || !lon) return say('Elige una ciudad para activar los avisos.', 'warn');
+        if (!lat || !lon) return say(t('Elige una ciudad para activar los avisos.'), 'warn');
         const { follow, home, ...prefs } = getPushPrefs();
+        prefs.lang = LANG; // las notificaciones llegan en el idioma de la app
 
         const res = await fetch('/api/subscribe', {
             method: 'POST',
@@ -1816,15 +1843,15 @@ async function registerPush(silent = false) {
         // El servidor nos dice si Apple/Google aceptaron la notificación de prueba
         if (result.push && result.push.startsWith('error')) {
             const [, code, detail] = result.push.split(':');
-            showToast(`Suscrito, pero ${result.host || 'el servicio push'} rechazó la notificación de prueba (código ${code}${detail ? ': ' + detail.trim() : ''}).`, 'warn');
+            showToast(t('Suscrito, pero {host} rechazó la notificación de prueba (código {code}).', { host: result.host || t('el servicio push'), code: `${code}${detail ? ': ' + detail.trim() : ''}` }), 'warn');
         } else {
-            showToast(`Avisos activados para ${placeLabel(where.city)}. Te debería llegar una notificación de prueba ahora.`, 'ok');
+            showToast(t('Avisos activados para {place}. Te debería llegar una notificación de prueba ahora.', { place: placeLabel(where.city) }), 'ok');
         }
     } catch (e) {
         console.error('push:', e);
         say(e && e.message === 'sw-timeout'
-            ? 'La app aún se está preparando. Ciérrala del todo, vuelve a abrirla y toca la campana otra vez.'
-            : 'No se pudieron activar los avisos. Inténtalo de nuevo.', 'warn');
+            ? t('La app aún se está preparando. Ciérrala del todo, vuelve a abrirla y toca la campana otra vez.')
+            : t('No se pudieron activar los avisos. Inténtalo de nuevo.'), 'warn');
     }
 }
 
@@ -1847,22 +1874,22 @@ async function updateBellUI() {
     btn.classList.toggle('is-on', on);
     // Mientras está ocupada lleva el icono de carga; se pone al terminar
     if (!btn.classList.contains('is-loading')) btn.querySelector('i').className = on ? 'bi bi-bell-fill' : 'bi bi-bell';
-    btn.setAttribute('aria-label', on ? 'Avisos activados' : 'Activar avisos del tiempo');
+    btn.setAttribute('aria-label', on ? t('Avisos activados') : t('Activar avisos del tiempo'));
 }
 document.getElementById('bellBtn')?.addEventListener('click', () => {
     if (!pushSupported()) {
         if (isIOS()) {
             // En iPhone hay que instalarla primero: enseñamos cómo
-            showToast('En iPhone, primero instala AERIS en la pantalla de inicio. Luego ábrela desde ahí y toca la campana.', 'warn');
+            showToast(t('En iPhone, primero instala AERIS en la pantalla de inicio. Luego ábrela desde ahí y toca la campana.'), 'warn');
             if (window.openIosModal) window.openIosModal();
         } else {
-            showToast('Este navegador no admite notificaciones. Prueba con Chrome.', 'warn');
+            showToast(t('Este navegador no admite notificaciones. Prueba con Chrome.'), 'warn');
         }
         return;
     }
     const perm = notifPermission();
     if (perm === 'denied') {
-        return showToast('Las notificaciones están bloqueadas para esta web. Actívalas en los ajustes del navegador (icono del candado junto a la dirección).', 'warn');
+        return showToast(t('Las notificaciones están bloqueadas para esta web. Actívalas en los ajustes del navegador (icono del candado junto a la dirección).'), 'warn');
     }
     // Si ya están activos, tocarla vuelve a sincronizar la ciudad y manda
     // otra notificación de prueba: sirve para comprobar que siguen llegando.
@@ -1910,12 +1937,13 @@ function seriousAviso(data) {
     const oficial = groupAvisos((data.avisosOficiales || []).filter(a =>
         (a.nivel === 'rojo' || a.nivel === 'naranja') && (!a.onset || new Date(a.onset).getTime() <= soon)))[0];
     if (oficial) {
-        const fen = joinEs(oficial.fenomenos.map(f => f.toLowerCase()));
+        const fen = joinEs(oficial.fenShow.map(f => f.toLowerCase()));
         const rango = avisoRango(oficial.onset, oficial.expires, data.location?.timezone);
-        return { level: oficial.nivel, text: `Aviso ${oficial.nivel} por ${fen}${rango ? ' · ' + rango : ''}. Toma precauciones.` };
+        const nivel = NIVEL_TXT[oficial.nivel] || oficial.nivel;
+        return { level: oficial.nivel, text: t('Aviso {nivel} por {fen}{rango}. Toma precauciones.', { nivel, Nivel: capitalize(nivel), fen, rango: rango ? ' · ' + rango : '' }) };
     }
     const propia = (data.alerts || []).find(a => a.level === 'red');
-    return propia ? { level: 'rojo', text: `${propia.title}. ${propia.msg}` } : null;
+    return propia ? { level: 'rojo', text: `${t(propia.title)}. ${t(propia.msg)}` } : null;
 }
 
 // Horas cuyo tramo aún no ha terminado (la lluvia de "15:00" es la de 14–15 h)
@@ -1936,40 +1964,40 @@ function buildDaySummary(data) {
     const hhStart = (x) => `${String((x.hour + 23) % 24).padStart(2, '0')}:00`;
     const wet = (x) => (x.precip || 0) >= 0.2 || (x.rainProb || 0) >= 60;
     const isSnow = /nieve|nevada/i.test(data.current?.desc || '');
-    const noun = isSnow ? 'Nieve' : 'Lluvia';
+    const noun = isSnow ? t('Nieve') : t('Lluvia');
     const parts = [];
     const firstWet = h.findIndex(wet);
     // Lo de los tramos de 15 min manda para "ahora" (es más fino que lo horario)
     const ncNow = (data.nowcast?.precipitation || []).slice(0, 2).some(v => (v || 0) >= NC_WET);
     if (firstWet === -1 && ncNow) {
-        parts.push(`${noun} ahora; después, sin ${noun.toLowerCase()} en las próximas horas`);
+        parts.push(t('{noun} ahora; después, sin {nounl} en las próximas horas', { noun, nounl: noun.toLowerCase() }));
     } else if (firstWet === -1) {
         const maybe = h.some(x => (x.rainProb || 0) >= 35);
-        parts.push(maybe ? 'Algún chubasco posible, pero lo más probable es que no llueva' : 'Sin lluvia en las próximas horas');
+        parts.push(maybe ? t('Algún chubasco posible, pero lo más probable es que no llueva') : t('Sin lluvia en las próximas horas'));
     } else if (ncNow && firstWet > 0) {
-        parts.push(`${noun} ahora y otra vez a partir de las ${hhStart(h[firstWet])}`);
+        parts.push(t('{noun} ahora y otra vez a partir de las {time}', { noun, time: hhStart(h[firstWet]) }));
     } else {
         let end = firstWet;
         while (end + 1 < h.length && wet(h[end + 1])) end++;
         const stops = end + 1 < h.length ? h[end + 1] : null;
-        if (firstWet === 0) parts.push(stops ? `${noun} hasta las ${hhStart(stops)}` : `${noun} durante las próximas horas`);
-        else parts.push(`${noun} a partir de las ${hhStart(h[firstWet])}${stops && end - firstWet < 8 ? `, hasta las ${hhStart(stops)}` : ''}`);
+        if (firstWet === 0) parts.push(stops ? t('{noun} hasta las {time}', { noun, time: hhStart(stops) }) : t('{noun} durante las próximas horas', { noun }));
+        else parts.push(t('{noun} a partir de las {time}', { noun, time: hhStart(h[firstWet]) }) + (stops && end - firstWet < 8 ? t(', hasta las {time}', { time: hhStart(stops) }) : ''));
     }
     // Temperatura: la máxima si aún está por llegar; si no, la mínima de la noche
     const temps = [data.current?.temp ?? h[0].temp, ...h.map(x => x.temp)];
     const at = (i) => h[i - 1];
     const iMax = temps.indexOf(Math.max(...temps)), iMin = temps.indexOf(Math.min(...temps));
-    if (iMax >= 2 && temps[iMax] - temps[0] >= 2) parts.push(`máxima de ${fmtTemp(temps[iMax])}° hacia las ${hh(at(iMax))}`);
-    else if (iMin >= 2 && temps[0] - temps[iMin] >= 3) parts.push(`bajará a ${fmtTemp(temps[iMin])}° hacia las ${hh(at(iMin))}`);
+    if (iMax >= 2 && temps[iMax] - temps[0] >= 2) parts.push(t('máxima de {temp}° hacia las {time}', { temp: fmtTemp(temps[iMax]), time: hh(at(iMax)) }));
+    else if (iMin >= 2 && temps[0] - temps[iMin] >= 3) parts.push(t('bajará a {temp}° hacia las {time}', { temp: fmtTemp(temps[iMin]), time: hh(at(iMin)) }));
     const gust = Math.max(...h.map(x => x.gust || 0));
-    if (gust >= 50) parts.push(`rachas de hasta ${fmtWind(gust)} ${windUnit()}`);
+    if (gust >= 50) parts.push(t('rachas de hasta {gust} {unit}', { gust: fmtWind(gust), unit: windUnit() }));
     return parts.join('; ') + '.';
 }
 
 // Calidad del aire con el índice europeo / ICA español (antes, el de EE. UU.)
 const ICA_LEVELS = [
-    [20, 'Buena', '#50f0e6'], [40, 'Razonablemente buena', '#50ccaa'], [60, 'Regular', '#f0e641'],
-    [80, 'Desfavorable', '#ff5050'], [100, 'Muy desfavorable', '#c8507a'], [Infinity, 'Extremadamente desfavorable', '#a0508c']
+    [20, t('Buena'), '#50f0e6'], [40, t('Razonablemente buena'), '#50ccaa'], [60, t('Regular'), '#f0e641'],
+    [80, t('Desfavorable'), '#ff5050'], [100, t('Muy desfavorable'), '#c8507a'], [Infinity, t('Extremadamente desfavorable'), '#a0508c']
 ];
 const icaLevel = (v) => ICA_LEVELS.find(([max]) => v <= max) || ICA_LEVELS[ICA_LEVELS.length - 1];
 // Polvo en suspensión (calima): µg/m³ de CAMS
@@ -1985,7 +2013,7 @@ function renderAir(data) {
     txt.innerText = label;
     txt.style.setProperty('--tone', color);
     document.getElementById('aqi-dot').style.transform = `translateX(${Math.min(eaqi, 100)}cqw)`;
-    const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+    const fmt1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
     document.getElementById('pm25').innerText = `${fmt1.format(cur.pm25)} µg/m³`;
     document.getElementById('pm10').innerText = `${fmt1.format(cur.pm10)} µg/m³`;
 
@@ -1999,10 +2027,10 @@ function renderAir(data) {
         if (lvlNow || nextDusty) {
             const today = data.daily && data.daily[0];
             const barro = lvlNow && lvlNow !== 'leve' && today && ((today.precipSum || 0) >= 0.5 || (today.rainProbMax || 0) >= 50);
-            const dayName = (f) => new Date(f.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'long' });
-            const main = lvlNow ? `Calima ${lvlNow} · ${Math.round(cur.dust)} µg/m³` : `Calima ${dustLevel(nextDusty.dust)} el ${dayName(nextDusty.fecha)}`;
-            const tip = barro ? 'Posible lluvia de barro: mejor no tender ni lavar el coche.'
-                : (lvlNow === 'moderada' || lvlNow === 'intensa') ? 'Si tienes asma o alergia, evita el ejercicio intenso fuera.' : '';
+            const dayName = (f) => new Date(f.replace(/-/g, '/')).toLocaleDateString(LOCALE, { weekday: 'long' });
+            const main = lvlNow ? t('Calima {lvl} · {v} µg/m³', { lvl: t(lvlNow), v: Math.round(cur.dust) }) : t('Calima {lvl} el {day}', { lvl: t(dustLevel(nextDusty.dust)), day: dayName(nextDusty.fecha) });
+            const tip = barro ? t('Posible lluvia de barro: mejor no tender ni lavar el coche.')
+                : (lvlNow === 'moderada' || lvlNow === 'intensa') ? t('Si tienes asma o alergia, evita el ejercicio intenso fuera.') : '';
             html = `<i class="bi bi-wind" aria-hidden="true"></i><div><b>${escapeHTML(main)}</b>${tip ? `<span>${escapeHTML(tip)}</span>` : ''}</div>`;
         }
         setHTMLIfChanged(calimaEl, html);
@@ -2013,7 +2041,7 @@ function renderAir(data) {
     if (fc) {
         setHTMLIfChanged(fc, days.length > 1 ? days.map((d, i) => {
             const [, l, c] = icaLevel(d.eaqi ?? 0);
-            const name = i === 0 ? 'Hoy' : new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
+            const name = i === 0 ? t('Hoy') : new Date(d.fecha.replace(/-/g, '/')).toLocaleDateString(LOCALE, { weekday: 'short' }).replace('.', '');
             return `<span class="aqi-day" title="${escapeHTML(l)}"><i style="background:${c}"></i>${escapeHTML(name)}</span>`;
         }).join('') : '');
     }
@@ -2029,8 +2057,8 @@ function renderFreshness() {
     const mins = ts ? Math.round((Date.now() - ts) / 60000) : 0;
     let txt = '';
     if (mins >= 10) {
-        txt = mins < 60 ? `Actualizado hace ${mins} min`
-            : `Datos de las ${new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+        txt = mins < 60 ? t('Actualizado hace {n} min', { n: mins })
+            : t('Datos de las {time}', { time: new Date(ts).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' }) });
     }
     el.textContent = txt;
     el.hidden = !txt;
@@ -2088,7 +2116,7 @@ function renderHourCurve(data) {
     const px = (v) => (v / H) * 100;
     // Máxima y mínima, siempre encima de su punto (debajo pisarían la lluvia y las horas)
     const label = (i, t) => `<span class="hc-lbl" style="left:${Math.min(96, Math.max(4, (x(i) / W) * 100))}%;top:${px(y(t) - 24)}%">${t}°</span>`;
-    const ticks = hrs.map((h, i) => i % 6 === 0 ? `<span class="hc-tick" style="left:${(x(i) / W) * 100}%">${i === 0 ? 'Ahora' : h.displayTime}</span>` : '').join('');
+    const ticks = hrs.map((h, i) => i % 6 === 0 ? `<span class="hc-tick" style="left:${(x(i) / W) * 100}%">${i === 0 ? t('Ahora') : h.displayTime}</span>` : '').join('');
     box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
         ${bars}<path d="${d}" class="hc-line" vector-effect="non-scaling-stroke"/>
         <line class="hc-cursor" x1="0" x2="0" y1="4" y2="${H - 20}" vector-effect="non-scaling-stroke"/></svg>
@@ -2098,7 +2126,7 @@ function renderHourCurve(data) {
     box.setAttribute('aria-valuemin', 0);
     box.setAttribute('aria-valuemax', hrs.length - 1);
     box.setAttribute('aria-valuenow', 0);
-    box.setAttribute('aria-valuetext', 'Ahora');
+    box.setAttribute('aria-valuetext', t('Ahora'));
 }
 
 // Pinta en el hero la hora i (o vuelve a "ahora" con i = -1)
@@ -2117,7 +2145,7 @@ function scrubTo(i) {
         curveState.saved = null; curveState.idx = -1;
         box.classList.remove('is-scrubbing');
         document.querySelectorAll('.hourly-item.is-scrubbed').forEach(el => el.classList.remove('is-scrubbed'));
-        box.setAttribute('aria-valuenow', 0); box.setAttribute('aria-valuetext', 'Ahora');
+        box.setAttribute('aria-valuenow', 0); box.setAttribute('aria-valuetext', t('Ahora'));
         return;
     }
     if (i === curveState.idx) return;
@@ -2126,9 +2154,9 @@ function scrubTo(i) {
     const h = data.hourly[i];
     // Durante el arrastre, sin animación: son datos que cambian decenas de veces por segundo
     tempEl.innerHTML = `${fmtTemp(h.temp)}<span class="deg">°${useFahrenheit ? '<small>F</small>' : ''}</span>`;
-    descEl.innerText = h.desc || '';
+    descEl.innerText = t(h.desc || '');
     iconEl.innerHTML = renderIcon(h.icon, "5.5rem");
-    if (timeEl) timeEl.innerHTML = i === 0 ? curveState.saved.time : `Previsto · ${h.displayTime}${h.rainProb ? ` · ${h.rainProb}% lluvia` : ''}`;
+    if (timeEl) timeEl.innerHTML = i === 0 ? curveState.saved.time : t('Previsto · {time}', { time: h.displayTime }) + (h.rainProb ? t(' · {p}% lluvia', { p: h.rainProb }) : '');
     const g = box._geo;
     box.classList.add('is-scrubbing');
     box.style.setProperty('--hc-x', `${(g.x(i) / g.W) * 100}%`);
@@ -2142,7 +2170,7 @@ function scrubTo(i) {
     if (it && hc) hc.scrollLeft = it.offsetLeft - hc.clientWidth / 2 + it.offsetWidth / 2;
     if (navigator.vibrate && matchMedia('(pointer: coarse)').matches) navigator.vibrate(4);
     box.setAttribute('aria-valuenow', i);
-    box.setAttribute('aria-valuetext', `${h.displayTime}, ${fmtTemp(h.temp)} grados, ${h.desc || ''}${h.rainProb ? `, ${h.rainProb} % de lluvia` : ''}`);
+    box.setAttribute('aria-valuetext', t('{time}, {temp} grados, {desc}', { time: h.displayTime, temp: fmtTemp(h.temp), desc: t(h.desc || '') }) + (h.rainProb ? t(', {p} % de lluvia', { p: h.rainProb }) : ''));
 }
 
 (function initHourCurve() {
@@ -2201,48 +2229,50 @@ function miniChart(values, labels, unit, opts = {}) {
     const y = (v) => pad + (1 - (v - lo) / (hi - lo)) * (H - pad * 2 - 14);
     const d = vals.map((v, i) => v == null ? '' : `${i && vals[i - 1] != null ? 'L' : 'M'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
     const iMax = vals.indexOf(Math.max(...ok)), iMin = vals.indexOf(Math.min(...ok));
-    const t = (i, below) => `<text x="${x(i)}" y="${y(vals[i]) + (below ? 16 : -7)}" text-anchor="middle" class="dc-label">${vals[i]}${unit}</text>`;
-    const ticks = labels.map((l, i) => i % 6 === 0 ? `<text x="${x(i)}" y="${H - 2}" text-anchor="middle" class="dc-tick">${i === 0 ? 'Ahora' : l}</text>` : '').join('');
-    return `<svg class="detail-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Próximas 24 horas">
-        <path d="${d}" class="dc-line"/>${t(iMax, false)}${iMin !== iMax ? t(iMin, true) : ''}${ticks}</svg>`;
+    const lbl = (i, below) => `<text x="${x(i)}" y="${y(vals[i]) + (below ? 16 : -7)}" text-anchor="middle" class="dc-label">${vals[i]}${unit}</text>`;
+    const ticks = labels.map((l, i) => i % 6 === 0 ? `<text x="${x(i)}" y="${H - 2}" text-anchor="middle" class="dc-tick">${i === 0 ? t('Ahora') : l}</text>` : '').join('');
+    return `<svg class="detail-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Próximas 24 horas')}">
+        <path d="${d}" class="dc-line"/>${lbl(iMax, false)}${iMin !== iMax ? lbl(iMin, true) : ''}${ticks}</svg>`;
 }
 
 const DETAIL = {
     humedad(d) {
         const c = d.current, dp = c.dewPoint;
-        const feel = dp == null ? '' : dp < 10 ? 'Ambiente seco.' : dp < 16 ? 'Ambiente agradable.' : dp < 19 ? 'Algo húmedo.' : dp < 22 ? 'Ambiente bochornoso.' : 'Muy bochornoso: cuesta refrescarse.';
-        return { title: 'Humedad', value: `${c.humidity}%`, text: `${dp != null ? `Punto de rocío ${fmtTemp(dp)}°. ` : ''}${feel} El punto de rocío dice mejor que la humedad cómo se nota el aire.`,
+        const feel = dp == null ? '' : t(dp < 10 ? 'Ambiente seco.' : dp < 16 ? 'Ambiente agradable.' : dp < 19 ? 'Algo húmedo.' : dp < 22 ? 'Ambiente bochornoso.' : 'Muy bochornoso: cuesta refrescarse.');
+        return { title: t('Humedad'), value: `${c.humidity}%`, text: `${dp != null ? t('Punto de rocío {v}°. ', { v: fmtTemp(dp) }) : ''}${feel} ${t('El punto de rocío dice mejor que la humedad cómo se nota el aire.')}`,
             chart: miniChart(d.hourly.map(h => h.humidity), d.hourly.map(h => h.displayTime), '%', { minSpan: 10 }) };
     },
     viento(d) {
         const c = d.current;
         const maxG = d.hourly.reduce((m, h) => (h.gust || 0) > m.g ? { g: h.gust, t: h.displayTime } : m, { g: 0, t: '' });
-        const bf = c.windSpeed < 6 ? 'Casi en calma' : c.windSpeed < 20 ? 'Brisa suave' : c.windSpeed < 39 ? 'Viento moderado' : c.windSpeed < 62 ? 'Viento fuerte' : 'Temporal';
-        return { title: 'Viento', value: `${fmtWind(c.windSpeed)} ${windUnit()}`, text: `${bf}${c.windDir ? ' del ' + c.windDir : ''}. Rachas ahora de ${fmtWind(c.windGust || c.windSpeed)} ${windUnit()}${maxG.g ? `; las más fuertes, ${fmtWind(maxG.g)} ${windUnit()} hacia las ${maxG.t}` : ''}.`,
-            chart: miniChart(d.hourly.map(h => fmtWind(h.gust || 0)), d.hourly.map(h => h.displayTime), '', { min: 0, minSpan: 10 }), note: 'La curva muestra las rachas.' };
+        const bf = t(c.windSpeed < 6 ? 'Casi en calma' : c.windSpeed < 20 ? 'Brisa suave' : c.windSpeed < 39 ? 'Viento moderado' : c.windSpeed < 62 ? 'Viento fuerte' : 'Temporal');
+        return { title: t('Viento'), value: `${fmtWind(c.windSpeed)} ${windUnit()}`, text: bf + (c.windDir ? t(' del {dir}', { dir: dirName(c.windDir) }) : '')
+                + t('. Rachas ahora de {g} {u}', { g: fmtWind(c.windGust || c.windSpeed), u: windUnit() })
+                + (maxG.g ? t('; las más fuertes, {g} {u} hacia las {time}', { g: fmtWind(maxG.g), u: windUnit(), time: maxG.t }) : '') + '.',
+            chart: miniChart(d.hourly.map(h => fmtWind(h.gust || 0)), d.hourly.map(h => h.displayTime), '', { min: 0, minSpan: 10 }), note: t('La curva muestra las rachas.') };
     },
     presion(d) {
         const c = d.current, tr = c.pressureTrend;
-        const trTxt = tr == null ? '' : tr > 1 ? `Sube ${tr} hPa en 3 h: suele indicar mejoría.` : tr < -1 ? `Baja ${Math.abs(tr)} hPa en 3 h: puede empeorar (y a quien tiene migrañas le afecta).` : 'Estable en las últimas 3 h.';
-        return { title: 'Presión', value: `${c.pressure} hPa`, text: `${trTxt} Es la presión a nivel del mar, la que usan los mapas del tiempo.`,
+        const trTxt = tr == null ? '' : tr > 1 ? t('Sube {v} hPa en 3 h: suele indicar mejoría.', { v: tr }) : tr < -1 ? t('Baja {v} hPa en 3 h: puede empeorar (y a quien tiene migrañas le afecta).', { v: Math.abs(tr) }) : t('Estable en las últimas 3 h.');
+        return { title: t('Presión'), value: `${c.pressure} hPa`, text: `${trTxt} ${t('Es la presión a nivel del mar, la que usan los mapas del tiempo.')}`,
             chart: miniChart(d.hourly.map(h => h.pressure), d.hourly.map(h => h.displayTime), '', { minSpan: 4 }) };
     },
     uv(d) {
         const c = d.current;
-        const lvl = (u) => { u = Math.round(u || 0); return u < 3 ? 'bajo' : u < 6 ? 'moderado' : u < 8 ? 'alto' : u < 11 ? 'muy alto' : 'extremo'; };
+        const lvl = (u) => { u = Math.round(u || 0); return t(u < 3 ? 'bajo' : u < 6 ? 'moderado' : u < 8 ? 'alto' : u < 11 ? 'muy alto' : 'extremo'); };
         const prot = d.hourly.filter(h => Math.round(h.uv || 0) >= 3 && h.fullDate.slice(0, 10) === d.hourly[0].fullDate.slice(0, 10));
-        const win = prot.length ? `Protégete de ${prot[0].displayTime} a ${prot[prot.length - 1].displayTime}.` : 'Hoy no hace falta protección especial.';
-        return { title: 'Índice UV', value: `${Math.round(c.uv)} · ${lvl(c.uv)}`, text: `Máximo de hoy: ${Math.round(c.uvMax || 0)} (${lvl(c.uvMax || 0)}). ${win}`,
+        const win = prot.length ? t('Protégete de {a} a {b}.', { a: prot[0].displayTime, b: prot[prot.length - 1].displayTime }) : t('Hoy no hace falta protección especial.');
+        return { title: t('Índice UV'), value: `${Math.round(c.uv)} · ${lvl(c.uv)}`, text: `${t('Máximo de hoy: {n} ({lvl}).', { n: Math.round(c.uvMax || 0), lvl: lvl(c.uvMax || 0) })} ${win}`,
             chart: miniChart(d.hourly.map(h => h.uv), d.hourly.map(h => h.displayTime), '', { min: 0, minSpan: 3 }) };
     },
     sensacion(d) {
         const c = d.current, diff = c.feelsLike - c.temp;
-        const why = Math.abs(diff) < 1 ? 'Se nota tal cual marca el termómetro.'
-            : diff > 0 ? `Se nota ${Math.round(diff)}° más${c.humidity >= 60 ? ' por la humedad' : ' por el sol y la poca brisa'}.`
-            : `Se nota ${Math.round(-diff)}° menos${c.windSpeed >= 15 ? ' por el viento' : ''}.`;
+        const why = Math.abs(diff) < 1 ? t('Se nota tal cual marca el termómetro.')
+            : diff > 0 ? t('Se nota {n}° más', { n: Math.round(diff) }) + t(c.humidity >= 60 ? ' por la humedad' : ' por el sol y la poca brisa') + '.'
+            : t('Se nota {n}° menos', { n: Math.round(-diff) }) + (c.windSpeed >= 15 ? t(' por el viento') : '') + '.';
         const ms = d.meteosalud;
-        const umbral = ms ? ` En tu zona (${ms.nombre}), Sanidad considera peligroso para la salud a partir de ${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(ms.umbral)} °C de máxima.` : '';
-        return { title: 'Sensación térmica', value: `${fmtTemp(c.feelsLike)}°`, text: `${why} Combina temperatura, humedad, viento y sol.${umbral}`,
+        const umbral = ms ? t(' En tu zona ({zona}), Sanidad considera peligroso para la salud a partir de {v} °C de máxima.', { zona: ms.nombre, v: new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 }).format(ms.umbral) }) : '';
+        return { title: t('Sensación térmica'), value: `${fmtTemp(c.feelsLike)}°`, text: `${why} ${t('Combina temperatura, humedad, viento y sol.')}${umbral}`,
             chart: miniChart(d.hourly.map(h => fmtTemp(h.feels)), d.hourly.map(h => h.displayTime), '°') };
     }
 };
@@ -2285,7 +2315,7 @@ function showBestWindow(activityId) {
     items.forEach(el => el.classList.remove('is-best'));
     document.querySelectorAll('.activity-item.is-selected').forEach(el => el.classList.remove('is-selected'));
     const act = document.querySelector(`.activity-item[data-activity="${activityId}"]`);
-    if (!win) { showToast('Hoy no hay un buen momento para eso en las próximas 24 h.', 'warn'); return; }
+    if (!win) { showToast(t('Hoy no hay un buen momento para eso en las próximas 24 h.'), 'warn'); return; }
     act?.classList.add('is-selected');
     for (let i = win[0]; i <= win[1]; i++) items[i]?.classList.add('is-best');
     const card = document.getElementById('section-horas'), hc = document.getElementById('hourly');
@@ -2313,7 +2343,7 @@ async function refreshFavoriteTemps() {
             const cur = res[i] && res[i].current;
             const li = list.querySelector(`[data-fav-id="${CSS.escape(String(x.f.id))}"]`);
             if (!cur || !li) return;
-            const wmo = WeatherCore.decodeWMO(cur.weather_code, cur.is_day);
+            const wmo = WeatherCore.decodeWMO(cur.weather_code, cur.is_day, LANG);
             const el = li.querySelector('.fav-now') || li.querySelector('.fav-item-info').appendChild(document.createElement('span'));
             el.className = 'fav-now';
             el.innerHTML = `${renderIcon(wmo.icon, "")}${fmtTemp(Math.round(cur.temperature_2m))}°`;
@@ -2358,7 +2388,7 @@ async function fetchEnsemble(lat, lon) {
     lsSet(key, { ts: Date.now(), days });
     return days;
 }
-const CONF_TXT = { alta: 'Fiable', media: 'Bastante seguro', baja: 'Incierto' };
+const CONF_TXT = { alta: t('Fiable'), media: t('Bastante seguro'), baja: t('Incierto') };
 
 // ============================================================
 // 26h. LO NORMAL PARA ESTAS FECHAS (ERA5, media 1991–2020)
@@ -2437,12 +2467,12 @@ async function renderForecastExtras(data) {
         let chip = row.querySelector('.day-conf');
         if (!chip) { chip = document.createElement('span'); row.querySelector('.day-name')?.appendChild(chip); }
         chip.className = `day-conf conf-${e.level}`;
-        chip.title = `${CONF_TXT[e.level]}: entre ${fmtTemp(e.tMaxLo)}° y ${fmtTemp(e.tMaxHi)}° de máxima; lluvia en el ${Math.round(e.rainProb * 100)} % de los escenarios`;
+        chip.title = t('{conf}: entre {a}° y {b}° de máxima; lluvia en el {p} % de los escenarios', { conf: CONF_TXT[e.level], a: fmtTemp(e.tMaxLo), b: fmtTemp(e.tMaxHi), p: Math.round(e.rainProb * 100) });
         const body = row.querySelector('.day-detail-body');
         if (body) {
             let line = body.querySelector('.day-conf-line');
             if (!line) { line = document.createElement('p'); line.className = 'day-conf-line'; body.prepend(line); }
-            line.textContent = `${CONF_TXT[e.level]} · máxima probable ${fmtTemp(e.tMaxLo)}–${fmtTemp(e.tMaxHi)}° · lluvia en el ${Math.round(e.rainProb * 100)} % de los ${e.n} escenarios del modelo de IA de ECMWF`;
+            line.textContent = t('{conf} · máxima probable {a}–{b}° · lluvia en el {p} % de los {n} escenarios del modelo de IA de ECMWF', { conf: CONF_TXT[e.level], a: fmtTemp(e.tMaxLo), b: fmtTemp(e.tMaxHi), p: Math.round(e.rainProb * 100), n: e.n });
         }
     });
 
@@ -2454,7 +2484,7 @@ async function renderForecastExtras(data) {
         if (later.length) {
             setHTMLIfChanged(document.getElementById('trend-list'), later.map(e => {
                 const dt = new Date(e.fecha.replace(/-/g, '/'));
-                const name = dt.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '');
+                const name = dt.toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric' }).replace('.', '');
                 return `<div class="trend-item conf-${e.level}" title="${CONF_TXT[e.level]}">
                     <span class="trend-day">${escapeHTML(name)}</span>
                     <span class="trend-temps">${fmtTemp(e.tMin)}° / <b>${fmtTemp(e.tMax)}°</b></span>
@@ -2475,13 +2505,13 @@ async function renderForecastExtras(data) {
             const min = Math.min(...days.map(d => d.tMin)), max = Math.max(...days.map(d => d.tMax));
             const rain = Math.max(...days.map(d => d.rainProb));
             const worst = days.some(d => d.level === 'baja') ? 'baja' : days.some(d => d.level === 'media') ? 'media' : 'alta';
-            const fmtD = (f) => new Date(f.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '');
+            const fmtD = (f) => new Date(f.replace(/-/g, '/')).toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric' }).replace('.', '');
             const city = (document.getElementById('city')?.textContent || '').trim();
             setHTMLIfChanged(document.getElementById('puente-body'), `
-                <div class="puente-title">${escapeHTML(esc[0])}${city ? ` en ${escapeHTML(city)}` : ''}</div>
+                <div class="puente-title">${escapeHTML(t(esc[0]))}${city ? escapeHTML(t(' en {place}', { place: city })) : ''}</div>
                 <div class="puente-dates">${escapeHTML(fmtD(esc[1]))}${esc[1] !== esc[2] ? ` – ${escapeHTML(fmtD(esc[2]))}` : ''}</div>
                 <div class="puente-stats"><span>${fmtTemp(min)}° – ${fmtTemp(max)}°</span><span><i class="bi bi-droplet-fill" aria-hidden="true"></i> ${Math.round(rain * 100)}%</span><span class="conf-pill conf-${worst}">${CONF_TXT[worst]}</span></div>
-                <p class="puente-note">${worst === 'baja' ? 'Aún es pronto: vuelve a mirarlo en unos días.' : rain >= 0.5 ? 'Pinta a lluvia: plan B bajo techo.' : rain < 0.2 ? 'Buena pinta para salir.' : 'Puede caer algún chubasco.'}</p>`);
+                <p class="puente-note">${t(worst === 'baja' ? 'Aún es pronto: vuelve a mirarlo en unos días.' : rain >= 0.5 ? 'Pinta a lluvia: plan B bajo techo.' : rain < 0.2 ? 'Buena pinta para salir.' : 'Puede caer algún chubasco.')}</p>`);
         }
     }
 
@@ -2499,7 +2529,7 @@ async function renderForecastExtras(data) {
             if (!chip) { chip = document.createElement('span'); row.querySelector('.day-name small')?.after(chip); }
             chip.className = `day-anom ${anom > 0 ? 'warm' : 'cold'}`;
             chip.textContent = `${anom > 0 ? '+' : ''}${anom}°`;
-            chip.title = `Lo normal para estas fechas: ${Math.round(n.tMax)}° de máxima (media 1991–2020)`;
+            chip.title = t('Lo normal para estas fechas: {t}° de máxima (media 1991–2020)', { t: Math.round(n.tMax) });
         } else if (chip) chip.remove();
     });
     const today = data.daily && data.daily[0] && norms[data.daily[0].fecha];
@@ -2508,8 +2538,8 @@ async function renderForecastExtras(data) {
         let txt = '';
         if (today) {
             const a = Math.round(data.daily[0].tempMax - today.tMax);
-            txt = Math.abs(a) < 2 ? 'Temperaturas normales para la época'
-                : `${Math.abs(a)}° ${a > 0 ? 'más calor' : 'más frío'} de lo normal para estas fechas`;
+            txt = Math.abs(a) < 2 ? t('Temperaturas normales para la época')
+                : t(a > 0 ? '{n}° más calor de lo normal para estas fechas' : '{n}° más frío de lo normal para estas fechas', { n: Math.abs(a) });
         }
         el.textContent = txt;
     }
@@ -2517,9 +2547,9 @@ async function renderForecastExtras(data) {
 
 // Noche tropical (mínima ≥ 20°) o tórrida (≥ 25°): esta noche = mínima de mañana
 function tropicalNight(data) {
-    const t = data.daily && data.daily[1] && data.daily[1].tempMin;
-    if (t == null) return '';
-    return t >= 25 ? `Noche tórrida: no bajará de ${fmtTemp(t)}°` : t >= 20 ? `Noche tropical: no bajará de ${fmtTemp(t)}°` : '';
+    const tn = data.daily && data.daily[1] && data.daily[1].tempMin;
+    if (tn == null) return '';
+    return tn >= 25 ? t('Noche tórrida: no bajará de {t}°', { t: fmtTemp(tn) }) : tn >= 20 ? t('Noche tropical: no bajará de {t}°', { t: fmtTemp(tn) }) : '';
 }
 
 // ============================================================
@@ -2537,7 +2567,7 @@ function pushLocation() {
     const lon = currentCityInfo.lon || parseFloat(String(currentCityInfo.id).split(',')[1]);
     return { lat, lon, city: currentCityInfo.name, region: currentCityInfo.region || '' };
 }
-const placeLabel = (c) => String(c || '').replace(/^Tu ubicaci[oó]n \((.*)\)$/, '$1') || 'tu zona';
+const placeLabel = (c) => String(c || '').replace(/^Tu ubicaci[oó]n \((.*)\)$/, '$1').replace(/^Tu ubicaci[oó]n$/, t('Tu ubicación')) || t('tu zona');
 
 const settingsModal = document.getElementById('pushSettingsModal');
 function renderPushSettings() {
@@ -2545,34 +2575,34 @@ function renderPushSettings() {
     const here = { lat: currentCityInfo.lat, lon: currentCityInfo.lon, city: currentCityInfo.name, region: currentCityInfo.region || '' };
     const sameAs = (a, b) => a && b && Math.abs(a.lat - b.lat) < 0.01 && Math.abs(a.lon - b.lon) < 0.01;
     const sw = (id, on, label, sub = '') => `<label class="ps-row"><span>${label}${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="ps-switch" data-pref="${id}" ${on ? 'checked' : ''}></label>`;
-    const extras = p.extras.map((e, i) => `<div class="ps-row"><span>${escapeHTML(placeLabel(e.city))}</span><button type="button" class="btn-pill ghost ps-small" data-ps="remove-extra" data-i="${i}">Quitar</button></div>`).join('');
+    const extras = p.extras.map((e, i) => `<div class="ps-row"><span>${escapeHTML(placeLabel(e.city))}</span><button type="button" class="btn-pill ghost ps-small" data-ps="remove-extra" data-i="${i}">${t('Quitar')}</button></div>`).join('');
     const canAdd = p.extras.length < 2 && Number.isFinite(+here.lat) && !p.extras.some(e => sameAs(e, here)) && !sameAs(pushLocation(), here);
     document.getElementById('pushSettingsBody').innerHTML = `
-        <h3 class="ps-h">Dónde</h3>
-        <label class="ps-row"><span>La ciudad que estoy viendo<small>Los avisos siguen a la última ciudad que miras</small></span><input type="radio" name="ps-follow" value="1" ${p.follow ? 'checked' : ''}></label>
-        <label class="ps-row"><span>Siempre ${escapeHTML(placeLabel((p.home && !p.follow ? p.home : here).city))}<small>Fija este sitio aunque mires otros</small></span><input type="radio" name="ps-follow" value="0" ${!p.follow ? 'checked' : ''}></label>
+        <h3 class="ps-h">${t('Dónde')}</h3>
+        <label class="ps-row"><span>${t('La ciudad que estoy viendo')}<small>${t('Los avisos siguen a la última ciudad que miras')}</small></span><input type="radio" name="ps-follow" value="1" ${p.follow ? 'checked' : ''}></label>
+        <label class="ps-row"><span>${t('Siempre {place}', { place: escapeHTML(placeLabel((p.home && !p.follow ? p.home : here).city)) })}<small>${t('Fija este sitio aunque mires otros')}</small></span><input type="radio" name="ps-follow" value="0" ${!p.follow ? 'checked' : ''}></label>
         ${extras}
-        ${canAdd ? `<button type="button" class="btn-pill ghost ps-add" data-ps="add-extra"><i class="bi bi-plus-lg"></i>Avisarme también de ${escapeHTML(placeLabel(here.city))}</button>` : ''}
-        <h3 class="ps-h">Qué</h3>
-        ${sw('types.lluvia', p.types.lluvia, 'Lluvia o nieve inminente', 'En la próxima hora')}
-        ${sw('types.tormenta', p.types.tormenta, 'Tormentas')}
-        ${sw('types.calor', p.types.calor, 'Calor extremo')}
-        ${sw('types.viento', p.types.viento, 'Rachas fuertes')}
-        <label class="ps-row"><span>Avisos oficiales de AEMET</span><select class="ps-select" data-pref="aemetMin">
-            <option value="amarillo" ${p.aemetMin === 'amarillo' ? 'selected' : ''}>Amarillo, naranja y rojo</option>
-            <option value="naranja" ${p.aemetMin === 'naranja' ? 'selected' : ''}>Naranja y rojo</option>
-            <option value="rojo" ${p.aemetMin === 'rojo' ? 'selected' : ''}>Solo rojo</option></select></label>
-        <h3 class="ps-h">Parte de la mañana</h3>
-        ${sw('morning', p.morning, 'Recibir el parte')}
-        <label class="ps-row"><span>A las</span><select class="ps-select" data-pref="morningHour">
+        ${canAdd ? `<button type="button" class="btn-pill ghost ps-add" data-ps="add-extra"><i class="bi bi-plus-lg"></i>${t('Avisarme también de {place}', { place: escapeHTML(placeLabel(here.city)) })}</button>` : ''}
+        <h3 class="ps-h">${t('Qué')}</h3>
+        ${sw('types.lluvia', p.types.lluvia, t('Lluvia o nieve inminente'), t('En la próxima hora'))}
+        ${sw('types.tormenta', p.types.tormenta, t('Tormentas'))}
+        ${sw('types.calor', p.types.calor, t('Calor extremo'))}
+        ${sw('types.viento', p.types.viento, t('Rachas fuertes'))}
+        <label class="ps-row"><span>${t('Avisos oficiales de AEMET')}</span><select class="ps-select" data-pref="aemetMin">
+            <option value="amarillo" ${p.aemetMin === 'amarillo' ? 'selected' : ''}>${t('Amarillo, naranja y rojo')}</option>
+            <option value="naranja" ${p.aemetMin === 'naranja' ? 'selected' : ''}>${t('Naranja y rojo')}</option>
+            <option value="rojo" ${p.aemetMin === 'rojo' ? 'selected' : ''}>${t('Solo rojo')}</option></select></label>
+        <h3 class="ps-h">${t('Parte de la mañana')}</h3>
+        ${sw('morning', p.morning, t('Recibir el parte'))}
+        <label class="ps-row"><span>${t('A las')}</span><select class="ps-select" data-pref="morningHour">
             ${[6, 7, 8, 9, 10].map(h => `<option value="${h}" ${p.morningHour === h ? 'selected' : ''}>${h}:00</option>`).join('')}</select></label>
-        ${sw('calima', p.calima, 'Incluir calima')}
-        ${sw('polen', p.polen, 'Incluir polen alto')}
+        ${sw('calima', p.calima, t('Incluir calima'))}
+        ${sw('polen', p.polen, t('Incluir polen alto'))}
         <div class="ps-actions">
-            <button type="button" class="btn-pill ghost" data-ps="test"><i class="bi bi-send"></i>Enviar prueba</button>
-            <button type="button" class="btn-pill ghost ps-danger" data-ps="off"><i class="bi bi-bell-slash"></i>Desactivar</button>
+            <button type="button" class="btn-pill ghost" data-ps="test"><i class="bi bi-send"></i>${t('Enviar prueba')}</button>
+            <button type="button" class="btn-pill ghost ps-danger" data-ps="off"><i class="bi bi-bell-slash"></i>${t('Desactivar')}</button>
         </div>
-        <p class="ps-privacy">Para avisarte se guardan los sitios que vigilas y tus ajustes; al desactivar se borran. <a href="/privacidad">Privacidad</a></p>`;
+        <p class="ps-privacy">${t('Para avisarte se guardan los sitios que vigilas y tus ajustes; al desactivar se borran.')} <a href="${LANG === 'en' ? '/en/privacy' : '/privacidad'}">${t('Privacidad')}</a></p>`;
 }
 function openPushSettings() {
     if (!settingsModal) return;
@@ -2623,9 +2653,9 @@ settingsModal?.addEventListener('click', async (e) => {
                 await fetch('/api/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {});
                 await sub.unsubscribe();
             }
-            showToast('Avisos desactivados. Puedes volver a activarlos con la campana.', 'ok');
+            showToast(t('Avisos desactivados. Puedes volver a activarlos con la campana.'), 'ok');
             closePushSettings();
-        } catch (err) { showToast('No se pudieron desactivar. Inténtalo de nuevo.', 'warn'); }
+        } catch (err) { showToast(t('No se pudieron desactivar. Inténtalo de nuevo.'), 'warn'); }
         finally { setBusy(b, false); updateBellUI(); }
     }
 });
@@ -2640,17 +2670,17 @@ function openParte() {
     const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, Math.round(cur.uvMax ?? cur.uv));
     const ropa = [...new Set([...clothes.boys, ...clothes.girls].map(c => c.text))].slice(0, 5).join(', ');
     const acts = ['run', 'dog', 'cycle'].map(id => [id, getBestWindows(id, d.hourly)]).filter(([, w]) => w);
-    const names = { run: 'correr', dog: 'pasear al perro', cycle: 'la bici' };
-    const salir = acts.length ? acts.map(([id, w]) => `${names[id]}: ${w}`).join(' · ') : 'Hoy mejor planes bajo techo.';
+    const names = { run: t('correr'), dog: t('pasear al perro'), cycle: t('la bici') };
+    const salir = acts.length ? acts.map(([id, w]) => `${names[id]}: ${w}`).join(' · ') : t('Hoy mejor planes bajo techo.');
     const y = d.yesterday;
-    const cambio = [cur.comparison, y && today ? (today.tempMax - y.tempMax >= 2 ? `máxima ${today.tempMax - y.tempMax}° más alta que ayer` : y.tempMax - today.tempMax >= 2 ? `máxima ${y.tempMax - today.tempMax}° más baja que ayer` : 'máximas parecidas a ayer') : '', document.getElementById('normal-txt')?.textContent || ''].filter(Boolean).join(' · ');
-    document.getElementById('detailTitle').textContent = 'Tu parte de hoy';
-    const row = (icon, t, txt) => `<div class="parte-row"><i class="bi ${icon}" aria-hidden="true"></i><div><b>${t}</b><span>${escapeHTML(txt)}</span></div></div>`;
+    const cambio = [t(cur.comparison || ''), y && today ? (today.tempMax - y.tempMax >= 2 ? t('máxima {n}° más alta que ayer', { n: today.tempMax - y.tempMax }) : y.tempMax - today.tempMax >= 2 ? t('máxima {n}° más baja que ayer', { n: y.tempMax - today.tempMax }) : t('máximas parecidas a ayer')) : '', document.getElementById('normal-txt')?.textContent || ''].filter(Boolean).join(' · ');
+    document.getElementById('detailTitle').textContent = t('Tu parte de hoy');
+    const row = (icon, title, txt) => `<div class="parte-row"><i class="bi ${icon}" aria-hidden="true"></i><div><b>${title}</b><span>${escapeHTML(txt)}</span></div></div>`;
     document.getElementById('detailBody').innerHTML = `<p class="detail-text">${escapeHTML(buildDaySummary(d))}</p>
-        ${row('bi-handbag', 'Qué ponerte', ropa + (clothes.tip ? `. ${clothes.tip.text}` : ''))}
-        ${row('bi-clock', 'Cuándo salir', salir)}
-        ${row('bi-arrow-left-right', 'Qué cambia', cambio || 'Un día parecido a ayer.')}
-        ${seriousAviso(d) ? row('bi-exclamation-triangle', 'Atención', seriousAviso(d).text) : ''}`;
+        ${row('bi-handbag', t('Qué ponerte'), ropa + (clothes.tip ? `. ${clothes.tip.text}` : ''))}
+        ${row('bi-clock', t('Cuándo salir'), salir)}
+        ${row('bi-arrow-left-right', t('Qué cambia'), cambio || t('Un día parecido a ayer.'))}
+        ${seriousAviso(d) ? row('bi-exclamation-triangle', t('Atención'), seriousAviso(d).text) : ''}`;
     detailModal.classList.add('show');
 }
 
@@ -2669,10 +2699,10 @@ const loadLeaflet = () => RADAR.loading || (RADAR.loading = Promise.all([
     (typeof L !== 'undefined') ? Promise.resolve() : loadScriptOnce('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js')
 ]));
 
-function radarFrameLabel(t) {
-    const mins = Math.round((Date.now() / 1000 - t) / 60);
-    const hm = new Date(t * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    return mins <= 10 ? `Ahora · ${hm}` : `Hace ${mins} min · ${hm}`;
+function radarFrameLabel(ts) {
+    const mins = Math.round((Date.now() / 1000 - ts) / 60);
+    const hm = new Date(ts * 1000).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+    return mins <= 10 ? t('Ahora · {hm}', { hm }) : t('Hace {m} min · {hm}', { m: mins, hm });
 }
 function showRadarFrame(i) {
     if (!RADAR.frames.length) return;
@@ -2706,7 +2736,7 @@ async function loadRadarFrames() {
 function stopRadarPlay() {
     clearInterval(RADAR.timer); RADAR.timer = null;
     const b = document.getElementById('radar-play');
-    if (b) { b.querySelector('i').className = 'bi bi-play-fill'; b.setAttribute('aria-label', 'Reproducir las últimas 2 horas'); }
+    if (b) { b.querySelector('i').className = 'bi bi-play-fill'; b.setAttribute('aria-label', t('Reproducir las últimas 2 horas')); }
 }
 async function ensureRadar() {
     const d = window._lastFullData;
@@ -2721,7 +2751,7 @@ async function ensureRadar() {
             RADAR.map.attributionControl.setPrefix(false);
             // Mapa base oscuro de Esri (sin clave) y sus nombres por encima de la lluvia
             const esri = (layer) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${layer}/MapServer/tile/{z}/{y}/{x}`;
-            RADAR.base = L.tileLayer(esri('World_Dark_Gray_Base'), { maxZoom: 10, maxNativeZoom: 16, attribution: 'Mapa © <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>' }).addTo(RADAR.map);
+            RADAR.base = L.tileLayer(esri('World_Dark_Gray_Base'), { maxZoom: 10, maxNativeZoom: 16, attribution: `${t('Mapa')} © <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>` }).addTo(RADAR.map);
             L.tileLayer(esri('World_Dark_Gray_Reference'), { maxZoom: 10, zIndex: 20 }).addTo(RADAR.map);
             RADAR.marker = L.circleMarker([lat, lon], { radius: 6, weight: 3, color: '#fff', fillColor: '#3b82f6', fillOpacity: 1 }).addTo(RADAR.map);
             document.getElementById('radar-skeleton').style.display = 'none';
@@ -2742,7 +2772,7 @@ function setRadarMode(mode) {
     const card = document.getElementById('section-mapa');
     card.classList.toggle('mode-modelo', mode === 'modelo');
     document.querySelectorAll('[data-radar-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.radarTab === mode));
-    document.getElementById('radar-badge-text').textContent = mode === 'modelo' ? 'LLUVIA PREVISTA' : 'LLUVIA OBSERVADA';
+    document.getElementById('radar-badge-text').textContent = mode === 'modelo' ? t('LLUVIA PREVISTA') : t('LLUVIA OBSERVADA');
     if (mode === 'modelo') {
         stopRadarPlay();
         const d = window._lastFullData, iframe = document.getElementById('radar-frame');
@@ -2764,7 +2794,7 @@ function setRadarMode(mode) {
             if (!RADAR.frames.length) return;
             const b = document.getElementById('radar-play');
             b.querySelector('i').className = 'bi bi-pause-fill';
-            b.setAttribute('aria-label', 'Pausar');
+            b.setAttribute('aria-label', t('Pausar'));
             if (RADAR.idx === RADAR.frames.length - 1) showRadarFrame(0);
             // 600 ms por fotograma; al llegar al último se para en "ahora"
             RADAR.timer = setInterval(() => {
@@ -2812,16 +2842,16 @@ async function renderMarine(data) {
     score += today && today.tempMax >= 27 ? 2 : today && today.tempMax >= 23 ? 1 : 0;
     score += today && (today.rainProbMax || 0) < 20 ? 1 : 0;
     score += (data.current.windGust || 0) < 30 ? 1 : 0;
-    const label = score >= 8 ? 'Gran día de playa' : score >= 5 ? 'Día de playa regular' : 'Mejor otro día para la playa';
-    const tip = wave >= 1.5 ? 'Mar movido: ojo con la bandera y las corrientes.' : (data.current.uvMax || 0) >= 6 ? 'UV alto: crema y sombrilla entre las 12 y las 17 h.' : sst < 18 ? 'El agua está fría.' : '';
-    const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+    const label = t(score >= 8 ? 'Gran día de playa' : score >= 5 ? 'Día de playa regular' : 'Mejor otro día para la playa');
+    const tip = t(wave >= 1.5 ? 'Mar movido: ojo con la bandera y las corrientes.' : (data.current.uvMax || 0) >= 6 ? 'UV alto: crema y sombrilla entre las 12 y las 17 h.' : sst < 18 ? 'El agua está fría.' : '');
+    const fmt1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
     card.hidden = false;
     setHTMLIfChanged(document.getElementById('marine-body'), `
         <div class="marine-score"><span class="marine-num">${score}<small>/10</small></span><span>${escapeHTML(label)}</span></div>
         <div class="marine-stats">
-            <span><i class="bi bi-thermometer-half" aria-hidden="true"></i>Agua ${fmt1.format(sst)} °C</span>
-            <span><i class="bi bi-water" aria-hidden="true"></i>Olas hasta ${fmt1.format(wave)} m</span>
-            ${cur.wave_period ? `<span><i class="bi bi-stopwatch" aria-hidden="true"></i>Periodo ${Math.round(cur.wave_period)} s</span>` : ''}
+            <span><i class="bi bi-thermometer-half" aria-hidden="true"></i>${t('Agua {v} °C', { v: fmt1.format(sst) })}</span>
+            <span><i class="bi bi-water" aria-hidden="true"></i>${t('Olas hasta {v} m', { v: fmt1.format(wave) })}</span>
+            ${cur.wave_period ? `<span><i class="bi bi-stopwatch" aria-hidden="true"></i>${t('Periodo {v} s', { v: Math.round(cur.wave_period) })}</span>` : ''}
         </div>
         ${tip ? `<p class="marine-tip">${escapeHTML(tip)}</p>` : ''}`);
 }
@@ -2838,13 +2868,14 @@ async function renderObservation(data) {
         const o = r.ok ? await r.json() : null;
         if (`${window._lastFullData?.location?.lat},${window._lastFullData?.location?.lon}` !== `${lat},${lon}`) return;
         if (!o || !o.station || o.temp == null || o.ageMin > 180) { el.textContent = ''; return; }
-        const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
-        const hm = new Date(o.time.length > 19 || /Z$/.test(o.time) ? o.time : o.time + 'Z').toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const fmt1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+        const hm = new Date(o.time.length > 19 || /Z$/.test(o.time) ? o.time : o.time + 'Z').toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
         // Lo que ha llovido de verdad (si la estación tiene pluviómetro y ha llovido)
         const lluvia = o.rain24 >= 0.1 && o.rainHours >= 6
-            ? ` · ${fmt1.format(o.rain24)} l/m² en ${o.rainHours >= 20 ? '24 h' : `las últimas ${o.rainHours} h`}` : '';
-        el.textContent = `Medido en ${o.station.name}${o.station.km >= 1 ? ` (${fmt1.format(o.station.km)} km)` : ''}: ${fmt1.format(useFahrenheit ? o.temp * 9 / 5 + 32 : o.temp)}° a las ${hm}${lluvia}`;
-        el.title = `Estación de AEMET ${o.station.id}${o.humidity != null ? ` · humedad ${o.humidity}%` : ''}${o.gust != null ? ` · racha ${o.gust} km/h` : ''}`;
+            ? t(o.rainHours >= 20 ? ' · {v} l/m² en 24 h' : ' · {v} l/m² en las últimas {h} h', { v: fmt1.format(o.rain24), h: o.rainHours }) : '';
+        el.textContent = t('Medido en {name}', { name: o.station.name }) + (o.station.km >= 1 ? ` (${fmt1.format(o.station.km)} km)` : '')
+            + `: ${fmt1.format(useFahrenheit ? o.temp * 9 / 5 + 32 : o.temp)}° ` + t('a las {hm}', { hm }) + lluvia;
+        el.title = t('Estación de AEMET {id}', { id: o.station.id }) + (o.humidity != null ? t(' · humedad {v}%', { v: o.humidity }) : '') + (o.gust != null ? t(' · racha {v} km/h', { v: o.gust }) : '');
     } catch (e) { el.textContent = ''; }
 }
 
@@ -2875,7 +2906,7 @@ function renderFireRisk(data) {
     const r = fireRisk(data);
     const show = r && (r.level === 'alto' || r.level === 'muy alto');
     el.hidden = !show;
-    if (show) setHTMLIfChanged(el, `<i class="bi bi-fire" aria-hidden="true"></i><div><b>Riesgo de incendio ${r.level}</b><span>Calor, aire seco y viento. Nada de fuego al aire libre ni barbacoas en el campo.</span></div>`);
+    if (show) setHTMLIfChanged(el, `<i class="bi bi-fire" aria-hidden="true"></i><div><b>${t('Riesgo de incendio {lvl}', { lvl: t(r.level) })}</b><span>${t('Calor, aire seco y viento. Nada de fuego al aire libre ni barbacoas en el campo.')}</span></div>`);
 }
 
 // ============================================================
@@ -2901,7 +2932,7 @@ function renderCityDots() {
     const list = swipeCities();
     const idx = list.findIndex(c => String(c.id) === String(currentCityInfo.id));
     el.hidden = list.length < 2;
-    el.setAttribute('aria-label', `Ciudad ${idx + 1} de ${list.length}`);
+    el.setAttribute('aria-label', t('Ciudad {i} de {n}', { i: idx + 1, n: list.length }));
     el.innerHTML = list.slice(0, 9).map((c, i) => `<span class="${i === idx ? 'on' : ''}${c._current ? ' here' : ''}"></span>`).join('');
 }
 (function initCitySwipe() {
@@ -2966,9 +2997,9 @@ function updateMiniHero() {
     const rain = !document.getElementById('nowcast-pill').hidden && !livePillDismissed;
     pill.classList.toggle('is-summary', !rain);
     if (!rain) {
-        pill.querySelector('.live-pill-text').textContent = `${placeLabel(document.getElementById('city').textContent.trim())} · ${fmtTemp(d.current.temp)}° · ${d.current.desc}`;
-        pill.setAttribute('aria-label', 'Volver arriba');
-    } else pill.setAttribute('aria-label', 'Ver la lluvia de las próximas horas');
+        pill.querySelector('.live-pill-text').textContent = `${placeLabel(document.getElementById('city').textContent.trim())} · ${fmtTemp(d.current.temp)}° · ${t(d.current.desc)}`;
+        pill.setAttribute('aria-label', t('Volver arriba'));
+    } else pill.setAttribute('aria-label', t('Ver la lluvia de las próximas horas'));
     document.body.classList.add('has-live-pill');
 }
 document.getElementById('live-pill')?.addEventListener('click', (e) => {
@@ -3016,9 +3047,9 @@ document.getElementById('live-pill')?.addEventListener('click', (e) => {
 function renderA11ySummary(data) {
     const el = document.getElementById('hero-a11y');
     if (!el) return;
-    const c = data.current, t = data.daily && data.daily[0];
-    el.textContent = `${placeLabel(document.getElementById('city').textContent.trim())}. ${fmtTemp(c.temp)} grados, ${c.desc}.`
-        + (t ? ` Máxima ${fmtTemp(t.tempMax)}, mínima ${fmtTemp(t.tempMin)}.` : '')
+    const c = data.current, today = data.daily && data.daily[0];
+    el.textContent = t('{place}. {temp} grados, {desc}.', { place: placeLabel(document.getElementById('city').textContent.trim()), temp: fmtTemp(c.temp), desc: t(c.desc) })
+        + (today ? t(' Máxima {max}, mínima {min}.', { max: fmtTemp(today.tempMax), min: fmtTemp(today.tempMin) }) : '')
         + ` ${buildDaySummary(data)}`;
 }
 
@@ -3027,7 +3058,7 @@ function renderA11ySummary(data) {
 // ============================================================
 async function searchCities(q) {
     try {
-        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=es&format=json`);
+        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=${LANG}&format=json`);
         if (!r.ok) throw new Error(r.status);
         const j = await r.json();
         return (j.results || []).map(c => ({
@@ -3046,12 +3077,12 @@ async function searchCities(q) {
 // El servidor dice la zona de meteosalud y su umbral; el nivel se calcula como
 // el Plan Nacional: suma en hoy y los 2 días siguientes de lo que la máxima
 // prevista supera el umbral (0 · ≤3,5 · ≤7 · >7 → niveles 0 a 3).
-const HEAT_TXT = ['Sin riesgo', 'Riesgo bajo', 'Riesgo medio', 'Riesgo alto'];
+const HEAT_TXT = [t('Sin riesgo'), t('Riesgo bajo'), t('Riesgo medio'), t('Riesgo alto')];
 const HEAT_TIPS = [
     '',
-    'Bebe agua aunque no tengas sed y evita el sol en las horas centrales.',
-    'Evita esfuerzos entre las 12 y las 18 h, busca sitios frescos y pendiente de mayores, niños y personas con enfermedades crónicas.',
-    'Peligro para la salud: no hagas esfuerzos, quédate en lugares frescos, llama a quien viva solo y ante mareo o confusión, 112.'
+    t('Bebe agua aunque no tengas sed y evita el sol en las horas centrales.'),
+    t('Evita esfuerzos entre las 12 y las 18 h, busca sitios frescos y pendiente de mayores, niños y personas con enfermedades crónicas.'),
+    t('Peligro para la salud: no hagas esfuerzos, quédate en lugares frescos, llama a quien viva solo y ante mareo o confusión, 112.')
 ];
 function heatRisk(data) {
     const ms = data && data.meteosalud;
@@ -3066,13 +3097,13 @@ function heatCardHtml(data) {
     const h = heatRisk(data);
     if (!h || h.nivel === 0) return '';
     const cls = ['', 'yellow', 'orange', ''][h.nivel];
-    const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+    const fmt1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
     return `<div class="alert-card ${cls}">
         <i class="bi bi-thermometer-sun alert-icon"></i>
         <div>
-            <span class="aemet-badge">SANIDAD · CALOR</span>
-            <div class="fw-bold">${HEAT_TXT[h.nivel]} para la salud · nivel ${h.nivel}</div>
-            <div class="small opacity-75">${escapeHTML(h.nombre)}: a partir de ${fmt1.format(h.umbral)} °C el calor aumenta la mortalidad. ${h.over === 1 ? 'Se supera 1 día' : `Se supera ${h.over} días`} de los próximos 3.</div>
+            <span class="aemet-badge">${t('SANIDAD · CALOR')}</span>
+            <div class="fw-bold">${t('{txt} para la salud · nivel {n}', { txt: HEAT_TXT[h.nivel], n: h.nivel })}</div>
+            <div class="small opacity-75">${t('{zona}: a partir de {u} °C el calor aumenta la mortalidad.', { zona: escapeHTML(h.nombre), u: fmt1.format(h.umbral) })} ${t(h.over === 1 ? 'Se supera 1 día de los próximos 3.' : 'Se supera {n} días de los próximos 3.', { n: h.over })}</div>
             <div class="aviso-tip">${HEAT_TIPS[h.nivel]}</div>
         </div>
     </div>`;
@@ -3098,11 +3129,11 @@ async function renderFocos(data) {
     const cerca = focosData.focos.filter(f => f.km <= 50);
     el.hidden = !cerca.length;
     if (cerca.length) {
-        const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+        const fmt1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
         const nearest = cerca[0];
         const hace = Math.max(1, Math.round((Date.now() - Date.parse(nearest.time)) / 3600e3));
-        setHTMLIfChanged(el, `<i class="bi bi-fire" aria-hidden="true"></i><div><b>${cerca.length === 1 ? '1 foco de calor' : `${cerca.length} focos de calor`} a menos de 50 km</b>`
-            + `<span>El más cercano, a ${fmt1.format(nearest.km)} km (hace ${hace} h). Detectados por satélite: pueden ser incendios, quemas agrícolas o industrias. Míralos en el radar.</span></div>`);
+        setHTMLIfChanged(el, `<i class="bi bi-fire" aria-hidden="true"></i><div><b>${t(cerca.length === 1 ? '1 foco de calor a menos de 50 km' : '{n} focos de calor a menos de 50 km', { n: cerca.length })}</b>`
+            + `<span>${t('El más cercano, a {km} km (hace {h} h). Detectados por satélite: pueden ser incendios, quemas agrícolas o industrias. Míralos en el radar.', { km: fmt1.format(nearest.km), h: hace })}</span></div>`);
     }
     drawFocosOnRadar();
 }
@@ -3111,8 +3142,8 @@ function drawFocosOnRadar() {
     if (RADAR.focos) RADAR.map.removeLayer(RADAR.focos);
     RADAR.focos = L.layerGroup(focosData.focos.map(f => L.circleMarker([f.lat, f.lon], {
         radius: Math.min(9, 4 + Math.log2(1 + f.n)), weight: 1.5, color: '#fff', fillColor: '#ff6a2b', fillOpacity: 0.9
-    }).bindTooltip(`Foco de calor · ${new Date(f.time).toLocaleString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`))).addTo(RADAR.map);
-    if (!RADAR.focosAttrib) { RADAR.map.attributionControl.addAttribution('Focos: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a>'); RADAR.focosAttrib = true; }
+    }).bindTooltip(`${t('Foco de calor')} · ${new Date(f.time).toLocaleString(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`))).addTo(RADAR.map);
+    if (!RADAR.focosAttrib) { RADAR.map.attributionControl.addAttribution(`${t('Focos')}: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a>`); RADAR.focosAttrib = true; }
 }
 
 // ============================================================
@@ -3125,7 +3156,7 @@ const todayISO = () => new Date().toLocaleDateString('sv-SE');
 const addDaysISO = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
 const getTrips = () => (lsGet(TRIPS_KEY) || []).filter(t => t.to >= todayISO());
 const setTrips = (t) => lsSet(TRIPS_KEY, t.slice(0, 5));
-const fmtDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
+const fmtDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
 
 // Resumen del viaje con los días del ensemble que caen dentro
 function tripSummary(trip, ens) {
@@ -3136,9 +3167,9 @@ function tripSummary(trip, ens) {
     const rain = Math.max(...days.map(d => d.rainProb));
     const level = days.some(d => d.level === 'baja') ? 'baja' : days.some(d => d.level === 'media') ? 'media' : 'alta';
     const pack = [];
-    if (rain >= 0.4) pack.push('paraguas');
-    if (min <= 8) pack.push('abrigo'); else if (min <= 14) pack.push('una chaqueta');
-    if (max >= 26) pack.push('ropa fresca y crema');
+    if (rain >= 0.4) pack.push(t('paraguas'));
+    if (min <= 8) pack.push(t('abrigo')); else if (min <= 14) pack.push(t('una chaqueta'));
+    if (max >= 26) pack.push(t('ropa fresca y crema'));
     const covered = days.length, total = Math.round((new Date(trip.to + 'T12:00:00') - new Date(trip.from + 'T12:00:00')) / 86400e3) + 1;
     return { pending: false, days, min, max, rain, level, pack, partial: covered < total, daysTo };
 }
@@ -3148,20 +3179,20 @@ async function renderTrips() {
     if (!list) return;
     const trips = getTrips();
     setTrips(trips); // limpia los pasados
-    if (!trips.length) { list.innerHTML = '<p class="trips-empty">Elige destino y fechas y te digo qué tiempo hará y qué llevar.</p>'; return; }
-    const rows = await Promise.all(trips.map(async (t) => {
+    if (!trips.length) { list.innerHTML = `<p class="trips-empty">${t('Elige destino y fechas y te digo qué tiempo hará y qué llevar.')}</p>`; return; }
+    const rows = await Promise.all(trips.map(async (trip) => {
         let s;
-        try { s = tripSummary(t, await fetchEnsemble(t.lat, t.lon)); } catch (e) { s = { pending: true, daysTo: 0, error: true }; }
-        const dates = `${fmtDay(t.from)}${t.to !== t.from ? ` – ${fmtDay(t.to)}` : ''}`;
+        try { s = tripSummary(trip, await fetchEnsemble(trip.lat, trip.lon)); } catch (e) { s = { pending: true, daysTo: 0, error: true }; }
+        const dates = `${fmtDay(trip.from)}${trip.to !== trip.from ? ` – ${fmtDay(trip.to)}` : ''}`;
         let body;
-        if (s.error) body = '<span class="trip-meta">No se pudo cargar la previsión.</span>';
-        else if (s.pending) body = `<span class="trip-meta">Faltan ${s.daysTo} días. La previsión llega 15 días antes.</span>`;
+        if (s.error) body = `<span class="trip-meta">${t('No se pudo cargar la previsión.')}</span>`;
+        else if (s.pending) body = `<span class="trip-meta">${t('Faltan {n} días. La previsión llega 15 días antes.', { n: s.daysTo })}</span>`;
         else body = `<span class="trip-stats"><b>${fmtTemp(s.min)}° – ${fmtTemp(s.max)}°</b><span><i class="bi bi-droplet-fill" aria-hidden="true"></i>${Math.round(s.rain * 100)}%</span><span class="conf-pill conf-${s.level}">${CONF_TXT[s.level]}</span></span>`
-            + `<span class="trip-meta">${s.pack.length ? `Lleva ${joinEs(s.pack)}.` : 'Nada especial que llevar.'}${s.partial ? ' Solo están los primeros días.' : ''}</span>`;
-        return `<div class="trip-item" role="button" tabindex="0" data-action="trip-open" data-trip="${escapeHTML(t.id)}">
-            <div class="trip-head"><span class="trip-name">${escapeHTML(t.name)}</span><span class="trip-dates">${escapeHTML(dates)}</span></div>
+            + `<span class="trip-meta">${s.pack.length ? t('Lleva {list}.', { list: joinEs(s.pack) }) : t('Nada especial que llevar.')}${s.partial ? t(' Solo están los primeros días.') : ''}</span>`;
+        return `<div class="trip-item" role="button" tabindex="0" data-action="trip-open" data-trip="${escapeHTML(trip.id)}">
+            <div class="trip-head"><span class="trip-name">${escapeHTML(trip.name)}</span><span class="trip-dates">${escapeHTML(dates)}</span></div>
             ${body}
-            <button type="button" class="trip-del" data-action="trip-del" data-trip="${escapeHTML(t.id)}" aria-label="Quitar el viaje a ${escapeHTML(t.name)}"><i class="bi bi-x"></i></button>
+            <button type="button" class="trip-del" data-action="trip-del" data-trip="${escapeHTML(trip.id)}" aria-label="${t('Quitar el viaje a {name}', { name: escapeHTML(trip.name) })}"><i class="bi bi-x"></i></button>
         </div>`;
     }));
     list.innerHTML = rows.join('');
@@ -3172,28 +3203,28 @@ let tripDraft = null;
 function openTripPlanner() {
     if (!detailModal) return;
     tripDraft = { from: todayISO(), to: addDaysISO(todayISO(), 2) };
-    document.getElementById('detailTitle').textContent = 'Planear un viaje';
+    document.getElementById('detailTitle').textContent = t('Planear un viaje');
     document.getElementById('detailBody').innerHTML = `
-        <label class="trip-label" for="trip-q">Destino</label>
-        <input type="search" id="trip-q" class="trip-input" placeholder="Ciudad, pueblo…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+        <label class="trip-label" for="trip-q">${t('Destino')}</label>
+        <input type="search" id="trip-q" class="trip-input" placeholder="${t('Ciudad, pueblo…')}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
         <ul class="trip-results" id="trip-results"></ul>
         <div class="trip-dates-row">
-            <label class="trip-label">Desde<input type="date" id="trip-from" class="trip-input" value="${tripDraft.from}" min="${todayISO()}"></label>
-            <label class="trip-label">Hasta<input type="date" id="trip-to" class="trip-input" value="${tripDraft.to}" min="${todayISO()}"></label>
+            <label class="trip-label">${t('Desde')}<input type="date" id="trip-from" class="trip-input" value="${tripDraft.from}" min="${todayISO()}"></label>
+            <label class="trip-label">${t('Hasta')}<input type="date" id="trip-to" class="trip-input" value="${tripDraft.to}" min="${todayISO()}"></label>
         </div>
-        <button type="button" class="btn-pill solid trip-save" id="trip-save" disabled>Guardar viaje</button>
-        <p class="detail-note">La previsión llega hasta 15 días; si el viaje es más tarde, se completará sola cuando se acerque.</p>`;
+        <button type="button" class="btn-pill solid trip-save" id="trip-save" disabled>${t('Guardar viaje')}</button>
+        <p class="detail-note">${t('La previsión llega hasta 15 días; si el viaje es más tarde, se completará sola cuando se acerque.')}</p>`;
     detailModal.classList.add('show');
     const q = document.getElementById('trip-q'), res = document.getElementById('trip-results'), save = document.getElementById('trip-save');
-    let t = null;
+    let qTimer = null;
     q.addEventListener('input', () => {
-        clearTimeout(t);
+        clearTimeout(qTimer);
         tripDraft.city = null; save.disabled = true;
         if (q.value.trim().length < 3) { res.innerHTML = ''; return; }
-        t = setTimeout(async () => {
+        qTimer = setTimeout(async () => {
             const cities = await searchCities(normalizeInput(q.value)).catch(() => []);
             res.innerHTML = cities.length ? cities.slice(0, 5).map((c, i) => `<li><button type="button" data-i="${i}"><b>${escapeHTML(c.name)}</b><small>${escapeHTML(c.region || '')}</small></button></li>`).join('')
-                : `<li class="trip-none">No encuentro «${escapeHTML(q.value)}».</li>`;
+                : `<li class="trip-none">${t('No encuentro «{q}».', { q: escapeHTML(q.value) })}</li>`;
             res._cities = cities;
         }, 300);
     });
@@ -3221,7 +3252,7 @@ function openTripPlanner() {
         setTrips(trips);
         closeDetail();
         renderTrips();
-        showToast(`Viaje a ${c.name} guardado.`, 'ok');
+        showToast(t('Viaje a {name} guardado.', { name: c.name }), 'ok');
     });
     setTimeout(() => q.focus({ preventScroll: true }), 350);
 }
@@ -3233,14 +3264,14 @@ async function openTrip(id) {
     let s;
     try { s = tripSummary(trip, await fetchEnsemble(trip.lat, trip.lon)); } catch (e) { s = { pending: true, daysTo: 0 }; }
     document.getElementById('detailTitle').textContent = trip.name;
-    const rows = s.pending ? `<p class="detail-text">Faltan ${s.daysTo} días. La previsión llega 15 días antes: vuelve a mirarlo entonces.</p>`
+    const rows = s.pending ? `<p class="detail-text">${t('Faltan {n} días. La previsión llega 15 días antes: vuelve a mirarlo entonces.', { n: s.daysTo })}</p>`
         : s.days.map(d => `<div class="trip-day"><span class="trip-day-name">${escapeHTML(fmtDay(d.fecha))}</span><span>${fmtTemp(d.tMin)}° / <b>${fmtTemp(d.tMax)}°</b></span><span class="trend-rain">${d.rainProb >= 0.2 ? `<i class="bi bi-droplet-fill" aria-hidden="true"></i>${Math.round(d.rainProb * 100)}%` : ''}</span><span class="trend-conf">${CONF_TXT[d.level]}</span></div>`).join('');
     document.getElementById('detailBody').innerHTML = `
         <p class="detail-text">${escapeHTML(trip.region || '')}${trip.region ? ' · ' : ''}${escapeHTML(fmtDay(trip.from))}${trip.to !== trip.from ? ` – ${escapeHTML(fmtDay(trip.to))}` : ''}</p>
         ${rows}
-        ${!s.pending && s.pack.length ? `<p class="detail-text">Lleva ${escapeHTML(joinEs(s.pack))}.</p>` : ''}
-        <button type="button" class="btn-pill ghost trip-go" data-action="trip-go" data-trip="${escapeHTML(trip.id)}"><i class="bi bi-geo-alt"></i>Ver el tiempo de ${escapeHTML(trip.name)}</button>
-        <p class="detail-note">Con los 51 escenarios del modelo de IA de ECMWF.</p>`;
+        ${!s.pending && s.pack.length ? `<p class="detail-text">${escapeHTML(t('Lleva {list}.', { list: joinEs(s.pack) }))}</p>` : ''}
+        <button type="button" class="btn-pill ghost trip-go" data-action="trip-go" data-trip="${escapeHTML(trip.id)}"><i class="bi bi-geo-alt"></i>${t('Ver el tiempo de {name}', { name: escapeHTML(trip.name) })}</button>
+        <p class="detail-note">${t('Con los 51 escenarios del modelo de IA de ECMWF.')}</p>`;
     detailModal.classList.add('show');
 }
 
@@ -3265,12 +3296,12 @@ const renderWeather = (data) => {
     if (displayCity && displayCity.startsWith("Tu ubicacion (")) displayCity = displayCity.replace("Tu ubicacion", "Tu ubicación");
     if (displayCity && displayCity.startsWith("Tu ubicación")) {
         const match = displayCity.match(/\(([^)]+)\)/);
-        cityEl.innerHTML = `<i class="bi bi-cursor-fill hero-loc" aria-hidden="true"></i>${match ? escapeHTML(match[1]) : 'Tu ubicación'}`;
+        cityEl.innerHTML = `<i class="bi bi-cursor-fill hero-loc" aria-hidden="true"></i>${match ? escapeHTML(match[1]) : t('Tu ubicación')}`;
     } else {
         cityEl.innerText = displayCity || 'AERIS';
     }
     // Título de la pestaña a juego con la ciudad (también en /tiempo/<ciudad>)
-    if (cityEl.textContent.trim()) document.title = `El tiempo en ${cityEl.textContent.trim()} · AERIS`;
+    if (cityEl.textContent.trim()) document.title = t('El tiempo en {city} · AERIS', { city: cityEl.textContent.trim() });
 
     // Temperatura con unidades (el ° va en su propio span para afinar la tipografía)
     const tempEl = document.getElementById('temp');
@@ -3283,14 +3314,14 @@ const renderWeather = (data) => {
         lastHero[id] = v;
     });
     document.getElementById('feels-like').innerText = fmtTemp(cur.feelsLike);
-    document.getElementById('desc').innerText      = cur.desc;
+    document.getElementById('desc').innerText      = t(cur.desc);
     document.getElementById('hum').innerText       = cur.humidity;
     document.getElementById('wind').innerText      = fmtWind(cur.windSpeed);
     // Dirección y rachas reales (antes ponía "Viento" si no había dirección)
-    const gustTxt = cur.windGust && cur.windGust > cur.windSpeed + 5 ? `rachas ${fmtWind(cur.windGust)}` : '';
-    document.getElementById('wind-dir').innerText  = [cur.windDir, gustTxt].filter(Boolean).join(' · ');
+    const gustTxt = cur.windGust && cur.windGust > cur.windSpeed + 5 ? t('rachas {g}', { g: fmtWind(cur.windGust) }) : '';
+    document.getElementById('wind-dir').innerText  = [dirName(cur.windDir), gustTxt].filter(Boolean).join(' · ');
     document.getElementById('uv').innerText        = Math.round(cur.uv);
-    document.getElementById('compare-txt').innerText = [cur.comparison, tropicalNight(data)].filter(Boolean).join(' · ');
+    document.getElementById('compare-txt').innerText = [t(cur.comparison || ''), tropicalNight(data)].filter(Boolean).join(' · ');
     updateUnitsUI();
 
     // Presión + tendencia
@@ -3306,12 +3337,12 @@ const renderWeather = (data) => {
 
     // AQI
     const aqi = cur.aqi || 0;
-    let aqiText = "Buena", aqiColor = "#4ade80";
-    if (aqi > 300) { aqiText = "Peligrosa"; aqiColor = "#7e22ce"; }
-    else if (aqi > 200) { aqiText = "Muy Dañina"; aqiColor = "#a855f7"; }
-    else if (aqi > 150) { aqiText = "Dañina"; aqiColor = "#ef4444"; }
-    else if (aqi > 100) { aqiText = "Sensible"; aqiColor = "#f97316"; }
-    else if (aqi > 50)  { aqiText = "Moderada"; aqiColor = "#eab308"; }
+    let aqiText = t("Buena"), aqiColor = "#4ade80";
+    if (aqi > 300) { aqiText = t("Peligrosa"); aqiColor = "#7e22ce"; }
+    else if (aqi > 200) { aqiText = t("Muy Dañina"); aqiColor = "#a855f7"; }
+    else if (aqi > 150) { aqiText = t("Dañina"); aqiColor = "#ef4444"; }
+    else if (aqi > 100) { aqiText = t("Sensible"); aqiColor = "#f97316"; }
+    else if (aqi > 50)  { aqiText = t("Moderada"); aqiColor = "#eab308"; }
     document.getElementById('aqi-val').innerText  = aqi;
     document.getElementById('aqi-text').innerText = aqiText;
     // El color va en un punto, no en el texto: sobre el cristal el texto de
@@ -3362,7 +3393,7 @@ const renderWeather = (data) => {
     const hCont = document.getElementById('hourly');
     if (hCont) {
         const changed = setHTMLIfChanged(hCont, data.hourly.map(h =>
-            `<div class="hourly-item" role="listitem" aria-label="${h.displayTime}, ${fmtTemp(h.temp)} grados${h.desc ? ', ' + h.desc : ''}${h.rainProb ? ', ' + h.rainProb + ' % de lluvia' : ''}">
+            `<div class="hourly-item" role="listitem" aria-label="${t('{time}, {temp} grados', { time: h.displayTime, temp: fmtTemp(h.temp) })}${h.desc ? ', ' + t(h.desc) : ''}${h.rainProb ? t(', {p} % de lluvia', { p: h.rainProb }) : ''}">
                 <span class="h-time">${h.displayTime}</span>
                 <span class="h-icon">${renderIcon(h.icon, "")}</span>
                 <span class="h-rain">${h.rainProb > 0 ? h.rainProb + '%' : ''}</span>
@@ -3389,8 +3420,8 @@ const renderWeather = (data) => {
         setHTMLIfChanged(dCont, data.daily.map((d, index) => {
             const date = new Date(d.fecha.replace(/-/g, '/'));
             const isToday = d.fecha === todayStr;
-            const dayName = isToday ? 'Hoy' : date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
-            const dayNum = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '');
+            const dayName = isToday ? t('Hoy') : date.toLocaleDateString(LOCALE, { weekday: 'short' }).replace('.', '');
+            const dayNum = date.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' }).replace('.', '');
             const l = pos(d.tempMin), r = 100 - pos(d.tempMax);
             const y = data.yesterday;
             const ydMarks = isToday && y ? `<span class="day-yday" style="left:${pos(y.tempMin)}%"></span><span class="day-yday" style="left:${pos(y.tempMax)}%"></span>` : '';
@@ -3403,11 +3434,11 @@ const renderWeather = (data) => {
                         iconClass = iconClass.replace('bi-sun', 'bi-moon').replace('bi-cloud-sun', 'bi-cloud-moon');
                     return `<div class="day-hourly-item"><span class="dh-time">${h.time}</span>${renderIcon(iconClass, "")}<span class="dh-temp">${fmtTemp(h.temp)}°</span><span class="dh-rain">${h.rainProb > 0 ? h.rainProb + '%' : ''}</span></div>`;
                 }).join('')
-                : '<div class="text-center w-100 small" style="color:var(--text-3)">No hay datos horarios</div>';
+                : `<div class="text-center w-100 small" style="color:var(--text-3)">${t('No hay datos horarios')}</div>`;
             const itemId = `day-item-${index}`;
             const isOpen = openDays.has(itemId);
             return `<div class="day-item${isOpen ? ' open' : ''}" id="${itemId}" role="listitem">
-                <button type="button" class="day-row" data-action="toggle-day" data-day="${index}" aria-expanded="${isOpen}" aria-controls="day-detail-${index}" aria-label="${escapeHTML(dayName)} ${dayNum}: máxima ${fmtTemp(d.tempMax)}°, mínima ${fmtTemp(d.tempMin)}°. Ver horas">
+                <button type="button" class="day-row" data-action="toggle-day" data-day="${index}" aria-expanded="${isOpen}" aria-controls="day-detail-${index}" aria-label="${t('{day} {num}: máxima {max}°, mínima {min}°. Ver horas', { day: escapeHTML(dayName), num: dayNum, max: fmtTemp(d.tempMax), min: fmtTemp(d.tempMin) })}">
                     <span class="day-name">${dayName}<small>${dayNum}</small></span>
                     <span class="day-icon">${renderIcon(d.icon, "")}<span class="day-rain">${d.rainProbMax > 0 ? d.rainProbMax + '%' : ''}</span></span>
                     <span class="day-min">${fmtTemp(d.tempMin)}°</span>
@@ -3487,7 +3518,7 @@ async function fetchWeatherData(url, id) {
     let coords = String(id || '').split(',').map(Number);
     if (!(coords.length === 2 && coords.every(Number.isFinite)) && id && navigator.onLine !== false) {
         try {
-            const g = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(id)}&count=1&language=es&format=json`)).json();
+            const g = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(id)}&count=1&language=${LANG}&format=json`)).json();
             const r = g.results && g.results[0];
             if (r) {
                 coords = [r.latitude, r.longitude];
@@ -3594,8 +3625,8 @@ async function getWeather(id) {
 // Toque en "Actualizado hace…": de dónde salen los datos
 document.getElementById('freshness')?.addEventListener('click', () => {
     const d = window._lastFullData;
-    const t = d && d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
-    showToast(`Previsión de Open-Meteo (el mejor modelo para tu zona)${t ? `, actualizada a las ${t}` : ''}. Avisos oficiales de AEMET.`, 'ok');
+    const hm = d && d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' }) : '';
+    showToast(t('Previsión de Open-Meteo (el mejor modelo para tu zona)') + (hm ? t(', actualizada a las {t}', { t: hm }) : '') + t('. Avisos oficiales de AEMET.'), 'ok');
 });
 
 // Al recuperar la red, si había un reintento pendiente se hace ya
@@ -3644,8 +3675,8 @@ if (geoBtn) {
 // Lo que el usuario cuenta en la bienvenida: actividades y alergias
 const USER_PREFS_KEY = 'aeris_prefs';
 const getUserPrefs = () => ({ activities: [], allergies: [], ...(lsGet(USER_PREFS_KEY) || {}) });
-const ACT_NAMES = { run: 'Correr', cycle: 'Bici', bbq: 'Barbacoa', car: 'Lavar el coche', star: 'Ver estrellas', dog: 'Pasear al perro', beach: 'Playa', drive: 'Conducir' };
-const ALLERGY_NAMES = { grass: 'Gramíneas', olive: 'Olivo', birch: 'Abedul', alder: 'Aliso', mugwort: 'Artemisa', ragweed: 'Ambrosía' };
+const ACT_NAMES = { run: t('Correr'), cycle: t('Bici'), bbq: t('Barbacoa'), car: t('Lavar el coche'), star: t('Ver estrellas'), dog: t('Pasear al perro'), beach: t('Playa'), drive: t('Conducir') };
+const ALLERGY_NAMES = { grass: t('Gramíneas'), olive: t('Olivo'), birch: t('Abedul'), alder: t('Aliso'), mugwort: t('Artemisa'), ragweed: t('Ambrosía') };
 function renderOnboardingChoices() {
     const p = getUserPrefs();
     const chips = (map, sel, kind) => Object.entries(map).map(([k, n]) =>
@@ -3706,7 +3737,7 @@ function initOnboarding() {
         slides.forEach((s, i) => s.classList.toggle('active', i === n));
         dots.forEach((d, i) => d.classList.toggle('active', i === n));
         slide = n;
-        next.textContent = n === slides.length - 1 ? '¡Empezar!' : 'Siguiente';
+        next.textContent = n === slides.length - 1 ? t('¡Empezar!') : t('Siguiente');
         if (n === 2) updatePersonaPreview();
     };
 

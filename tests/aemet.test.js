@@ -40,6 +40,16 @@ test('lee nivel, fenómeno, zonas y fechas', async () => {
     assert.deepEqual([...fenomenos].sort(), ['Lluvias', 'Tormentas']);
 });
 
+test('cada aviso trae también su versión en inglés', async () => {
+    const avisos = parseAvisosCap(await extractXmlsFromTar(TAR), DURANTE);
+    const naranja = avisos.find(a => a.nivel === 'naranja');
+    assert.equal(naranja.en.fenomeno, 'Rain');
+    assert.match(naranja.en.titular, /^Severe rain warning/);
+    assert.match(naranja.en.descripcion, /One-hour accumulated precipitation: 30 mm/);
+    assert.ok(naranja.en.consejo.length > 10);
+    assert.deepEqual([...new Set(avisos.map(a => a.en.fenomeno))].sort(), ['Rain', 'Thunderstorms']);
+});
+
 test('el más grave va primero', async () => {
     const avisos = parseAvisosCap(await extractXmlsFromTar(TAR), DURANTE);
     const orden = { rojo: 0, naranja: 1, amarillo: 2 };

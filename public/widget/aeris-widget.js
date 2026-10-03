@@ -6,6 +6,8 @@
 // Tamaños: pequeño y mediano.
 
 const BASE = 'https://aeris-ghg8.onrender.com';
+// Idioma del iPhone: español (y lenguas de España) o inglés
+const EN = !/^(es|ca|gl|eu)/i.test(Device.language() || 'es');
 const fm = FileManager.local();
 const dir = fm.joinPath(fm.documentsDirectory(), 'aeris');
 if (!fm.fileExists(dir)) fm.createDirectory(dir);
@@ -32,7 +34,7 @@ if (/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(param)) {
 const cacheFile = fm.joinPath(dir, `datos-${query.replace(/[^a-z0-9]/gi, '_')}.json`);
 let data = null, stale = false;
 try {
-    const req = new Request(`${BASE}/api/widget?${query}`);
+    const req = new Request(`${BASE}/api/widget?${query}${EN ? '&lang=en' : ''}`);
     req.timeoutInterval = 25; // el servidor puede estar despertando
     data = await req.loadJSON();
     if (!data || data.error) throw new Error(data && data.error);
@@ -84,9 +86,9 @@ w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
 if (!data) {
     text(w, 'AERIS', 14, { weight: 'semibold' });
     w.addSpacer(6);
-    text(w, 'Sin datos ahora mismo. Se volverá a intentar en unos minutos.', 12, { alpha: 0.8, lines: 4 });
+    text(w, EN ? 'No data right now. It will try again in a few minutes.' : 'Sin datos ahora mismo. Se volverá a intentar en unos minutos.', 12, { alpha: 0.8, lines: 4 });
 } else {
-    w.url = `${BASE}/?lat=${data.lat}&lon=${data.lon}&name=${encodeURIComponent(data.city || '')}`;
+    w.url = `${BASE}${EN ? '/en/' : '/'}?lat=${data.lat}&lon=${data.lon}&name=${encodeURIComponent(data.city || '')}`;
     const row = w.addStack();
     row.layoutHorizontally();
 
@@ -105,7 +107,7 @@ if (!data) {
     main.addSpacer();
     if (data.aviso) text(main, data.aviso.texto, 11, { weight: 'semibold', color: new Color(data.aviso.nivel === 'rojo' ? '#ff8a8a' : data.aviso.nivel === 'naranja' ? '#ffb46b' : '#ffe066') });
     else if (data.lluvia) text(main, `☂ ${data.lluvia}`, 11, { weight: 'semibold', color: new Color('#8fd3ff') });
-    else if (stale) text(main, 'Sin conexión: últimos datos', 10, { alpha: 0.6 });
+    else if (stale) text(main, EN ? 'Offline: latest data' : 'Sin conexión: últimos datos', 10, { alpha: 0.6 });
 
     // Mediano: las próximas horas a la derecha
     if (family !== 'small' && Array.isArray(data.horas) && data.horas.length) {

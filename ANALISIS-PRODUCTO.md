@@ -386,6 +386,17 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
   - En «Medido en…» sale lo que ha llovido según la estación de AEMET. AEMET solo da unas 12 horas de observaciones, así que dice «en las últimas 12 h».
   - En la hoja de avisos hay un botón «Compartir por WhatsApp» con los avisos y el enlace a la ciudad. Si solo hay un aviso, también se abre al tocarlo.
 
+- **Avisos solo de tu zona (hecho después):** antes salían también los de una zona vecina si su borde estaba a menos de 4 km (Getafe recibía los de «Sur, Vegas y Oeste»). Ahora la zona de cada punto se calcula con todos los polígonos del paquete, también los verdes. En la costa se suma la zona de mar («Costa - …»). Comprobado con las 65 ciudades de la app.
+
+- **Inglés (hecho después):**
+  - Idioma automático: si el móvil está en español, catalán, gallego o euskera, la app sale en español; si no, en inglés. Se puede cambiar en el panel lateral.
+  - `public/i18n.js` y `public/i18n/en.js`: el texto de origen es el español (`t('Hoy')` → «Today»). Para catalán, gallego o euskera basta con otro diccionario igual. Una prueba comprueba que no falta ninguna traducción.
+  - Las 15 personalidades están adaptadas, no traducidas al pie de la letra (`i18n/personas-en.js`).
+  - Avisos de AEMET con su texto oficial en inglés (AEMET lo manda en el CAP); el nombre del fenómeno sale de una tabla propia.
+  - Las notificaciones (lluvia, calor, viento, tormenta, AEMET y parte de la mañana) llegan en el idioma de cada suscriptor.
+  - SEO: `/en/` y `/en/weather/<ciudad>` con `hreflang` hacia `/tiempo/<ciudad>` y al revés; el sitemap lleva las dos versiones.
+  - También en inglés: `/en/privacy` y el widget de iPhone, que usa el idioma del móvil.
+
 ---
 
 ## Qué más (revisión del 2026-10-03, tarde)
@@ -432,7 +443,7 @@ Casi toda la hoja de ruta está hecha. Lo que queda, por orden de importancia:
    - Texto con el aviso y el enlace a `/tiempo/<ciudad>`.
    - Es como se difunden los avisos en España, y trae usuarios.
    - Esfuerzo: S.
-8. **Idiomas.**
+8. ✅ **Idiomas** (inglés hecho; catalán, gallego y euskera pendientes, solo falta el diccionario).
    - Inglés para turistas; catalán, gallego y euskera.
    - Multiplica las búsquedas que encuentran `/tiempo/<ciudad>`.
    - Esfuerzo: L (los textos están repartidos por `app.js`).

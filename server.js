@@ -12,6 +12,8 @@ const compression = require('compression');
 // Conversión de Open-Meteo a los datos de la app (la comparte el navegador)
 const WeatherCore = require('./public/weather-core.js');
 const { decodeWMO } = WeatherCore;
+// "Nublado" → "Cloudy" (el tiempo ya calculado viene en español)
+const WMO_ES_EN = Object.fromEntries(Object.entries(WeatherCore.WMO_ES).map(([c, es]) => [es, WeatherCore.WMO_EN[c]]));
 
 const app = express();
 // La app corre detrás del proxy del hosting: sin esto todas las peticiones
@@ -336,21 +338,25 @@ app.get('/healthz', (req, res) => {
 // --- PRIVACIDAD ---
 // El email de contacto sale de CONTACT_EMAIL (en Render), no del código
 const escHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let privacidadTpl = null;
-app.get(['/privacidad', '/privacidad/'], (req, res) => {
+const privacyTpl = {};
+const privacyPage = (lang) => (req, res) => {
     try {
-        if (!privacidadTpl) privacidadTpl = fs.readFileSync(path.join(__dirname, 'lib', 'privacidad.html'), 'utf-8');
+        const file = lang === 'en' ? 'privacy-en.html' : 'privacidad.html';
+        if (!privacyTpl[lang]) privacyTpl[lang] = fs.readFileSync(path.join(__dirname, 'lib', file), 'utf-8');
         const email = String(process.env.CONTACT_EMAIL || '').trim();
-        const contacto = email
-            ? `<b>Cualquier duda sobre tus datos:</b> escribe a <a href="mailto:${escHtml(email)}">${escHtml(email)}</a>.`
-            : '<b>Sin intermediarios:</b> como AERIS no te pide nombre ni email, todo lo que guarda de ti lo puedes borrar tú desde la app.';
+        const mail = `<a href="mailto:${escHtml(email)}">${escHtml(email)}</a>`;
+        const contacto = lang === 'en'
+            ? (email ? `<b>Any questions about your data:</b> write to ${mail}.` : "<b>No middlemen:</b> AERIS doesn't ask for your name or email, so you can delete everything it stores about you from the app.")
+            : (email ? `<b>Cualquier duda sobre tus datos:</b> escribe a ${mail}.` : '<b>Sin intermediarios:</b> como AERIS no te pide nombre ni email, todo lo que guarda de ti lo puedes borrar tú desde la app.');
         res.setHeader('Cache-Control', 'no-cache');
-        res.type('html').send(privacidadTpl.replace('{{CONTACTO}}', contacto));
+        res.type('html').send(privacyTpl[lang].replace('{{CONTACTO}}', contacto));
     } catch (e) {
         log('error', 'privacidad:', e.message);
         res.status(500).send('No disponible.');
     }
-});
+};
+app.get(['/privacidad', '/privacidad/'], privacyPage('es'));
+app.get(['/en/privacy', '/en/privacy/'], privacyPage('en'));
 
 app.get('/api/vapid-key', (req, res) => {
     if (!publicVapidKey) return res.status(503).json({ error: 'Notificaciones no disponibles.' });
@@ -369,6 +375,7 @@ function cleanPrefs(p) {
         morningHour: Number.isFinite(hour) && hour >= 5 && hour <= 12 ? hour : 8,
         calima: p.calima !== false,
         polen: !!p.polen,
+        lang: p.lang === 'en' ? 'en' : 'es', // idioma de las notificaciones
         extras: (Array.isArray(p.extras) ? p.extras : []).slice(0, 2)
             .filter(e => e && Number.isFinite(Number(e.lat)) && Number.isFinite(Number(e.lon)))
             .map(e => ({ lat: Number(e.lat), lon: Number(e.lon), city: String(e.city || '').slice(0, 120), region: String(e.region || '').slice(0, 120) }))
@@ -409,8 +416,13 @@ app.post('/api/subscribe', subscribeLimiter, async (req, res) => {
                     { endpoint: subscription.endpoint, keys: subscription.keys },
                     JSON.stringify({
                         tag: 'aeris-bienvenida', url: '/',
-                        title: '✅ Avisos de AERIS activados',
-                        body: `Te avisaremos de lluvia, tormentas y calor extremo en ${fields.city || 'tu zona'}.`,
+                        ...(prefs && prefs.lang === 'en' ? {
+                            title: '✅ AERIS alerts are on',
+                            body: `We'll let you know about rain, storms and extreme heat in ${placeName(fields.city, 'en') || 'your area'}.`
+                        } : {
+                            title: '✅ Avisos de AERIS activados',
+                            body: `Te avisaremos de lluvia, tormentas y calor extremo en ${fields.city || 'tu zona'}.`
+                        }),
                         icon: '/icon-192.png', badge: '/icon-192.png'
                     }),
                     { TTL: 3600, urgency: 'high' }
@@ -537,37 +549,71 @@ async function resolveSlug(slug) {
 let indexTemplate = null;
 const getIndexTemplate = () => indexTemplate || (indexTemplate = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf-8'));
 
-app.get('/tiempo/:slug', async (req, res) => {
-    const slug = slugify(req.params.slug);
-    if (!slug) return res.redirect(302, '/');
-    if (slug !== req.params.slug) return res.redirect(301, `/tiempo/${slug}`);
-    const city = await resolveSlug(slug);
-    const name = city ? city.name : slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    const url = `${SITE}/tiempo/${slug}`;
-    const title = `El tiempo en ${name} hoy y próximos días · AERIS`;
-    const desc = `Previsión del tiempo en ${name}: lluvia en las próximas 2 horas, hora a hora, 15 días con su fiabilidad, avisos oficiales de AEMET, calidad del aire, calima y polen.`;
-    const ld = {
-        '@context': 'https://schema.org', '@type': 'WebPage', name: title, description: desc, url, inLanguage: 'es',
-        about: city ? { '@type': 'Place', name, geo: { '@type': 'GeoCoordinates', latitude: city.lat, longitude: city.lon } } : { '@type': 'Place', name }
-    };
+// La página de la app con título, descripción, idioma y enlaces a la versión
+// en el otro idioma (hreflang) propios. city: los datos de la ciudad o null.
+function renderAppPage({ lang, title, desc, url, urlEs, urlEn, city, ld }) {
+    const alt = `<link rel="alternate" hreflang="es" href="${escHtml(urlEs)}">\n`
+        + `    <link rel="alternate" hreflang="en" href="${escHtml(urlEn)}">\n`
+        + `    <link rel="alternate" hreflang="x-default" href="${escHtml(urlEs)}">`;
     let html = getIndexTemplate()
+        .replace('<html lang="es">', `<html lang="${lang}">`)
         .replace(/<title>[^<]*<\/title>/, `<title>${escHtml(title)}</title>`)
         .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${escHtml(desc)}">\n    <link rel="canonical" href="${escHtml(url)}">`)
+        .replace(/<!--hreflang[\s\S]*?<!--\/hreflang-->/, alt)
         .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${escHtml(title)}">`)
         .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${escHtml(desc)}">`)
-        .replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${escHtml(url)}">`)
-        .replace('</head>', `    <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>\n`
-            + `    <script>window.__CITY__ = ${JSON.stringify(city ? { name: city.name, lat: city.lat, lon: city.lon, region: city.region } : { name, query: slug.replace(/-/g, ' ') }).replace(/</g, '\\u003c')};</script>\n</head>`);
+        .replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${escHtml(url)}">`);
+    const head = [];
+    if (ld) head.push(`    <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>`);
+    if (city) head.push(`    <script>window.__CITY__ = ${JSON.stringify(city).replace(/</g, '\\u003c')};</script>`);
+    if (head.length) html = html.replace('</head>', `${head.join('\n')}\n</head>`);
+    return html;
+}
+
+// Página de una ciudad, en español (/tiempo/x) o en inglés (/en/weather/x)
+async function cityPage(req, res, lang) {
+    const base = lang === 'en' ? '/en/weather/' : '/tiempo/';
+    const slug = slugify(req.params.slug);
+    if (!slug) return res.redirect(302, lang === 'en' ? '/en/' : '/');
+    if (slug !== req.params.slug) return res.redirect(301, `${base}${slug}`);
+    const city = await resolveSlug(slug);
+    const name = city ? city.name : slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const urlEs = `${SITE}/tiempo/${slug}`, urlEn = `${SITE}/en/weather/${slug}`;
+    const url = lang === 'en' ? urlEn : urlEs;
+    const title = lang === 'en' ? `Weather in ${name} today and the next days · AERIS` : `El tiempo en ${name} hoy y próximos días · AERIS`;
+    const desc = lang === 'en'
+        ? `Weather forecast for ${name}, Spain: rain in the next 2 hours, hour by hour, 15 days with how reliable each one is, official AEMET warnings, air quality, Saharan dust and pollen.`
+        : `Previsión del tiempo en ${name}: lluvia en las próximas 2 horas, hora a hora, 15 días con su fiabilidad, avisos oficiales de AEMET, calidad del aire, calima y polen.`;
+    const ld = {
+        '@context': 'https://schema.org', '@type': 'WebPage', name: title, description: desc, url, inLanguage: lang,
+        about: city ? { '@type': 'Place', name, geo: { '@type': 'GeoCoordinates', latitude: city.lat, longitude: city.lon } } : { '@type': 'Place', name }
+    };
+    const cityData = city ? { name: city.name, lat: city.lat, lon: city.lon, region: city.region } : { name, query: slug.replace(/-/g, ' ') };
     res.setHeader('Cache-Control', 'no-cache');
-    res.type('html').send(html);
+    res.type('html').send(renderAppPage({ lang, title, desc, url, urlEs, urlEn, city: cityData, ld }));
+}
+app.get('/tiempo/:slug', (req, res) => cityPage(req, res, 'es'));
+app.get('/en/weather/:slug', (req, res) => cityPage(req, res, 'en'));
+
+// La app en inglés (portada)
+app.get(['/en', '/en/'], (req, res) => {
+    if (req.path === '/en') return res.redirect(301, '/en/');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('html').send(renderAppPage({
+        lang: 'en', url: `${SITE}/en/`, urlEs: `${SITE}/`, urlEn: `${SITE}/en/`,
+        title: 'AERIS · Weather for Spain, with official AEMET warnings',
+        desc: 'Weather app for Spain: rain in the next 2 hours, official AEMET warnings in English, 15-day forecast with reliability, air quality, Saharan dust and pollen. No ads, no tracking.'
+    }));
 });
 
-// Sitemap con las ciudades principales
+// Sitemap con las ciudades principales, en los dos idiomas
 app.get('/sitemap.xml', (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
-    const urls = [`${SITE}/`, `${SITE}/widget/`, ...CIUDADES.filter(c => c.slug !== 'santiago').map(c => `${SITE}/tiempo/${c.slug}`)];
+    const ciudades = CIUDADES.filter(c => c.slug !== 'santiago');
+    const urls = [`${SITE}/`, `${SITE}/en/`, `${SITE}/widget/`,
+        ...ciudades.map(c => `${SITE}/tiempo/${c.slug}`), ...ciudades.map(c => `${SITE}/en/weather/${c.slug}`)];
     res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`
-        + urls.map((u, i) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod><changefreq>hourly</changefreq><priority>${i === 0 ? '1.0' : '0.8'}</priority></url>`).join('\n')
+        + urls.map((u, i) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod><changefreq>hourly</changefreq><priority>${i < 2 ? '1.0' : '0.8'}</priority></url>`).join('\n')
         + `\n</urlset>\n`);
 });
 
@@ -892,18 +938,24 @@ app.get('/api/widget', widgetLimiter, async (req, res) => {
     const nowWet = (nc.precipitation[0] || 0) >= 0.05;
     const firstWet = nc.precipitation.slice(0, 8).findIndex(v => (v || 0) >= 0.05);
     const lastWet = nowWet ? nc.precipitation.slice(0, 8).findIndex(v => (v || 0) < 0.05) : -1;
-    const lluvia = nowWet ? (lastWet > 0 ? `Para en ${lastWet * 15} min` : 'Lloviendo') : firstWet > 0 ? `Lluvia en ${firstWet * 15} min` : null;
+    const en = req.query.lang === 'en';
+    const lluvia = en
+        ? (nowWet ? (lastWet > 0 ? `Stops in ${lastWet * 15} min` : 'Raining') : firstWet > 0 ? `Rain in ${firstWet * 15} min` : null)
+        : (nowWet ? (lastWet > 0 ? `Para en ${lastWet * 15} min` : 'Lloviendo') : firstWet > 0 ? `Lluvia en ${firstWet * 15} min` : null);
     const aviso = (d.avisosOficiales || []).find(a => a.nivel === 'rojo' || a.nivel === 'naranja') || (d.avisosOficiales || [])[0];
+    const nivelEn = aviso && ({ rojo: 'Red', naranja: 'Orange', amarillo: 'Yellow' }[aviso.nivel] || aviso.nivel);
     const t = d.daily && d.daily[0];
     res.setHeader('Cache-Control', 'no-store');
     res.json({
-        city: String(d.location.name || '').replace(/^Tu ubicacion \((.*)\)$/, '$1').replace(/^Tu ubicacion$/, 'Tu ubicación'),
+        city: placeName(d.location.name, en ? 'en' : 'es'),
         lat: d.location.lat, lon: d.location.lon,
-        temp: d.current.temp, desc: d.current.desc, isDay: d.current.isDay,
+        temp: d.current.temp, desc: en ? (WMO_ES_EN[d.current.desc] || d.current.desc) : d.current.desc, isDay: d.current.isDay,
         icon: METEOCON_SRV[d.current.icon] || 'overcast',
         max: t ? t.tempMax : null, min: t ? t.tempMin : null,
         lluvia,
-        aviso: aviso ? { nivel: aviso.nivel, texto: `Aviso ${aviso.nivel} · ${String(aviso.fenomeno || '').toLowerCase()}` } : null,
+        aviso: aviso ? { nivel: aviso.nivel, texto: en
+            ? `${nivelEn} warning · ${String((aviso.en && aviso.en.fenomeno) || aviso.fenomeno || '').toLowerCase()}`
+            : `Aviso ${aviso.nivel} · ${String(aviso.fenomeno || '').toLowerCase()}` } : null,
         horas: (d.hourly || []).slice(1, 6).map(h => ({ h: h.displayTime, t: h.temp, icon: METEOCON_SRV[h.icon] || 'overcast', p: h.rainProb || 0 })),
         updatedAt: d.updatedAt
     });
@@ -913,7 +965,7 @@ app.get('/api/widget', widgetLimiter, async (req, res) => {
 // minutely_15 empieza a las 00:00 del día, así que hay que localizar el tramo
 // actual. Cada valor es la precipitación de los 15 min ANTERIORES a su hora:
 // el tramo con hora t cubre (t-15, t]. Devuelve { title, body } o null.
-function imminentRainNotification(nowcast, current, city) {
+function imminentRainNotification(nowcast, current, city, lang = 'es') {
     if (!nowcast || !nowcast.time || !current || !current.time) return null;
     let start = nowcast.time.findIndex(t => t > current.time);
     if (start === -1) return null;
@@ -923,13 +975,22 @@ function imminentRainNotification(nowcast, current, city) {
     if (rainSum <= 0.2 || firstWet === -1) return null;
 
     const isSnow = current.temperature_2m <= 2;
-    const type = isSnow ? "Nieve" : "Lluvia";
     const icon = isSnow ? "❄️" : "☔";
     const mmh = Math.max(...slots) * 4;
-    const intensidad = mmh >= 10 ? 'fuerte' : mmh >= 2 ? 'moderada' : 'débil';
     const startMs = Date.parse(nowcast.time[start + firstWet] + ':00Z') - 15 * 60000;
     const minutos = Math.max(0, Math.round((startMs - Date.parse(current.time + ':00Z')) / 60000 / 5) * 5);
     const yaEsta = firstWet === 0 || minutos === 0;
+    if (lang === 'en') {
+        const type = isSnow ? 'Snow' : 'Rain';
+        const intensity = mmh >= 10 ? 'heavy' : mmh >= 2 ? 'moderate' : 'light';
+        const timeMsg = yaEsta ? 'right now' : `in about ${minutos} min`;
+        return {
+            title: `${icon} ${type} ${yaEsta ? 'now' : timeMsg} in ${placeName(city, 'en')}`,
+            body: `${intensity.charAt(0).toUpperCase() + intensity.slice(1)} ${type.toLowerCase()} ${timeMsg}. ${isSnow ? 'Wrap up and watch your step.' : 'Keep your umbrella handy.'}`
+        };
+    }
+    const type = isSnow ? "Nieve" : "Lluvia";
+    const intensidad = mmh >= 10 ? 'fuerte' : mmh >= 2 ? 'moderada' : 'débil';
     const timeMsg = yaEsta ? "ahora mismo" : `en unos ${minutos} min`;
     return {
         title: `${icon} ${type} ${yaEsta ? 'ya' : timeMsg} en ${city}`,
@@ -979,14 +1040,15 @@ async function forEachLimit(items, limit, fn) {
 }
 
 // "Hoy 14:00–23:59" / "Mañana 10:00–19:59" en la zona horaria del usuario
-function avisoRango(onset, expires, tz) {
+function avisoRango(onset, expires, tz, lang = 'es') {
     if (!onset) return '';
     const zone = isValidTimeZone(tz) ? tz : 'Europe/Madrid';
+    const locale = lang === 'en' ? 'en-GB' : 'es-ES';
     const day = (d) => new Intl.DateTimeFormat('sv-SE', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
-    const hm = (d) => new Intl.DateTimeFormat('es-ES', { timeZone: zone, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+    const hm = (d) => new Intl.DateTimeFormat(locale, { timeZone: zone, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
     const a = new Date(onset), b = expires ? new Date(expires) : null;
     const today = day(new Date()), tomorrow = day(new Date(Date.now() + 86400000));
-    const label = day(a) === today ? 'Hoy' : day(a) === tomorrow ? 'Mañana' : new Intl.DateTimeFormat('es-ES', { timeZone: zone, weekday: 'long' }).format(a);
+    const label = day(a) === today ? (lang === 'en' ? 'Today' : 'Hoy') : day(a) === tomorrow ? (lang === 'en' ? 'Tomorrow' : 'Mañana') : new Intl.DateTimeFormat(locale, { timeZone: zone, weekday: 'long' }).format(a);
     return `${label} ${hm(a)}${b ? '–' + hm(b) : ''}`;
 }
 
@@ -995,7 +1057,8 @@ const cityUrl = (user, section) => {
     const q = new URLSearchParams({ lat: user.lat, lon: user.lon });
     if (user.city) q.set('name', user.city);
     if (section) q.set('ver', section);
-    return `/?${q.toString()}`;
+    const lang = user.prefs !== undefined ? prefsOf(user).lang : (user.user ? prefsOf(user.user).lang : 'es');
+    return `${lang === 'en' ? '/en/' : '/'}?${q.toString()}`;
 };
 
 // Envía un push; si el navegador ya no tiene esa suscripción (404/410) la borramos.
@@ -1021,27 +1084,38 @@ async function sendPush(user, payload) {
 }
 
 // Qué avisar con los datos de una zona (lluvia inminente > calor > viento > tormenta)
-function weatherNotification(data, city) {
+function weatherNotification(data, city, lang = 'es') {
     const current = data.current;
     if (!current) return null;
-    const rain = imminentRainNotification(data.minutely_15, current, city);
+    const en = lang === 'en', place = placeName(city, lang);
+    const gust = Math.round(current.wind_gusts_10m ?? current.wind_speed_10m);
+    const rain = imminentRainNotification(data.minutely_15, current, city, lang);
     return (rain && { ...rain, type: 'lluvia', section: 'lluvia' })
         || (current.temperature_2m >= 36 && {
             type: 'calor',
-            title: `🌡️ Calor extremo en ${city}`,
-            body: `Temperatura: ${Math.round(current.temperature_2m)}°C. Hidrátate y busca la sombra.`
+            title: en ? `🌡️ Extreme heat in ${place}` : `🌡️ Calor extremo en ${city}`,
+            body: en ? `Temperature: ${Math.round(current.temperature_2m)}°C. Stay hydrated and find shade.` : `Temperatura: ${Math.round(current.temperature_2m)}°C. Hidrátate y busca la sombra.`
         })
         || ((current.wind_gusts_10m ?? current.wind_speed_10m) >= 70 && {
             type: 'viento',
-            title: `💨 Viento fuerte en ${city}`,
-            body: `Rachas de ${Math.round(current.wind_gusts_10m ?? current.wind_speed_10m)} km/h. Precaución en exteriores.`
+            title: en ? `💨 Strong wind in ${place}` : `💨 Viento fuerte en ${city}`,
+            body: en ? `Gusts of ${gust} km/h. Take care outdoors.` : `Rachas de ${gust} km/h. Precaución en exteriores.`
         })
         || (current.weather_code >= 95 && {
             type: 'tormenta',
-            title: `⚡ Tormenta en ${city}`,
-            body: 'Actividad eléctrica detectada. Busca refugio.'
+            title: en ? `⚡ Thunderstorm in ${place}` : `⚡ Tormenta en ${city}`,
+            body: en ? 'Lightning detected. Seek shelter.' : 'Actividad eléctrica detectada. Busca refugio.'
         })
         || null;
+}
+
+// "Tu ubicacion (Getafe)" → "Getafe"; "Tu ubicacion" → "your location"
+function placeName(city, lang = 'es') {
+    const c = String(city || '');
+    const m = c.match(/^Tu ubicaci[oó]n \((.*)\)$/);
+    if (m) return m[1];
+    if (/^Tu ubicaci[oó]n$/.test(c)) return lang === 'en' ? 'your location' : 'tu ubicación';
+    return c;
 }
 
 const cronAuthorized = (req, res) => {
@@ -1057,7 +1131,7 @@ const cronAuthorized = (req, res) => {
 // state (lo lleva el servidor): último aviso AEMET por ubicación y día del
 // último parte, para no repetir.
 const parseJSON = (v, def) => { try { return v ? (typeof v === 'string' ? JSON.parse(v) : v) : def; } catch { return def; } };
-const DEFAULT_PREFS = { types: { lluvia: true, tormenta: true, calor: true, viento: true }, aemetMin: 'naranja', morning: true, morningHour: 8, calima: true, polen: false, extras: [] };
+const DEFAULT_PREFS = { types: { lluvia: true, tormenta: true, calor: true, viento: true }, aemetMin: 'naranja', morning: true, morningHour: 8, calima: true, polen: false, lang: 'es', extras: [] };
 const prefsOf = (user) => {
     const p = parseJSON(user.prefs, {});
     return { ...DEFAULT_PREFS, ...p, types: { ...DEFAULT_PREFS.types, ...(p.types || {}) }, extras: Array.isArray(p.extras) ? p.extras.slice(0, 2) : [] };
@@ -1102,32 +1176,38 @@ async function sendMorning(users, stats) {
                 } catch (e) { air = null; }
             }
             const wmo = decodeWMO(d.weather_code[0], 1);
+            const wmoEn = decodeWMO(d.weather_code[0], 1, 'en');
             const max = Math.round(d.temperature_2m_max[0]), min = Math.round(d.temperature_2m_min[0]);
             const uv = Math.round(d.uv_index_max[0] || 0);
             // ¿Desde qué hora llueve? (la probabilidad horaria es de la hora anterior)
             const hp = data.hourly && data.hourly.precipitation_probability || [];
             const firstWet = hp.findIndex((v, i) => i >= 7 && v >= 50);
-            const rainTxt = firstWet >= 0 ? `lluvia desde las ${String(Math.max(0, firstWet - 1)).padStart(2, '0')} h ☔` : (d.precipitation_probability_max[0] || 0) >= 30 ? 'algún chubasco posible' : 'sin lluvia';
+            const rainHour = String(Math.max(0, firstWet - 1)).padStart(2, '0');
+            const showers = (d.precipitation_probability_max[0] || 0) >= 30;
+            const rainTxt = firstWet >= 0 ? `lluvia desde las ${rainHour} h ☔` : showers ? 'algún chubasco posible' : 'sin lluvia';
+            const rainTxtEn = firstWet >= 0 ? `rain from ${rainHour}:00 ☔` : showers ? 'a shower is possible' : 'no rain';
             const maxOf = (arr) => arr ? Math.max(0, ...arr.filter(v => v != null)) : 0;
             const dust = air ? maxOf(air.dust) : 0;
             const pollenTop = air ? [['gramíneas', 'grass'], ['olivo', 'olive'], ['abedul', 'birch'], ['aliso', 'alder'], ['artemisa', 'mugwort'], ['ambrosía', 'ragweed']]
-                .map(([n, k]) => [n, maxOf(air[`${k}_pollen`])]).sort((a, b) => b[1] - a[1])[0] : null;
+                .map(([n, k]) => [n, maxOf(air[`${k}_pollen`]), k]).sort((a, b) => b[1] - a[1])[0] : null;
             let emoji = '🌤️';
             for (const [k, v] of Object.entries(emojis)) { if (wmo.text.includes(k)) { emoji = v; break; } }
             for (const user of zoneUsers) {
                 const p = prefsOf(user);
+                const en = p.lang === 'en';
                 const extra = [];
-                if (p.calima && dust >= 50) extra.push(`calima ${dust >= 100 ? 'intensa' : 'moderada'}`);
-                if (p.polen && pollenTop && pollenTop[1] > 50) extra.push(`polen de ${pollenTop[0]} alto`);
-                if (uv >= 6) extra.push(`UV ${uv}, crema`);
+                if (p.calima && dust >= 50) extra.push(en ? `${dust >= 100 ? 'heavy' : 'moderate'} Saharan dust` : `calima ${dust >= 100 ? 'intensa' : 'moderada'}`);
+                if (p.polen && pollenTop && pollenTop[1] > 50) extra.push(en ? `high ${pollenTop[2]} pollen` : `polen de ${pollenTop[0]} alto`);
+                if (uv >= 6) extra.push(en ? `UV ${uv}, wear sunscreen` : `UV ${uv}, crema`);
                 // Riesgo para la salud por calor (umbral oficial de su zona)
                 const ms = p.types.calor !== false && meteosaludZona(user.lat, user.lon);
                 if (ms) {
                     const h = heatLevel(ms.umbral, d.temperature_2m_max);
-                    if (h.nivel >= 1) extra.unshift(`riesgo por calor nivel ${h.nivel} (${['', 'bajo', 'medio', 'alto'][h.nivel]})`);
+                    if (h.nivel >= 1) extra.unshift(en ? `heat health risk level ${h.nivel} (${['', 'low', 'medium', 'high'][h.nivel]})` : `riesgo por calor nivel ${h.nivel} (${['', 'bajo', 'medio', 'alto'][h.nivel]})`);
                 }
-                const body = `${wmo.text} · ${min}°–${max}° · ${rainTxt}${extra.length ? ' · ' + extra.join(' · ') : ''}`;
-                if (await sendPush(user, { type: 'manana', section: 'parte', title: `${emoji} Buenos días en ${user.city}`, body })) stats.notificaciones++;
+                const body = `${en ? wmoEn.text : wmo.text} · ${min}°–${max}° · ${en ? rainTxtEn : rainTxt}${extra.length ? ' · ' + extra.join(' · ') : ''}`;
+                const title = en ? `${emoji} Good morning, ${placeName(user.city, 'en')}` : `${emoji} Buenos días en ${user.city}`;
+                if (await sendPush(user, { type: 'manana', section: 'parte', title, body })) stats.notificaciones++;
                 const st = stateOf(user);
                 st.morning = localParts(user.timezone).day;
                 await saveState(user, st);
@@ -1173,12 +1253,16 @@ app.get('/api/cron/check-rain', async (req, res) => {
                     const prev = t.primary ? (st.aemet[t.key] ?? user.lastAemetAviso) : st.aemet[t.key];
                     if (top && avisoKey !== prev) {
                         const emoji = top.nivel === 'rojo' ? '🔴' : top.nivel === 'naranja' ? '🟠' : '🟡';
+                        const en = p.lang === 'en';
+                        const nivelEn = { rojo: 'Red', naranja: 'Orange', amarillo: 'Yellow' }[top.nivel] || top.nivel;
                         if (await sendPush(user, {
                             type: `aemet${t.primary ? '' : '-' + t.key}`,
                             section: 'avisos',
                             requireInteraction: top.nivel === 'rojo',
-                            title: `${emoji} Aviso ${top.nivel} por ${top.fenomeno.toLowerCase()} · ${t.city}`,
-                            body: [avisoRango(top.onset, top.expires, user.timezone), top.titular].filter(Boolean).join(' · '),
+                            title: en
+                                ? `${emoji} ${nivelEn} warning for ${((top.en && top.en.fenomeno) || top.fenomeno).toLowerCase()} · ${placeName(t.city, 'en')}`
+                                : `${emoji} Aviso ${top.nivel} por ${top.fenomeno.toLowerCase()} · ${t.city}`,
+                            body: [avisoRango(top.onset, top.expires, user.timezone, p.lang), en ? ((top.en && top.en.titular) || top.titular) : top.titular].filter(Boolean).join(' · '),
                             url: cityUrl(t, 'avisos')
                         })) {
                             st.aemet[t.key] = avisoKey; changed = true;
@@ -1210,7 +1294,7 @@ app.get('/api/cron/check-rain', async (req, res) => {
                 const { data } = await http.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&forecast_days=2&timezone=auto`);
                 for (const t of zoneTargets) {
                     if (done.has(t.user.endpoint)) continue;
-                    const notif = weatherNotification(data, t.city);
+                    const notif = weatherNotification(data, t.city, prefsOf(t.user).lang);
                     if (!notif || prefsOf(t.user).types[notif.type] === false) continue;
                     if (await sendPush(t.user, { ...notif, url: cityUrl(t, notif.section) })) {
                         done.add(t.user.endpoint);

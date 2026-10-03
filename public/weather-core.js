@@ -11,7 +11,37 @@
 })(typeof self !== 'undefined' ? self : this, function () {
 'use strict';
 
-const decodeWMO = (code, isDay = 1) => {
+const WMO_ES = {
+    0: "Despejado", 1: "Mayormente despejado", 2: "Parcialmente nublado", 3: "Nublado",
+    45: "Niebla", 48: "Niebla escarcha",
+    51: "Llovizna", 53: "Llovizna moderada", 55: "Llovizna fuerte",
+    56: "Llovizna helada", 57: "Llovizna helada fuerte",
+    61: "Lluvia leve", 63: "Lluvia", 65: "Lluvia fuerte",
+    66: "Lluvia helada", 67: "Lluvia helada fuerte",
+    71: "Nieve leve", 73: "Nieve", 75: "Nieve fuerte",
+    77: "Granizo fino",
+    80: "Chubascos", 81: "Chubascos fuertes", 82: "Tormenta violenta",
+    85: "Chubascos de nieve", 86: "Nevada fuerte",
+    95: "Tormenta", 96: "Tormenta con granizo", 99: "Tormenta fuerte"
+};
+
+// Nombres en inglés (la app y el servidor siguen trabajando con los de
+// español; esto es solo para mostrar)
+const WMO_EN = {
+    0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Cloudy",
+    45: "Fog", 48: "Freezing fog",
+    51: "Drizzle", 53: "Moderate drizzle", 55: "Heavy drizzle",
+    56: "Freezing drizzle", 57: "Heavy freezing drizzle",
+    61: "Light rain", 63: "Rain", 65: "Heavy rain",
+    66: "Freezing rain", 67: "Heavy freezing rain",
+    71: "Light snow", 73: "Snow", 75: "Heavy snow",
+    77: "Snow grains",
+    80: "Showers", 81: "Heavy showers", 82: "Violent storm",
+    85: "Snow showers", 86: "Heavy snowfall",
+    95: "Thunderstorm", 96: "Thunderstorm with hail", 99: "Severe thunderstorm"
+};
+
+const decodeWMO = (code, isDay = 1, lang = 'es') => {
     const c = parseInt(code);
     const dayIcons = {
         0: 'bi-sun', 1: 'bi-cloud-sun', 2: 'bi-cloud', 3: 'bi-clouds',
@@ -27,21 +57,10 @@ const decodeWMO = (code, isDay = 1) => {
         95: 'bi-cloud-lightning', 96: 'bi-cloud-lightning-rain', 99: 'bi-cloud-lightning-rain'
     };
     const nightIcons = { 0: 'bi-moon', 1: 'bi-cloud-moon', 2: 'bi-cloud-moon', 3: 'bi-clouds' };
-    const textMap = {
-        0: "Despejado", 1: "Mayormente despejado", 2: "Parcialmente nublado", 3: "Nublado",
-        45: "Niebla", 48: "Niebla escarcha",
-        51: "Llovizna", 53: "Llovizna moderada", 55: "Llovizna fuerte",
-        56: "Llovizna helada", 57: "Llovizna helada fuerte",
-        61: "Lluvia leve", 63: "Lluvia", 65: "Lluvia fuerte",
-        66: "Lluvia helada", 67: "Lluvia helada fuerte",
-        71: "Nieve leve", 73: "Nieve", 75: "Nieve fuerte",
-        77: "Granizo fino",
-        80: "Chubascos", 81: "Chubascos fuertes", 82: "Tormenta violenta",
-        85: "Chubascos de nieve", 86: "Nevada fuerte",
-        95: "Tormenta", 96: "Tormenta con granizo", 99: "Tormenta fuerte"
-    };
+
     const icon = isDay ? (dayIcons[c] || 'bi-cloud') : (nightIcons[c] || dayIcons[c] || 'bi-cloud');
-    return { text: textMap[c] || "Variable", icon };
+    if (lang === 'en') return { text: WMO_EN[c] || "Variable", icon };
+    return { text: WMO_ES[c] || "Variable", icon };
 };
 
 const windDirectionText = (degrees) => {
@@ -247,5 +266,5 @@ function buildPayload({ w, a, lat, lon, name, region, avisosOficiales = [] }) {
     };
 }
 
-return { decodeWMO, windDirectionText, generateAlerts, POLLEN_TYPES, forecastUrl, airUrl, buildPayload };
+return { decodeWMO, WMO_ES, WMO_EN, windDirectionText, generateAlerts, POLLEN_TYPES, forecastUrl, airUrl, buildPayload };
 });
