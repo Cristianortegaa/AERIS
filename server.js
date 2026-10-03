@@ -35,13 +35,13 @@ app.use(helmet({
         directives: {
             ...helmet.contentSecurityPolicy.getDefaultDirectives(),
             "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-            "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-            "font-src": ["'self'", "data:", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            "style-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            "font-src": ["'self'", "data:", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
             "img-src": ["'self'", "data:", "https:"],
             // El service worker hereda esta CSP: necesita poder pedir a los CDNs
             // que cachea para el modo sin conexión (con solo 'self' fallaba su
             // instalación y, sin service worker, no hay notificaciones).
-            "connect-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com",
+            "connect-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com",
                 "https://api.open-meteo.com", "https://air-quality-api.open-meteo.com", "https://geocoding-api.open-meteo.com",
                 "https://ensemble-api.open-meteo.com", "https://archive-api.open-meteo.com", "https://marine-api.open-meteo.com",
                 "https://api.rainviewer.com"],
@@ -209,7 +209,7 @@ const AEMET_CACHE_MS = 15 * 60 * 1000; // 15 min: los avisos no cambian cada min
 
 // Estado para /healthz (en memoria: se pierde al reiniciar el servidor)
 // AEMET da 503 sueltos a menudo: se guarda el último acierto y el último fallo
-const salud = { cron: null, aemet: { ultimoOk: null, ultimoFallo: null, error: null }, monitor: null };
+const salud = { cron: null, aemet: { ultimoOk: null, ultimoFallo: null, error: null }, aemetFormato: null, monitor: null };
 const marcarAemet = (ok, detalle) => {
     if (ok) salud.aemet.ultimoOk = new Date().toISOString();
     else { salud.aemet.ultimoFallo = new Date().toISOString(); salud.aemet.error = String(detalle || '').slice(0, 120); }
@@ -261,7 +261,9 @@ async function fetchAemetAvisos(areaCode) {
         });
 
         const xmls = await extractXmlsFromTar(Buffer.from(tarRes.data));
-        const avisos = parseAvisosCap(xmls);
+        const stats = {};
+        const avisos = parseAvisosCap(xmls, undefined, stats);
+        salud.aemetFormato = { hora: new Date().toISOString(), area: areaCode, ...stats };
         aemetAvisosCache.set(areaCode, { data: avisos, ts: Date.now() });
         marcarAemet(true);
         return avisos;
@@ -296,6 +298,10 @@ app.get('/healthz', (req, res) => {
     const aemetOkMin = minDesde(salud.aemet.ultimoOk);
     if (salud.aemet.ultimoFallo && (aemetOkMin == null ? uptimeMin > 60 : aemetOkMin > 60) && salud.aemet.ultimoFallo > (salud.aemet.ultimoOk || ''))
         problemas.push(`AEMET lleva más de 1 h sin responder bien (último error: ${salud.aemet.error}).`);
+    // Llegan avisos y no se entiende ninguno: AEMET ha cambiado el formato
+    // (no da error: parecería un día sin avisos)
+    const fmt = salud.aemetFormato;
+    if (fmt && fmt.xmls > 0 && fmt.leidos === 0) problemas.push(`AEMET ha mandado ${fmt.xmls} avisos y no se ha podido leer ninguno: puede haber cambiado el formato.`);
     if (!publicVapidKey || !privateVapidKey) problemas.push('Faltan las claves VAPID: no se envían notificaciones.');
     if (!process.env.CONTACT_EMAIL) problemas.push('Falta CONTACT_EMAIL: la página de privacidad no tiene email de contacto.');
     if (salud.cron && salud.cron.error) problemas.push(`El cron de avisos falló: ${salud.cron.error}`);
@@ -311,7 +317,8 @@ app.get('/healthz', (req, res) => {
         aemetKey: !!process.env.AEMET_API_KEY,  // sin ella no hay avisos oficiales ni estaciones
         aemetKeyCaduca: aemetKeyCaduca ? aemetKeyCaduca.toISOString().slice(0, 10) : null,
         aemetKeyDiasRestantes: diasClave,
-        aemet: { ultimoOkHaceMin: aemetOkMin, ultimoFalloHaceMin: minDesde(salud.aemet.ultimoFallo), ultimoError: salud.aemet.error },
+        aemet: { ultimoOkHaceMin: aemetOkMin, ultimoFalloHaceMin: minDesde(salud.aemet.ultimoFallo), ultimoError: salud.aemet.error,
+            ultimoPaquete: fmt ? { xmls: fmt.xmls, leidos: fmt.leidos, haceMin: minDesde(fmt.hora) } : null },
         vapid: !!(publicVapidKey && privateVapidKey),
         cronSecret: !!process.env.CRON_SECRET,
         // Desde el último reinicio del servidor (null = aún no ha pasado)
@@ -560,6 +567,8 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 // --- OBSERVACIÓN REAL: estación de AEMET más cercana ---
+// fint llega como "2026-10-03T11:00:00" (UTC, a veces sin zona)
+const lluviaFecha = (fint) => String(fint) + (/[Z+]/.test(String(fint).slice(10)) ? '' : 'Z');
 // Se baja el último día de todas las estaciones (≈3 MB) como mucho cada 30
 // min y se busca la más cercana. AEMET falla a menudo: si no hay datos, la
 // app sigue sin este extra.
@@ -578,11 +587,26 @@ async function loadObservaciones() {
             }
             const { data } = await http.get(meta.data.datos, { timeout: 20000, responseType: 'arraybuffer' });
             const rows = JSON.parse(Buffer.from(data).toString('latin1'));
-            const byStation = new Map();
+            // Por estación: la última observación y la lluvia de cada hora
+            // (prec = l/m² de los 60 min anteriores; una por hora, sin repetir)
+            const byStation = new Map(), precPorHora = new Map();
             for (const r of rows) {
                 if (!r || !r.idema || r.lat == null || r.lon == null) continue;
                 const prev = byStation.get(r.idema);
                 if (!prev || String(r.fint) > String(prev.fint)) byStation.set(r.idema, r);
+                if (typeof r.prec === 'number' && r.prec >= 0) {
+                    if (!precPorHora.has(r.idema)) precPorHora.set(r.idema, new Map());
+                    precPorHora.get(r.idema).set(String(r.fint).slice(0, 13), { fint: String(r.fint), prec: r.prec });
+                }
+            }
+            // Lluvia caída en las 24 h anteriores a la última observación
+            for (const [id, r] of byStation) {
+                const horas = precPorHora.get(id);
+                if (!horas) continue;
+                const desde = String(new Date(new Date(lluviaFecha(r.fint)).getTime() - 24 * 3600e3).toISOString()).slice(0, 13);
+                const ult = [...horas.values()].filter(h => h.fint.slice(0, 13) > desde);
+                r._lluvia24 = Math.round(ult.reduce((t, h) => t + h.prec, 0) * 10) / 10;
+                r._lluviaHoras = ult.length;
             }
             obsCache = { ts: Date.now(), byStation, loading: null };
             marcarAemet(true);
@@ -627,7 +651,9 @@ app.get('/api/observacion', weatherLimiter, async (req, res) => {
         station: { id: r.idema, name: titleCase(r.ubi), km: Math.round(best.dist * 10) / 10, alt: r.alt ?? null },
         time: r.fint, ageMin,
         temp: r.ta, humidity: r.hr ?? null, wind: r.vv != null ? Math.round(r.vv * 3.6) : null, gust: r.vmax != null ? Math.round(r.vmax * 3.6) : null,
-        rain: r.prec ?? null, pressure: r.pres_nmar ?? null
+        rain: r.prec ?? null, pressure: r.pres_nmar ?? null,
+        // Lluvia caída (l/m²) y en cuántas horas con dato (24 = el día entero)
+        rain24: r._lluvia24 ?? null, rainHours: r._lluviaHoras ?? 0
     });
 });
 

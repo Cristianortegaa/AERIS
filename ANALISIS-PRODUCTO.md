@@ -380,6 +380,12 @@ Al hacer el inventario aparecieron fallos de datos. **Van primero**, porque una 
   - Pruebas automáticas con `npm test`, sobre un paquete real de avisos de AEMET y respuestas reales de Open-Meteo, que GitHub Actions pasa en cada subida. La lectura de avisos está ahora en `lib/aemet-cap.js`.
   - Arreglado de paso: si AEMET fallaba en una consulta, esa ciudad se quedaba hasta 10 minutos sin avisos. Ahora los avisos se refrescan aparte y, si AEMET falla, se reintenta al minuto.
 
+- **Vigilancia, tipografía, lluvia caída y WhatsApp (hecho después):**
+  - `/healthz` avisa si AEMET manda avisos y no se entiende ninguno (cambio de formato silencioso) y muestra cuándo pasó UptimeRobot por última vez. UptimeRobot ya vigila `"todoBien":true`.
+  - Geist se sirve desde la app (`public/fonts`, SIL OFL), así que ya no se pide nada a Google Fonts. También se ha quitado de la CSP y del service worker.
+  - En «Medido en…» sale lo que ha llovido según la estación de AEMET. AEMET solo da unas 12 horas de observaciones, así que dice «en las últimas 12 h».
+  - En la hoja de avisos hay un botón «Compartir por WhatsApp» con los avisos y el enlace a la ciudad. Si solo hay un aviso, también se abre al tocarlo.
+
 ---
 
 ## Qué más (revisión del 2026-10-03, tarde)
@@ -418,11 +424,11 @@ Casi toda la hoja de ruta está hecha. Lo que queda, por orden de importancia:
 
 ### C. Producto (lo que más se notaría)
 
-6. **Lluvia caída de verdad.**
+6. ✅ **Lluvia caída de verdad** (con las ~12 h que da AEMET).
    - «Han caído 23 l/m² en las últimas 24 h», con la estación de AEMET más cercana (sus datos ya se descargan).
    - En España es de lo que más se mira después de una tormenta.
    - Esfuerzo: S.
-7. **Compartir un aviso por WhatsApp.**
+7. ✅ **Compartir un aviso por WhatsApp.**
    - Texto con el aviso y el enlace a `/tiempo/<ciudad>`.
    - Es como se difunden los avisos en España, y trae usuarios.
    - Esfuerzo: S.

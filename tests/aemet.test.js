@@ -67,6 +67,20 @@ test('sin polígono o sin coordenadas, el aviso se muestra', () => {
     assert.equal(avisoAfecta({ poligonos: [[[0, 0], [0, 1], [1, 1]]] }, NaN, NaN), true);
 });
 
+test('cuenta cuántos avisos ha entendido (para detectar un cambio de formato)', async () => {
+    const xmls = await extractXmlsFromTar(TAR);
+    const stats = {};
+    parseAvisosCap(xmls, DURANTE, stats);
+    assert.equal(stats.xmls, 23);
+    assert.equal(stats.leidos, 23); // todos tienen nivel, también los verdes
+
+    // Si AEMET cambia los nombres de los campos, no hay error: solo 0 leídos
+    const raro = xmls.map(x => x.split('AEMET-Meteoalerta nivel').join('nivel-nuevo'));
+    const stats2 = {};
+    assert.deepEqual(parseAvisosCap(raro, DURANTE, stats2), []);
+    assert.deepEqual(stats2, { xmls: 23, leidos: 0 });
+});
+
 test('polígono CAP', () => {
     assert.deepEqual(parseCapPolygon('43.1,-3.9 43.5,-3.7 43.2,-3.5'), [[43.1, -3.9], [43.5, -3.7], [43.2, -3.5]]);
     assert.deepEqual(parseCapPolygon(''), []);

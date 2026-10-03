@@ -1508,7 +1508,7 @@ const avisoConsejo = (fenomenos) => {
 };
 const joinEs = (arr) => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`;
 
-function avisoCardHtml(g, tz) {
+function avisoCardHtml(g, tz, attrs = '') {
     const cls = AEMET_NIVEL_CLASE[g.nivel] || '';
     const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
     const titulo = `${fen.charAt(0).toUpperCase()}${fen.slice(1)} · nivel ${NIVEL_TXT[g.nivel] || g.nivel}`;
@@ -1519,9 +1519,9 @@ function avisoCardHtml(g, tz) {
         .map(d => (g.zonas || []).reduce((t, z) => t.split(z).join(''), d).replace(/[\s.·,]+$/, '').trim())
         .filter(Boolean))].join(' · ');
     const meta = [rango, zona].filter(Boolean).map(escapeHTML).join(' · ');
-    return `<div class="alert-card ${cls}">
+    return `<div class="alert-card ${cls}${attrs ? ' aviso-resumen' : ''}" ${attrs}>
         <i class="bi bi-shield-fill-exclamation alert-icon"></i>
-        <div>
+        <div class="aviso-resumen-body">
             <span class="aemet-badge">AEMET OFICIAL</span>
             <div class="fw-bold">${escapeHTML(titulo)}</div>
             <div class="small opacity-75">${meta}</div>
@@ -1536,7 +1536,8 @@ const renderAemetAvisos = (avisos) => {
     if (!avisos || avisos.length === 0) return '';
     const tz = window._lastFullData?.location?.timezone;
     const groups = groupAvisos(avisos);
-    if (groups.length === 1) return avisoCardHtml(groups[0], tz);
+    // Uno solo: entero, y al tocarlo se abre la hoja (para compartirlo)
+    if (groups.length === 1) return avisoCardHtml(groups[0], tz, 'role="button" tabindex="0" data-action="avisos" aria-label="Ver el aviso de AEMET y compartirlo"');
     const g = groups[0], cls = AEMET_NIVEL_CLASE[g.nivel] || '';
     const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
     const titulo = `${fen.charAt(0).toUpperCase()}${fen.slice(1)} · nivel ${NIVEL_TXT[g.nivel] || g.nivel}`;
@@ -1554,12 +1555,28 @@ const renderAemetAvisos = (avisos) => {
         <i class="bi bi-chevron-right aviso-chevron" aria-hidden="true"></i>
     </div>`;
 };
+// Texto para WhatsApp: los avisos en una línea cada uno y el enlace a la ciudad
+const NIVEL_EMOJI = { rojo: '🔴', naranja: '🟠', amarillo: '🟡' };
+function avisosTextoCompartir(groups, d) {
+    const name = currentCityInfo?.name || d.location?.name || '';
+    const slug = slugify(name);
+    const url = slug && !/^tu ubicaci/i.test(name) ? `${location.origin}/tiempo/${slug}` : location.origin;
+    const lineas = groups.map(g => {
+        const fen = joinEs(g.fenomenos.map(f => f.toLowerCase()));
+        const rango = avisoRango(g.onset, g.expires, d.location?.timezone);
+        return `${NIVEL_EMOJI[g.nivel] || '⚠️'} ${fen.charAt(0).toUpperCase()}${fen.slice(1)} (nivel ${g.nivel})${rango ? ' · ' + rango : ''}`;
+    });
+    const titulo = groups.length === 1 ? 'Aviso de AEMET' : 'Avisos de AEMET';
+    const lugar = name && !/^tu ubicaci/i.test(name) ? ' en ' + name : '';
+    return [`⚠️ ${titulo}${lugar}:`, ...lineas, '', `Más detalles en AERIS: ${url}`].join('\n');
+}
 function openAvisos() {
     const d = window._lastFullData;
     if (!d || !detailModal) return;
     const groups = groupAvisos(d.avisosOficiales || []);
     document.getElementById('detailTitle').textContent = 'Avisos de AEMET';
     document.getElementById('detailBody').innerHTML = `<div class="avisos-lista">${groups.map(g => avisoCardHtml(g, d.location?.timezone)).join('')}</div>
+        ${groups.length ? `<a class="btn-pill solid aviso-share" href="https://wa.me/?text=${encodeURIComponent(avisosTextoCompartir(groups, d))}" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i>Compartir por WhatsApp</a>` : ''}
         <p class="detail-note">Avisos oficiales de AEMET (Meteoalerta) para ${escapeHTML(d.location?.name || 'esta zona')}.</p>`;
     detailModal.classList.add('show');
     detailModal._trigger = document.activeElement;
@@ -2823,7 +2840,10 @@ async function renderObservation(data) {
         if (!o || !o.station || o.temp == null || o.ageMin > 180) { el.textContent = ''; return; }
         const fmt1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
         const hm = new Date(o.time.length > 19 || /Z$/.test(o.time) ? o.time : o.time + 'Z').toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        el.textContent = `Medido en ${o.station.name}${o.station.km >= 1 ? ` (${fmt1.format(o.station.km)} km)` : ''}: ${fmt1.format(useFahrenheit ? o.temp * 9 / 5 + 32 : o.temp)}° a las ${hm}`;
+        // Lo que ha llovido de verdad (si la estación tiene pluviómetro y ha llovido)
+        const lluvia = o.rain24 >= 0.1 && o.rainHours >= 6
+            ? ` · ${fmt1.format(o.rain24)} l/m² en ${o.rainHours >= 20 ? '24 h' : `las últimas ${o.rainHours} h`}` : '';
+        el.textContent = `Medido en ${o.station.name}${o.station.km >= 1 ? ` (${fmt1.format(o.station.km)} km)` : ''}: ${fmt1.format(useFahrenheit ? o.temp * 9 / 5 + 32 : o.temp)}° a las ${hm}${lluvia}`;
         el.title = `Estación de AEMET ${o.station.id}${o.humidity != null ? ` · humedad ${o.humidity}%` : ''}${o.gust != null ? ` · racha ${o.gust} km/h` : ''}`;
     } catch (e) { el.textContent = ''; }
 }

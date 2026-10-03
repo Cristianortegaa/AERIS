@@ -1,10 +1,12 @@
-const CACHE_NAME = 'aeris-v63';
+const CACHE_NAME = 'aeris-v65';
 // Lo propio es imprescindible: si falla, la instalación debe fallar.
 const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=44',
-    '/app.js?v=50',
+    '/styles.css?v=46',
+    '/fonts/geist-latin.woff2',
+    '/fonts/geist-mono-latin.woff2',
+    '/app.js?v=51',
     '/vendor/bootstrap-reboot.min.css',
     '/vendor/suncalc.js',
     '/weather-core.js?v=2',
@@ -44,10 +46,9 @@ const CORE_ASSETS = [
 // Lo de CDNs es un extra para el modo sin conexión: si alguno no se puede
 // guardar, se ignora. (Antes un solo fallo aquí tumbaba la instalación entera
 // y el service worker nunca se activaba: sin él no hay notificaciones.)
-const CDN_ORIGINS = ['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
+const CDN_ORIGINS = ['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'];
 const EXTRA_ASSETS = [
-    'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
-    'https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400..600&display=swap'
+    'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css'
 ];
 
 self.addEventListener('install', (event) => {

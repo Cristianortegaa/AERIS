@@ -28,9 +28,8 @@
     <meta property="og:type" content="website">
 
     <!-- Fuentes -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
+    <!-- Tipografía propia (antes Google Fonts): sin pasar la IP a terceros -->
+    <link rel="preload" href="fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
 
     <!-- Base: solo el reboot de Bootstrap (servido desde la app). El resto de
          Bootstrap (230 KB entre CSS y JS) se usaba para un modal y 10 utilidades -->
@@ -39,7 +38,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=44">
+    <link rel="stylesheet" href="styles.css?v=46">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -671,7 +670,7 @@
 <!-- APP JS -->
 <script src="vendor/suncalc.js"></script>
 <script src="weather-core.js?v=2"></script>
-<script src="app.js?v=50"></script>
+<script src="app.js?v=51"></script>
 
 </body>
 </html>
