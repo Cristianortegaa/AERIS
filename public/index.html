@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=37">
+    <link rel="stylesheet" href="styles.css?v=38">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -54,6 +54,26 @@
                 // del cielo se aplica al quitarse el splash
                 var c = localStorage.getItem('aeris_theme_color');
                 if (c) document.documentElement.style.backgroundColor = c;
+            } catch (e) {}
+        })();
+        // Tamaño de texto de iOS (Dynamic Type): -apple-system-body mide 17 px
+        // con el tamaño por defecto. La letra de la app se escala en la misma
+        // proporción (por defecto, 16 px: no cambia nada), con tope de +35 %.
+        // Solo en iPhone/iPad: en el Safari del Mac esa fuente mide 13 px.
+        (function () {
+            try {
+                var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                if (!ios || !window.CSS || !CSS.supports('font', '-apple-system-body')) return;
+                var p = document.createElement('span');
+                p.style.cssText = 'position:absolute;visibility:hidden;font:-apple-system-body';
+                p.textContent = 'x';
+                document.documentElement.appendChild(p);
+                var px = parseFloat(getComputedStyle(p).fontSize);
+                p.remove();
+                if (!px) return;
+                var scale = Math.max(0.9, Math.min(1.35, px / 17));
+                if (Math.abs(scale - 1) > 0.02) document.documentElement.style.fontSize = (16 * scale).toFixed(2) + 'px';
+                if (scale > 1.12) document.documentElement.classList.add('text-large'); // maquetación más holgada
             } catch (e) {}
         })();
     </script>

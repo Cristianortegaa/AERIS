@@ -2630,3 +2630,12 @@ html.ptr-enabled { overscroll-behavior-y: none; }
 .day-icon img.wx-icon { width: 38px !important; }
 .day-hourly-item img.wx-icon { width: 34px !important; }
 .fav-now img { width: 22px !important; height: auto; }
+
+/* Letra grande de iOS (Dynamic Type por encima de +12 %): más aire */
+html.text-large .stats-grid { grid-template-columns: 1fr; }
+html.text-large .card-head { flex-wrap: wrap; row-gap: 6px; }
+html.text-large .trend-item { grid-template-columns: auto 1fr auto; }
+html.text-large .trend-conf { display: none; }
+html.text-large .trip-day { grid-template-columns: auto 1fr auto; }
+html.text-large .trip-day .trend-conf { display: none; }
+html.text-large .lifestyle-grid, html.text-large #lifestyle-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
