@@ -2450,3 +2450,60 @@ body.hero-out.has-live-pill .live-pill {
 
 /* Consejo concreto en avisos naranja y rojo */
 .aviso-tip { margin-top: 6px; font-size: 0.8rem; font-weight: 600; line-height: 1.35; }
+
+/* ============================================================
+   CONFIANZA, TENDENCIA, PUENTE Y LO NORMAL
+   ============================================================ */
+.day-conf { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; vertical-align: 0.2em; }
+.conf-alta.day-conf { background: #4ade80; }
+.conf-media.day-conf { background: #facc15; }
+.conf-baja.day-conf { background: #fb923c; }
+.day-conf-line { margin: 0 0 8px; font-size: 0.78rem; line-height: 1.4; color: var(--text-2); }
+.day-anom { display: inline-block; margin: 3px 0 0 6px; padding: 0 5px; line-height: 1.35; border-radius: 99px; font-size: 0.68rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.day-anom.warm { background: rgba(251, 146, 60, 0.22); color: #ffc58a; }
+.day-anom.cold { background: rgba(96, 165, 250, 0.22); color: #a9d0ff; }
+.card-hint { font-size: 0.72rem; color: var(--text-3); }
+.trend-list { display: grid; gap: 2px; }
+.trend-item { display: grid; grid-template-columns: 4.4rem minmax(4.8rem, 1fr) 3rem auto; white-space: nowrap; align-items: center; gap: 8px; padding: 8px 2px; border-top: 1px solid var(--hairline); font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+.trend-item:first-child { border-top: 0; }
+.trend-day { text-transform: capitalize; color: var(--text-2); }
+.trend-temps b { font-weight: 600; }
+.trend-rain { color: #8fd3ff; font-size: 0.78rem; }
+.trend-rain i { margin-right: 3px; }
+.trend-conf { justify-self: end; font-size: 0.72rem; color: var(--text-3); }
+.trend-item.conf-baja { opacity: 0.75; }
+.trend-note { margin: 10px 0 0; font-size: 0.72rem; color: var(--text-3); }
+.puente-title { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.015em; }
+.puente-dates { margin-top: 2px; font-size: 0.84rem; color: var(--text-2); text-transform: capitalize; }
+.puente-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 10px; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.puente-stats i { color: #8fd3ff; }
+.conf-pill { padding: 3px 9px; border-radius: 99px; font-size: 0.72rem; }
+.conf-pill.conf-alta { background: rgba(74, 222, 128, 0.18); }
+.conf-pill.conf-media { background: rgba(250, 204, 21, 0.18); }
+.conf-pill.conf-baja { background: rgba(251, 146, 60, 0.2); }
+.puente-note { margin: 8px 0 0; font-size: 0.84rem; color: var(--text-2); }
+#normal-txt:empty { display: none; }
+
+/* ============================================================
+   AJUSTES DE AVISOS Y PARTE DE HOY
+   ============================================================ */
+.ps-h { margin: 18px 0 4px; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-3); }
+.ps-h:first-child { margin-top: 4px; }
+.ps-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 6px 0; border-bottom: 1px solid var(--hairline); font-size: 0.92rem; cursor: pointer; }
+.ps-row small { display: block; font-size: 0.75rem; color: var(--text-3); }
+.ps-row input[type="radio"] { width: 20px; height: 20px; accent-color: #4ade80; flex: none; }
+.ps-switch { -webkit-appearance: none; appearance: none; flex: none; position: relative; width: 46px; height: 28px; border-radius: 99px; background: var(--fill-2); transition: background-color 200ms ease; cursor: pointer; }
+.ps-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); transition: transform 200ms var(--ease-out); }
+.ps-switch:checked { background: #34c759; }
+.ps-switch:checked::after { transform: translateX(18px); }
+.ps-select { flex: none; max-width: 60%; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--stroke); background: var(--fill-1); color: var(--text); font: inherit; font-size: 0.86rem; }
+.ps-select option { color: #0b1220; }
+.ps-add { width: 100%; justify-content: center; margin-top: 10px; }
+.ps-small { padding: 6px 12px; font-size: 0.8rem; }
+.ps-actions { display: flex; gap: 8px; margin: 20px 0 6px; }
+.ps-actions .btn-pill { flex: 1; justify-content: center; }
+.ps-danger { color: #ffb4b4; }
+.parte-row { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.parte-row > i { font-size: 1.1rem; color: var(--accent); margin-top: 2px; }
+.parte-row b { display: block; font-size: 0.86rem; font-weight: 600; }
+.parte-row span { display: block; font-size: 0.9rem; line-height: 1.4; color: var(--text-2); }

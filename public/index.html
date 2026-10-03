@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="styles.css?v=26">
+    <link rel="stylesheet" href="styles.css?v=29">
 
     <!-- Chart.js y html2canvas se cargan de forma diferida desde app.js,
          solo cuando hacen falta de verdad (un gráfico o el botón de compartir) -->
@@ -120,6 +120,20 @@
 <button id="installBtn" aria-label="Instalar app">
     <i class="bi bi-download"></i> Instalar App
 </button>
+
+<!-- AJUSTES DE AVISOS -->
+<div class="persona-modal" id="pushSettingsModal" role="dialog" aria-modal="true" aria-labelledby="pushSettingsTitle">
+    <div class="persona-content" id="pushSettingsSheet">
+        <div class="persona-drag-zone" id="pushSettingsDragZone">
+            <div class="sheet-grabber"></div>
+            <div class="persona-head">
+                <h2 id="pushSettingsTitle">Tus avisos</h2>
+                <button class="btn-icon sm" id="closePushSettings" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        <div class="detail-body" id="pushSettingsBody"></div>
+    </div>
+</div>
 
 <!-- HOJA DE DETALLE POR DATO -->
 <div class="persona-modal" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
@@ -330,6 +344,7 @@
                     <span class="feels-link" role="button" tabindex="0" data-action="detail" data-metric="sensacion">Sensación <span id="feels-like" class="skeleton" style="width:26px;">--</span><span class="unit-temp">°</span></span>
                 </div>
                 <div id="compare-txt" class="hero-compare"></div>
+                <div id="normal-txt" class="hero-compare"></div>
 
                 <!-- Lluvia inminente (solo aparece si llueve o va a llover en 2 h) -->
                 <button type="button" class="nowcast-pill" id="nowcast-pill" data-action="goto-rain" hidden>
@@ -421,6 +436,24 @@
                     <div class="day-skeleton"><div class="skeleton" style="width:56px;height:14px;"></div><div class="skeleton skeleton-circle" style="width:26px;height:26px;"></div><div class="skeleton" style="flex:1;height:6px;"></div></div>
                     <div class="day-skeleton"><div class="skeleton" style="width:56px;height:14px;"></div><div class="skeleton skeleton-circle" style="width:26px;height:26px;"></div><div class="skeleton" style="flex:1;height:6px;"></div></div>
                 </div>
+            </section>
+
+            <!-- PRÓXIMO PUENTE (si cae en los próximos 15 días) -->
+            <section class="glass-card puente-card" id="puente-card" hidden aria-labelledby="lbl-puente">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-puente"><i class="bi bi-calendar-event"></i>Próximo puente</h2>
+                </div>
+                <div id="puente-body"></div>
+            </section>
+
+            <!-- TENDENCIA DÍAS 8–15 (ensemble) -->
+            <section class="glass-card" id="trend-card" hidden aria-labelledby="lbl-trend">
+                <div class="card-head">
+                    <h2 class="card-label" id="lbl-trend"><i class="bi bi-graph-up"></i>Tendencia 2 semanas</h2>
+                    <span class="card-hint">Solo orientativa</span>
+                </div>
+                <div class="trend-list" id="trend-list"></div>
+                <p class="trend-note">Con los 51 escenarios del modelo de IA de ECMWF: cuanto más se parecen entre sí, más fiable.</p>
             </section>
 
             <!-- 5. GRÁFICO TEMPERATURA 7 DÍAS -->
@@ -568,7 +601,7 @@
 <!-- APP JS -->
 <script src="vendor/suncalc.js"></script>
 <script src="weather-core.js?v=2"></script>
-<script src="app.js?v=27"></script>
+<script src="app.js?v=30"></script>
 
 </body>
 </html>

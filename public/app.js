@@ -985,6 +985,7 @@ function initSheetDrag(zone, sheet, onClose) {
 initSheetDrag(document.getElementById('personaDragZone'), personaSheet, closePersonaModal);
 initSheetDrag(document.getElementById('iosDragZone'), document.getElementById('iosSheet'), () => window.closeIosModal());
 initSheetDrag(document.getElementById('detailDragZone'), document.getElementById('detailSheet'), () => closeDetail());
+initSheetDrag(document.getElementById('pushSettingsDragZone'), document.getElementById('pushSettingsSheet'), () => closePushSettings());
 
 // ============================================================
 // 19. TEMA (automático por hora de sol — sin botón manual)
@@ -1070,7 +1071,8 @@ document.getElementById('favList').addEventListener('keydown', (e) => {
 // Escape cierra la capa que esté abierta (sin animación extra: es teclado)
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (document.getElementById('detailModal')?.classList.contains('show')) closeDetail();
+    if (document.getElementById('pushSettingsModal')?.classList.contains('show')) closePushSettings();
+    else if (document.getElementById('detailModal')?.classList.contains('show')) closeDetail();
     else if (modal.classList.contains('show')) closePersonaModal();
     else if (document.getElementById('iosInstallModal')?.classList.contains('show')) closeIosModal();
     else if (document.getElementById('notificationModal')?.classList.contains('show')) closeNotifModal();
@@ -1682,16 +1684,17 @@ async function registerPush(silent = false) {
         if (!subscription) {
             subscription = await register.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey });
         }
-        const lat = currentCityInfo.lat || parseFloat(String(currentCityInfo.id).split(',')[0]);
-        const lon = currentCityInfo.lon || parseFloat(String(currentCityInfo.id).split(',')[1]);
+        const where = pushLocation();
+        const lat = where.lat, lon = where.lon;
         if (!lat || !lon) return say('Elige una ciudad para activar los avisos.', 'warn');
+        const { follow, home, ...prefs } = getPushPrefs();
 
         const res = await fetch('/api/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                subscription, lat, lon,
-                city: currentCityInfo.name, region: currentCityInfo.region || '',
+                subscription, lat, lon, prefs,
+                city: where.city, region: where.region || '',
                 timezone: (window._lastFullData && window._lastFullData.location && window._lastFullData.location.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone,
                 welcome: !silent
             })
@@ -1706,7 +1709,7 @@ async function registerPush(silent = false) {
             const [, code, detail] = result.push.split(':');
             showToast(`Suscrito, pero ${result.host || 'el servicio push'} rechazó la notificación de prueba (código ${code}${detail ? ': ' + detail.trim() : ''}).`, 'warn');
         } else {
-            showToast(`Avisos activados para ${currentCityInfo.name || 'tu zona'}. Te debería llegar una notificación de prueba ahora.`, 'ok');
+            showToast(`Avisos activados para ${placeLabel(where.city)}. Te debería llegar una notificación de prueba ahora.`, 'ok');
         }
     } catch (e) {
         console.error('push:', e);
@@ -1756,6 +1759,7 @@ document.getElementById('bellBtn')?.addEventListener('click', () => {
     // otra notificación de prueba: sirve para comprobar que siguen llegando.
     const btn = document.getElementById('bellBtn');
     if (btn.disabled) return;
+    if (btn.classList.contains('is-on')) return openPushSettings();
     setBusy(btn, true);
     // pide el permiso aquí mismo si hace falta, dentro del toque
     registerPush(false).finally(() => { setBusy(btn, false); updateBellUI(); });
@@ -2206,6 +2210,337 @@ async function refreshFavoriteTemps() {
 }
 
 // ============================================================
+// 26g. ¿CUÁNTO ME FÍO? (ensemble de ECMWF AIFS, 51 escenarios)
+// ============================================================
+// Se pide desde el navegador (cupo propio de cada usuario) y se guarda 3 h.
+const cellKey = (lat, lon) => `${(+lat).toFixed(1)},${(+lon).toFixed(1)}`;
+const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* lleno o bloqueado */ } };
+const pct = (arr, p) => { const s = [...arr].sort((a, b) => a - b); const i = (s.length - 1) * p; const lo = Math.floor(i); return s[lo] + (s[Math.ceil(i)] - s[lo]) * (i - lo); };
+
+async function fetchEnsemble(lat, lon) {
+    const key = `aeris_ens_${cellKey(lat, lon)}`;
+    const cached = lsGet(key);
+    if (cached && Date.now() - cached.ts < 3 * 3600e3) return cached.days;
+    const r = await fetch(`https://ensemble-api.open-meteo.com/v1/ensemble?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&models=ecmwf_aifs025&timezone=auto&forecast_days=15`);
+    if (!r.ok) throw new Error(`ensemble ${r.status}`);
+    const j = await r.json(), d = j.daily;
+    const members = (prefix) => Object.keys(d).filter(k => k === prefix || k.startsWith(prefix + '_member'));
+    const days = d.time.map((fecha, i) => {
+        const tx = members('temperature_2m_max').map(k => d[k][i]).filter(v => v != null);
+        const tn = members('temperature_2m_min').map(k => d[k][i]).filter(v => v != null);
+        const pr = members('precipitation_sum').map(k => d[k][i]).filter(v => v != null);
+        if (!tx.length) return null;
+        const rainProb = pr.length ? pr.filter(v => v >= 1).length / pr.length : 0;
+        const spread = pct(tx, 0.9) - pct(tx, 0.1);
+        const ambiguous = rainProb > 0.3 && rainProb < 0.7;
+        const level = spread <= 3 && !ambiguous ? 'alta' : spread <= 6 && !(rainProb > 0.4 && rainProb < 0.6) ? 'media' : 'baja';
+        return {
+            fecha, n: tx.length, level, rainProb,
+            tMax: Math.round(pct(tx, 0.5)), tMin: Math.round(pct(tn, 0.5)),
+            tMaxLo: Math.round(pct(tx, 0.1)), tMaxHi: Math.round(pct(tx, 0.9)),
+            rainMm: Math.round(pct(pr, 0.5) * 10) / 10
+        };
+    }).filter(Boolean);
+    lsSet(key, { ts: Date.now(), days });
+    return days;
+}
+const CONF_TXT = { alta: 'Fiable', media: 'Bastante seguro', baja: 'Incierto' };
+
+// ============================================================
+// 26h. LO NORMAL PARA ESTAS FECHAS (ERA5, media 1991–2020)
+// ============================================================
+// 30 peticiones pequeñas (una por año, ventana de 4 semanas) la primera vez
+// para esa zona; luego queda guardado para siempre por fecha.
+async function fetchNormals(lat, lon, fechas) {
+    const cell = cellKey(lat, lon);
+    const mmdd = (f) => f.slice(5, 10);
+    const out = {}, missing = [];
+    fechas.forEach(f => { const v = lsGet(`aeris_norm_${cell}_${mmdd(f)}`); if (v) out[f] = v; else missing.push(f); });
+    if (!missing.length) return out;
+    const first = new Date(missing[0] + 'T12:00:00Z'), last = new Date(missing[missing.length - 1] + 'T12:00:00Z');
+    const from = new Date(first.getTime() - 7 * 86400e3), to = new Date(last.getTime() + 7 * 86400e3);
+    const md = (d) => d.toISOString().slice(5, 10);
+    const years = Array.from({ length: 30 }, (_, i) => 1991 + i);
+    const series = []; // { md, tx, tn }
+    let next = 0;
+    const worker = async () => {
+        while (next < years.length) {
+            const y = years[next++];
+            // Ventana del año y (si cruza fin de año, el final cae en y+1)
+            const start = `${y}-${md(from)}`, endY = to.getUTCFullYear() > from.getUTCFullYear() ? y + 1 : y;
+            const end = `${endY}-${md(to)}`;
+            try {
+                const r = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
+                if (!r.ok) continue;
+                const j = await r.json();
+                j.daily.time.forEach((t, i) => series.push({ md: t.slice(5, 10), doy: Date.UTC(2001, +t.slice(5, 7) - 1, +t.slice(8, 10)), tx: j.daily.temperature_2m_max[i], tn: j.daily.temperature_2m_min[i] }));
+            } catch (e) { /* un año menos no cambia la media */ }
+        }
+    };
+    await Promise.all(Array.from({ length: 5 }, worker));
+    if (series.length < 200) return out; // pocos datos: mejor no decir nada
+    missing.forEach(f => {
+        const c = Date.UTC(2001, +f.slice(5, 7) - 1, +f.slice(8, 10));
+        const win = series.filter(s => { let dd = Math.abs(s.doy - c) / 86400e3; dd = Math.min(dd, 365 - dd); return dd <= 7 && s.tx != null; });
+        if (win.length < 100) return;
+        const v = { tMax: Math.round(win.reduce((a, s) => a + s.tx, 0) / win.length * 10) / 10, tMin: Math.round(win.reduce((a, s) => a + s.tn, 0) / win.length * 10) / 10 };
+        lsSet(`aeris_norm_${cell}_${mmdd(f)}`, v);
+        out[f] = v;
+    });
+    return out;
+}
+
+// Puentes y festivos nacionales (los regionales varían por comunidad)
+const ESCAPADAS = [
+    ['Puente del Pilar', '2026-10-10', '2026-10-12'], ['Todos los Santos', '2026-10-31', '2026-11-01'],
+    ['Puente de diciembre', '2026-12-05', '2026-12-08'], ['Navidad', '2026-12-25', '2026-12-27'],
+    ['Año Nuevo', '2027-01-01', '2027-01-03'], ['Reyes', '2027-01-06', '2027-01-06'],
+    ['Semana Santa', '2027-03-25', '2027-03-28'], ['1 de mayo', '2027-05-01', '2027-05-02'],
+    ['15 de agosto', '2027-08-14', '2027-08-15'], ['Puente del Pilar', '2027-10-09', '2027-10-12'],
+    ['Todos los Santos', '2027-10-30', '2027-11-01'], ['Puente de diciembre', '2027-12-04', '2027-12-08'],
+    ['Navidad', '2027-12-25', '2027-12-26']
+];
+
+// Pinta confianza, tendencia, puente y "lo normal" (todo opcional: si algo
+// no llega, la app sigue igual)
+let extrasPlace = null;
+async function renderForecastExtras(data) {
+    const lat = data.location?.lat, lon = data.location?.lon;
+    if (!Number.isFinite(+lat) || !Number.isFinite(+lon)) return;
+    const place = `${lat},${lon}`;
+    extrasPlace = place;
+    let ens = null, norms = {};
+    try { ens = await fetchEnsemble(lat, lon); } catch (e) { console.warn('ensemble', e.message); }
+    if (extrasPlace !== place) return; // mientras tanto se cambió de ciudad
+    const fechas = (data.daily || []).map(d => d.fecha);
+    window._ensemble = ens;
+
+    // 1) Confianza por día en la lista de 7 días
+    (data.daily || []).forEach((d, i) => {
+        const e = ens && ens.find(x => x.fecha === d.fecha);
+        const row = document.getElementById(`day-item-${i}`);
+        if (!row || !e) return;
+        let chip = row.querySelector('.day-conf');
+        if (!chip) { chip = document.createElement('span'); row.querySelector('.day-name')?.appendChild(chip); }
+        chip.className = `day-conf conf-${e.level}`;
+        chip.title = `${CONF_TXT[e.level]}: entre ${fmtTemp(e.tMaxLo)}° y ${fmtTemp(e.tMaxHi)}° de máxima; lluvia en el ${Math.round(e.rainProb * 100)} % de los escenarios`;
+        const body = row.querySelector('.day-detail-body');
+        if (body) {
+            let line = body.querySelector('.day-conf-line');
+            if (!line) { line = document.createElement('p'); line.className = 'day-conf-line'; body.prepend(line); }
+            line.textContent = `${CONF_TXT[e.level]} · máxima probable ${fmtTemp(e.tMaxLo)}–${fmtTemp(e.tMaxHi)}° · lluvia en el ${Math.round(e.rainProb * 100)} % de los ${e.n} escenarios del modelo de IA de ECMWF`;
+        }
+    });
+
+    // 2) Tendencia de los días 8 a 15 (solo tendencia: menos fiable)
+    const trend = document.getElementById('trend-card');
+    if (trend) {
+        const later = ens ? ens.filter(e => !fechas.includes(e.fecha)).slice(0, 8) : [];
+        trend.hidden = !later.length;
+        if (later.length) {
+            setHTMLIfChanged(document.getElementById('trend-list'), later.map(e => {
+                const dt = new Date(e.fecha.replace(/-/g, '/'));
+                const name = dt.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '');
+                return `<div class="trend-item conf-${e.level}" title="${CONF_TXT[e.level]}">
+                    <span class="trend-day">${escapeHTML(name)}</span>
+                    <span class="trend-temps">${fmtTemp(e.tMin)}° / <b>${fmtTemp(e.tMax)}°</b></span>
+                    <span class="trend-rain">${e.rainProb >= 0.2 ? `<i class="bi bi-droplet-fill" aria-hidden="true"></i>${Math.round(e.rainProb * 100)}%` : ''}</span>
+                    <span class="trend-conf">${CONF_TXT[e.level]}</span></div>`;
+            }).join(''));
+        }
+    }
+
+    // 3) El próximo puente (si cae dentro de los 15 días)
+    const pc = document.getElementById('puente-card');
+    if (pc) {
+        const hoy = (data.daily && data.daily[0] && data.daily[0].fecha) || new Date().toISOString().slice(0, 10);
+        const esc = ESCAPADAS.find(([, a, b]) => b >= hoy && a <= (ens && ens.length ? ens[ens.length - 1].fecha : hoy));
+        const days = esc && ens ? ens.filter(e => e.fecha >= esc[1] && e.fecha <= esc[2]) : [];
+        pc.hidden = !days.length;
+        if (days.length) {
+            const min = Math.min(...days.map(d => d.tMin)), max = Math.max(...days.map(d => d.tMax));
+            const rain = Math.max(...days.map(d => d.rainProb));
+            const worst = days.some(d => d.level === 'baja') ? 'baja' : days.some(d => d.level === 'media') ? 'media' : 'alta';
+            const fmtD = (f) => new Date(f.replace(/-/g, '/')).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '');
+            const city = (document.getElementById('city')?.innerText || '').trim();
+            setHTMLIfChanged(document.getElementById('puente-body'), `
+                <div class="puente-title">${escapeHTML(esc[0])}${city ? ` en ${escapeHTML(city)}` : ''}</div>
+                <div class="puente-dates">${escapeHTML(fmtD(esc[1]))}${esc[1] !== esc[2] ? ` – ${escapeHTML(fmtD(esc[2]))}` : ''}</div>
+                <div class="puente-stats"><span>${fmtTemp(min)}° – ${fmtTemp(max)}°</span><span><i class="bi bi-droplet-fill" aria-hidden="true"></i> ${Math.round(rain * 100)}%</span><span class="conf-pill conf-${worst}">${CONF_TXT[worst]}</span></div>
+                <p class="puente-note">${worst === 'baja' ? 'Aún es pronto: vuelve a mirarlo en unos días.' : rain >= 0.5 ? 'Pinta a lluvia: plan B bajo techo.' : rain < 0.2 ? 'Buena pinta para salir.' : 'Puede caer algún chubasco.'}</p>`);
+        }
+    }
+
+    // 4) Lo normal para estas fechas (ERA5 1991–2020)
+    try { norms = await fetchNormals(lat, lon, fechas); } catch (e) { norms = {}; }
+    if (extrasPlace !== place) return;
+    window._normals = norms;
+    (data.daily || []).forEach((d, i) => {
+        const n = norms[d.fecha];
+        const row = document.getElementById(`day-item-${i}`);
+        if (!row || !n) return;
+        const anom = Math.round(d.tempMax - n.tMax);
+        let chip = row.querySelector('.day-anom');
+        if (Math.abs(anom) >= 3) {
+            if (!chip) { chip = document.createElement('span'); row.querySelector('.day-name small')?.after(chip); }
+            chip.className = `day-anom ${anom > 0 ? 'warm' : 'cold'}`;
+            chip.textContent = `${anom > 0 ? '+' : ''}${anom}°`;
+            chip.title = `Lo normal para estas fechas: ${Math.round(n.tMax)}° de máxima (media 1991–2020)`;
+        } else if (chip) chip.remove();
+    });
+    const today = data.daily && data.daily[0] && norms[data.daily[0].fecha];
+    const el = document.getElementById('normal-txt');
+    if (el) {
+        let txt = '';
+        if (today) {
+            const a = Math.round(data.daily[0].tempMax - today.tMax);
+            txt = Math.abs(a) < 2 ? 'Temperaturas normales para la época'
+                : `${Math.abs(a)}° ${a > 0 ? 'más calor' : 'más frío'} de lo normal para estas fechas`;
+        }
+        el.textContent = txt;
+    }
+}
+
+// Noche tropical (mínima ≥ 20°) o tórrida (≥ 25°): esta noche = mínima de mañana
+function tropicalNight(data) {
+    const t = data.daily && data.daily[1] && data.daily[1].tempMin;
+    if (t == null) return '';
+    return t >= 25 ? `Noche tórrida: no bajará de ${fmtTemp(t)}°` : t >= 20 ? `Noche tropical: no bajará de ${fmtTemp(t)}°` : '';
+}
+
+// ============================================================
+// 26i. AJUSTES DE AVISOS (la campana, con los avisos ya activados)
+// ============================================================
+const PUSH_PREFS_KEY = 'aeris_push_prefs';
+const defaultPushPrefs = () => ({ follow: true, home: null, types: { lluvia: true, tormenta: true, calor: true, viento: true }, aemetMin: 'naranja', morning: true, morningHour: 8, calima: true, polen: false, extras: [] });
+const getPushPrefs = () => ({ ...defaultPushPrefs(), ...(lsGet(PUSH_PREFS_KEY) || {}) });
+const setPushPrefs = (p) => lsSet(PUSH_PREFS_KEY, p);
+// Sitio principal de los avisos: el que se está viendo o el fijado
+function pushLocation() {
+    const p = getPushPrefs();
+    if (!p.follow && p.home) return p.home;
+    const lat = currentCityInfo.lat || parseFloat(String(currentCityInfo.id).split(',')[0]);
+    const lon = currentCityInfo.lon || parseFloat(String(currentCityInfo.id).split(',')[1]);
+    return { lat, lon, city: currentCityInfo.name, region: currentCityInfo.region || '' };
+}
+const placeLabel = (c) => String(c || '').replace(/^Tu ubicaci[oó]n \((.*)\)$/, '$1') || 'tu zona';
+
+const settingsModal = document.getElementById('pushSettingsModal');
+function renderPushSettings() {
+    const p = getPushPrefs();
+    const here = { lat: currentCityInfo.lat, lon: currentCityInfo.lon, city: currentCityInfo.name, region: currentCityInfo.region || '' };
+    const sameAs = (a, b) => a && b && Math.abs(a.lat - b.lat) < 0.01 && Math.abs(a.lon - b.lon) < 0.01;
+    const sw = (id, on, label, sub = '') => `<label class="ps-row"><span>${label}${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="ps-switch" data-pref="${id}" ${on ? 'checked' : ''}></label>`;
+    const extras = p.extras.map((e, i) => `<div class="ps-row"><span>${escapeHTML(placeLabel(e.city))}</span><button type="button" class="btn-pill ghost ps-small" data-ps="remove-extra" data-i="${i}">Quitar</button></div>`).join('');
+    const canAdd = p.extras.length < 2 && Number.isFinite(+here.lat) && !p.extras.some(e => sameAs(e, here)) && !sameAs(pushLocation(), here);
+    document.getElementById('pushSettingsBody').innerHTML = `
+        <h3 class="ps-h">Dónde</h3>
+        <label class="ps-row"><span>La ciudad que estoy viendo<small>Los avisos siguen a la última ciudad que miras</small></span><input type="radio" name="ps-follow" value="1" ${p.follow ? 'checked' : ''}></label>
+        <label class="ps-row"><span>Siempre ${escapeHTML(placeLabel((p.home && !p.follow ? p.home : here).city))}<small>Fija este sitio aunque mires otros</small></span><input type="radio" name="ps-follow" value="0" ${!p.follow ? 'checked' : ''}></label>
+        ${extras}
+        ${canAdd ? `<button type="button" class="btn-pill ghost ps-add" data-ps="add-extra"><i class="bi bi-plus-lg"></i>Avisarme también de ${escapeHTML(placeLabel(here.city))}</button>` : ''}
+        <h3 class="ps-h">Qué</h3>
+        ${sw('types.lluvia', p.types.lluvia, 'Lluvia o nieve inminente', 'En la próxima hora')}
+        ${sw('types.tormenta', p.types.tormenta, 'Tormentas')}
+        ${sw('types.calor', p.types.calor, 'Calor extremo')}
+        ${sw('types.viento', p.types.viento, 'Rachas fuertes')}
+        <label class="ps-row"><span>Avisos oficiales de AEMET</span><select class="ps-select" data-pref="aemetMin">
+            <option value="amarillo" ${p.aemetMin === 'amarillo' ? 'selected' : ''}>Amarillo, naranja y rojo</option>
+            <option value="naranja" ${p.aemetMin === 'naranja' ? 'selected' : ''}>Naranja y rojo</option>
+            <option value="rojo" ${p.aemetMin === 'rojo' ? 'selected' : ''}>Solo rojo</option></select></label>
+        <h3 class="ps-h">Parte de la mañana</h3>
+        ${sw('morning', p.morning, 'Recibir el parte')}
+        <label class="ps-row"><span>A las</span><select class="ps-select" data-pref="morningHour">
+            ${[6, 7, 8, 9, 10].map(h => `<option value="${h}" ${p.morningHour === h ? 'selected' : ''}>${h}:00</option>`).join('')}</select></label>
+        ${sw('calima', p.calima, 'Incluir calima')}
+        ${sw('polen', p.polen, 'Incluir polen alto')}
+        <div class="ps-actions">
+            <button type="button" class="btn-pill ghost" data-ps="test"><i class="bi bi-send"></i>Enviar prueba</button>
+            <button type="button" class="btn-pill ghost ps-danger" data-ps="off"><i class="bi bi-bell-slash"></i>Desactivar</button>
+        </div>`;
+}
+function openPushSettings() {
+    if (!settingsModal) return;
+    renderPushSettings();
+    settingsModal.classList.add('show');
+}
+function closePushSettings() {
+    settingsModal?.classList.remove('show');
+    const sheet = document.getElementById('pushSettingsSheet');
+    if (sheet) { sheet.style.transform = ''; sheet.style.transition = ''; }
+}
+let pushSaveTimer = null;
+const savePushPrefsSoon = () => { clearTimeout(pushSaveTimer); pushSaveTimer = setTimeout(() => registerPush(true), 600); };
+settingsModal?.addEventListener('click', (e) => { if (e.target === settingsModal) closePushSettings(); });
+document.getElementById('closePushSettings')?.addEventListener('click', closePushSettings);
+settingsModal?.addEventListener('change', (e) => {
+    const p = getPushPrefs(), el = e.target;
+    if (el.name === 'ps-follow') {
+        p.follow = el.value === '1';
+        p.home = p.follow ? null : { lat: currentCityInfo.lat, lon: currentCityInfo.lon, city: currentCityInfo.name, region: currentCityInfo.region || '' };
+    } else if (el.dataset.pref) {
+        const v = el.type === 'checkbox' ? el.checked : (el.dataset.pref === 'morningHour' ? Number(el.value) : el.value);
+        const [a, b] = el.dataset.pref.split('.');
+        if (b) p[a] = { ...p[a], [b]: v }; else p[a] = v;
+    }
+    setPushPrefs(p);
+    savePushPrefsSoon();
+});
+settingsModal?.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-ps]');
+    if (!b) return;
+    const p = getPushPrefs();
+    if (b.dataset.ps === 'add-extra') {
+        p.extras = [...p.extras, { lat: currentCityInfo.lat, lon: currentCityInfo.lon, city: currentCityInfo.name, region: currentCityInfo.region || '' }].slice(0, 2);
+        setPushPrefs(p); renderPushSettings(); savePushPrefsSoon();
+    } else if (b.dataset.ps === 'remove-extra') {
+        p.extras.splice(Number(b.dataset.i), 1);
+        setPushPrefs(p); renderPushSettings(); savePushPrefsSoon();
+    } else if (b.dataset.ps === 'test') {
+        setBusy(b, true);
+        await registerPush(false).finally(() => setBusy(b, false));
+    } else if (b.dataset.ps === 'off') {
+        setBusy(b, true);
+        try {
+            const reg = await swReady();
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) {
+                await fetch('/api/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {});
+                await sub.unsubscribe();
+            }
+            showToast('Avisos desactivados. Puedes volver a activarlos con la campana.', 'ok');
+            closePushSettings();
+        } catch (err) { showToast('No se pudieron desactivar. Inténtalo de nuevo.', 'warn'); }
+        finally { setBusy(b, false); updateBellUI(); }
+    }
+});
+
+// ============================================================
+// 26j. EL PARTE DE HOY (al tocar la notificación de la mañana)
+// ============================================================
+function openParte() {
+    const d = window._lastFullData;
+    if (!d || !detailModal) return;
+    const cur = d.current, today = d.daily && d.daily[0];
+    const clothes = getClothingList(cur.temp, cur.desc, cur.windSpeed, Math.round(cur.uvMax ?? cur.uv));
+    const ropa = [...new Set([...clothes.boys, ...clothes.girls].map(c => c.text))].slice(0, 5).join(', ');
+    const acts = ['run', 'dog', 'cycle'].map(id => [id, getBestWindows(id, d.hourly)]).filter(([, w]) => w);
+    const names = { run: 'correr', dog: 'pasear al perro', cycle: 'la bici' };
+    const salir = acts.length ? acts.map(([id, w]) => `${names[id]}: ${w}`).join(' · ') : 'Hoy mejor planes bajo techo.';
+    const y = d.yesterday;
+    const cambio = [cur.comparison, y && today ? (today.tempMax - y.tempMax >= 2 ? `máxima ${today.tempMax - y.tempMax}° más alta que ayer` : y.tempMax - today.tempMax >= 2 ? `máxima ${y.tempMax - today.tempMax}° más baja que ayer` : 'máximas parecidas a ayer') : '', document.getElementById('normal-txt')?.textContent || ''].filter(Boolean).join(' · ');
+    document.getElementById('detailTitle').textContent = 'Tu parte de hoy';
+    const row = (icon, t, txt) => `<div class="parte-row"><i class="bi ${icon}" aria-hidden="true"></i><div><b>${t}</b><span>${escapeHTML(txt)}</span></div></div>`;
+    document.getElementById('detailBody').innerHTML = `<p class="detail-text">${escapeHTML(buildDaySummary(d))}</p>
+        ${row('bi-handbag', 'Qué ponerte', ropa + (clothes.tip ? `. ${clothes.tip.text}` : ''))}
+        ${row('bi-clock', 'Cuándo salir', salir)}
+        ${row('bi-arrow-left-right', 'Qué cambia', cambio || 'Un día parecido a ayer.')}
+        ${seriousAviso(d) ? row('bi-exclamation-triangle', 'Atención', seriousAviso(d).text) : ''}`;
+    detailModal.classList.add('show');
+}
+
+// ============================================================
 // 27. RENDERIZADO PRINCIPAL
 // ============================================================
 const renderWeather = (data) => {
@@ -2249,7 +2584,7 @@ const renderWeather = (data) => {
     const gustTxt = cur.windGust && cur.windGust > cur.windSpeed + 5 ? `rachas ${fmtWind(cur.windGust)}` : '';
     document.getElementById('wind-dir').innerText  = [cur.windDir, gustTxt].filter(Boolean).join(' · ');
     document.getElementById('uv').innerText        = Math.round(cur.uv);
-    document.getElementById('compare-txt').innerText = cur.comparison || '';
+    document.getElementById('compare-txt').innerText = [cur.comparison, tropicalNight(data)].filter(Boolean).join(' · ');
     updateUnitsUI();
 
     // Presión + tendencia
@@ -2385,9 +2720,15 @@ const renderWeather = (data) => {
         }).join(''));
     }
 
+    renderForecastExtras(data).catch(e => console.warn('extras', e.message));
+
     // Animación clima
     startWeatherAnimation(getAnimationType(cur.desc, cur.isDay));
 
+    if (pendingSection === 'parte') {
+        pendingSection = null;
+        setTimeout(openParte, Math.max(0, SPLASH_MIN_MS - performance.now()) + 300);
+    }
     if (pendingSection) {
         const target = { lluvia: 'rain-card', avisos: 'alerts-container', radar: 'section-mapa', aire: 'section-ambiente' }[pendingSection];
         pendingSection = null;
