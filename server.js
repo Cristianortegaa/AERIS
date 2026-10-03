@@ -466,6 +466,94 @@ app.get('/api/search/:query', async (req, res) => {
     }
 });
 
+// --- SEO: UNA PÁGINA POR CIUDAD (/tiempo/valencia) ---
+// La app es la misma; el servidor solo pone el título, la descripción, los
+// datos estructurados y la ciudad, para que Google pueda indexar "el tiempo en
+// <ciudad>" y el enlace abra directamente esa ciudad.
+const SITE = process.env.PUBLIC_URL || 'https://aeris-ghg8.onrender.com';
+const slugify = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+// Ciudades principales con coordenadas (sin gastar geocodificación) y su
+// comunidad (para los avisos de AEMET)
+const CIUDADES = [
+    ['Madrid', 40.42, -3.70, 'Comunidad de Madrid'], ['Barcelona', 41.39, 2.17, 'Cataluña'], ['Valencia', 39.47, -0.38, 'Comunidad Valenciana'],
+    ['Sevilla', 37.39, -5.98, 'Andalucía'], ['Zaragoza', 41.65, -0.89, 'Aragón'], ['Málaga', 36.72, -4.42, 'Andalucía'],
+    ['Murcia', 37.99, -1.13, 'Región de Murcia'], ['Palma', 39.57, 2.65, 'Islas Baleares'], ['Las Palmas de Gran Canaria', 28.12, -15.44, 'Canarias'],
+    ['Bilbao', 43.26, -2.93, 'País Vasco'], ['Alicante', 38.35, -0.48, 'Comunidad Valenciana'], ['Córdoba', 37.89, -4.78, 'Andalucía'],
+    ['Valladolid', 41.65, -4.72, 'Castilla y León'], ['Vigo', 42.24, -8.72, 'Galicia'], ['Gijón', 43.54, -5.66, 'Asturias'],
+    ['Vitoria-Gasteiz', 42.85, -2.67, 'País Vasco'], ['A Coruña', 43.36, -8.41, 'Galicia'], ['Granada', 37.18, -3.60, 'Andalucía'],
+    ['Elche', 38.27, -0.70, 'Comunidad Valenciana'], ['Oviedo', 43.36, -5.85, 'Asturias'], ['Santa Cruz de Tenerife', 28.47, -16.25, 'Canarias'],
+    ['Pamplona', 42.81, -1.64, 'Navarra'], ['Almería', 36.84, -2.46, 'Andalucía'], ['San Sebastián', 43.32, -1.98, 'País Vasco'],
+    ['Santander', 43.46, -3.80, 'Cantabria'], ['Burgos', 42.34, -3.70, 'Castilla y León'], ['Castellón de la Plana', 39.99, -0.05, 'Comunidad Valenciana'],
+    ['Albacete', 38.99, -1.86, 'Castilla-La Mancha'], ['Logroño', 42.47, -2.45, 'La Rioja'], ['Badajoz', 38.88, -6.97, 'Extremadura'],
+    ['Salamanca', 40.97, -5.66, 'Castilla y León'], ['Huelva', 37.26, -6.95, 'Andalucía'], ['Lleida', 41.62, 0.62, 'Cataluña'],
+    ['Tarragona', 41.12, 1.25, 'Cataluña'], ['León', 42.60, -5.57, 'Castilla y León'], ['Cádiz', 36.53, -6.29, 'Andalucía'],
+    ['Jaén', 37.77, -3.79, 'Andalucía'], ['Ourense', 42.34, -7.86, 'Galicia'], ['Girona', 41.98, 2.82, 'Cataluña'],
+    ['Lugo', 43.01, -7.56, 'Galicia'], ['Cáceres', 39.47, -6.37, 'Extremadura'], ['Santiago de Compostela', 42.88, -8.54, 'Galicia'],
+    ['Guadalajara', 40.63, -3.17, 'Castilla-La Mancha'], ['Toledo', 39.86, -4.03, 'Castilla-La Mancha'], ['Pontevedra', 42.43, -8.65, 'Galicia'],
+    ['Palencia', 42.01, -4.53, 'Castilla y León'], ['Ciudad Real', 38.98, -3.93, 'Castilla-La Mancha'], ['Zamora', 41.50, -5.75, 'Castilla y León'],
+    ['Ávila', 40.66, -4.70, 'Castilla y León'], ['Cuenca', 40.07, -2.13, 'Castilla-La Mancha'], ['Huesca', 42.14, -0.41, 'Aragón'],
+    ['Segovia', 40.95, -4.12, 'Castilla y León'], ['Soria', 41.76, -2.47, 'Castilla y León'], ['Teruel', 40.34, -1.11, 'Aragón'],
+    ['Ceuta', 35.89, -5.32, 'Ceuta'], ['Melilla', 35.29, -2.94, 'Melilla'], ['Marbella', 36.51, -4.89, 'Andalucía'],
+    ['Benidorm', 38.54, -0.13, 'Comunidad Valenciana'], ['Ibiza', 38.91, 1.43, 'Islas Baleares'], ['Jerez de la Frontera', 36.69, -6.14, 'Andalucía'],
+    ['Cartagena', 37.61, -0.99, 'Región de Murcia'], ['Alcalá de Henares', 40.48, -3.36, 'Comunidad de Madrid'], ['Torrevieja', 37.98, -0.68, 'Comunidad Valenciana'],
+    ['Mérida', 38.92, -6.34, 'Extremadura'], ['Santiago', 42.88, -8.54, 'Galicia']
+].map(([name, lat, lon, region]) => ({ name, lat, lon, region: `${region}, España`, slug: slugify(name) }));
+const ciudadPorSlug = new Map(CIUDADES.map(c => [c.slug, c]));
+const slugCache = new Map(); // geocodificación de otros sitios (por slug)
+
+async function resolveSlug(slug) {
+    if (ciudadPorSlug.has(slug)) return ciudadPorSlug.get(slug);
+    if (slugCache.has(slug)) return slugCache.get(slug);
+    let found = null;
+    try {
+        const q = slug.replace(/-/g, ' ');
+        const { data } = await http.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=es&format=json&countryCode=ES`);
+        const g = data.results && data.results[0];
+        if (g) found = { name: g.name, lat: g.latitude, lon: g.longitude, region: [g.admin1, g.country].filter(Boolean).join(', '), slug };
+    } catch (e) { /* sin cupo o sin red: la app lo resolverá con el nombre */ }
+    if (found) { if (slugCache.size > 2000) slugCache.clear(); slugCache.set(slug, found); }
+    return found;
+}
+
+const escHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let indexTemplate = null;
+const getIndexTemplate = () => indexTemplate || (indexTemplate = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf-8'));
+
+app.get('/tiempo/:slug', async (req, res) => {
+    const slug = slugify(req.params.slug);
+    if (!slug) return res.redirect(302, '/');
+    if (slug !== req.params.slug) return res.redirect(301, `/tiempo/${slug}`);
+    const city = await resolveSlug(slug);
+    const name = city ? city.name : slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const url = `${SITE}/tiempo/${slug}`;
+    const title = `El tiempo en ${name} hoy y próximos días · AERIS`;
+    const desc = `Previsión del tiempo en ${name}: lluvia en las próximas 2 horas, hora a hora, 15 días con su fiabilidad, avisos oficiales de AEMET, calidad del aire, calima y polen.`;
+    const ld = {
+        '@context': 'https://schema.org', '@type': 'WebPage', name: title, description: desc, url, inLanguage: 'es',
+        about: city ? { '@type': 'Place', name, geo: { '@type': 'GeoCoordinates', latitude: city.lat, longitude: city.lon } } : { '@type': 'Place', name }
+    };
+    let html = getIndexTemplate()
+        .replace(/<title>[^<]*<\/title>/, `<title>${escHtml(title)}</title>`)
+        .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${escHtml(desc)}">\n    <link rel="canonical" href="${escHtml(url)}">`)
+        .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${escHtml(title)}">`)
+        .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${escHtml(desc)}">`)
+        .replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${escHtml(url)}">`)
+        .replace('</head>', `    <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>\n`
+            + `    <script>window.__CITY__ = ${JSON.stringify(city ? { name: city.name, lat: city.lat, lon: city.lon, region: city.region } : { name, query: slug.replace(/-/g, ' ') }).replace(/</g, '\\u003c')};</script>\n</head>`);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('html').send(html);
+});
+
+// Sitemap con las ciudades principales
+app.get('/sitemap.xml', (req, res) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const urls = [`${SITE}/`, ...CIUDADES.filter(c => c.slug !== 'santiago').map(c => `${SITE}/tiempo/${c.slug}`)];
+    res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`
+        + urls.map((u, i) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod><changefreq>hourly</changefreq><priority>${i === 0 ? '1.0' : '0.8'}</priority></url>`).join('\n')
+        + `\n</urlset>\n`);
+});
+
 // --- WEATHER API ---
 // Coordenadas redondeadas a ~1 km: la caché sirve a todos los que están cerca
 // (antes la clave era la coordenada exacta del GPS y casi nunca acertaba).

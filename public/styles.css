@@ -2507,3 +2507,26 @@ body.hero-out.has-live-pill .live-pill {
 .parte-row > i { font-size: 1.1rem; color: var(--accent); margin-top: 2px; }
 .parte-row b { display: block; font-size: 0.86rem; font-weight: 600; }
 .parte-row span { display: block; font-size: 0.9rem; line-height: 1.4; color: var(--text-2); }
+
+/* Bienvenida personalizada */
+.ob-promise { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; font-weight: 600; color: #b8f5c8 !important; }
+.ob-sub { margin-top: 16px !important; font-size: 1rem !important; }
+.ob-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
+.ob-chip, .ob-persona {
+    padding: 8px 14px;
+    border-radius: 99px;
+    border: 1px solid var(--stroke);
+    background: var(--fill-1);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, transform 160ms var(--ease-out);
+}
+.ob-chip:active, .ob-persona:active { transform: scale(0.97); }
+.ob-chip[aria-pressed="true"], .ob-persona[aria-pressed="true"] { background: rgba(74, 222, 128, 0.2); border-color: rgba(74, 222, 128, 0.7); }
+.ob-personas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.ob-persona { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 16px; font-size: 0.75rem; }
+.ob-persona span { font-size: 1.4rem; }
+.ob-preview { min-height: 2.8em; margin-top: 14px !important; font-style: italic; }

@@ -215,6 +215,8 @@ const showSearchHistory = () => {
 // 7. URL COMPARTIBLE (?ciudad=nombre o ?lat=,lon=)
 // ============================================================
 let cameFromSharedLink = false;
+const slugify = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 let pendingSection = null;
 (function handleURLParams() {
     const params = new URLSearchParams(window.location.search);
@@ -230,6 +232,16 @@ let pendingSection = null;
         localStorage.setItem('lastId', currentId);
         const name = params.get('name');
         if (name) { localStorage.setItem('lastName', name); localStorage.setItem('lastRegion', ''); }
+        cameFromSharedLink = true;
+    }
+    const pageCity = window.__CITY__;
+    if (pageCity && !ciudad && !(lat && lon)) {
+        if (Number.isFinite(pageCity.lat) && Number.isFinite(pageCity.lon)) {
+            currentId = `${pageCity.lat},${pageCity.lon}`;
+            localStorage.setItem('lastName', pageCity.name || '');
+            localStorage.setItem('lastRegion', pageCity.region || '');
+        } else if (pageCity.query) currentId = pageCity.query;
+        localStorage.setItem('lastId', currentId);
         cameFromSharedLink = true;
     }
     // ?ver=lluvia|avisos: al abrir desde una notificación, ir a esa sección
@@ -1127,10 +1139,9 @@ const selectCity = (city) => {
     currentId = id;
     currentCityInfo = { id, name: city.name, region: city.region || '', lat: city.lat || null, lon: city.lon || null };
     addToHistory(currentCityInfo);
-    // Actualizar URL
-    const url = new URL(window.location);
-    url.searchParams.set('ciudad', city.name);
-    window.history.replaceState({}, '', url);
+    // URL bonita y compartible: /tiempo/<ciudad>
+    const slug = slugify(city.name);
+    if (slug) window.history.replaceState({}, '', `/tiempo/${slug}`);
     document.querySelectorAll('#city, #desc, #temp, #tip-text').forEach(el => { el.classList.add('skeleton'); el.style.removeProperty('height'); });
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     getWeather(id);
@@ -1383,7 +1394,8 @@ const renderPollen = (pollen) => {
         { k: 'birch', n: 'Abedul', color: '#f97316' }, { k: 'ragweed', n: 'Ambrosía', color: '#ef4444' },
         { k: 'alder', n: 'Aliso', color: '#a855f7' }, { k: 'mugwort', n: 'Artemisa', color: '#06b6d4' }
     ];
-    types.sort((a, b) => (pollen[b.k] || 0) - (pollen[a.k] || 0));
+    const allergies = getUserPrefs().allergies;
+    types.sort((a, b) => (allergies.includes(b.k) ? 1000 : 0) + (pollen[b.k] || 0) - ((allergies.includes(a.k) ? 1000 : 0) + (pollen[a.k] || 0)));
     const activeTypes = types.filter(t => pollen[t.k] > 5).slice(0, 4);
     if (activeTypes.length === 0) { card.style.display = 'none'; return false; }
     card.style.display = 'block';
@@ -1396,7 +1408,7 @@ const renderPollen = (pollen) => {
     };
     const html = activeTypes.map(t => {
         const val = pollen[t.k] || 0, percent = Math.min((val / 100) * 100, 100);
-        if (val > 50) isHigh = true;
+        if (val > 50 || (allergies.includes(t.k) && val > 20)) isHigh = true;
         const p = peak(t.k);
         return `<div class="pollen-item"><span class="pollen-name">${t.n}${p ? `<small>alto el ${p}</small>` : ''}</span><div class="pollen-bar-bg"><div class="pollen-bar-fill" style="width:${percent}%;background-color:${t.color}"></div></div><span class="pollen-val">${val}</span></div>`;
     }).join('') + '<p class="pollen-note">No incluye cupresáceas ni plátano de sombra.</p>';
@@ -1533,6 +1545,8 @@ const renderLifestyle = (cur, daily, hourly) => {
         { id: 'beach', name: 'Playa',         check: () => { if (isRain || cur.temp < 22 || cur.windSpeed > 25) return 'bad'; if (cur.cloudCover > 60 || cur.windSpeed > 15 || cur.temp < 25) return 'fair'; return 'good'; } },
         { id: 'drive', name: 'Conducir',      check: () => { if (isFog || isSnow || isStorm || cur.windSpeed > 50) return 'bad'; if (isRain || cur.windSpeed > 30 || probToday > 60) return 'fair'; return 'good'; } }
     ];
+    const mine = getUserPrefs().activities;
+    if (mine.length) activities.sort((a, b) => (mine.includes(b.id) ? 1 : 0) - (mine.includes(a.id) ? 1 : 0));
     setHTMLIfChanged(list, activities.map(act => {
         const status  = act.check();
         const window  = getBestWindows(act.id, hourly);
@@ -2565,6 +2579,8 @@ const renderWeather = (data) => {
     } else {
         cityEl.innerText = displayCity || 'AERIS';
     }
+    // Título de la pestaña a juego con la ciudad (también en /tiempo/<ciudad>)
+    document.title = `El tiempo en ${cityEl.innerText || 'tu zona'} · AERIS`;
 
     // Temperatura con unidades (el ° va en su propio span para afinar la tipografía)
     const tempEl = document.getElementById('temp');
@@ -2770,9 +2786,20 @@ async function fetchWeatherData(url, id) {
             if (e.name === 'AbortError') break;
         }
     }
-    // Sin servidor: si sabemos las coordenadas, directamente a Open-Meteo
-    // (sin avisos de AEMET, que solo los da el servidor)
-    const coords = String(id || '').split(',').map(Number);
+    // Sin servidor: si sabemos las coordenadas (o las buscamos por el nombre),
+    // directamente a Open-Meteo (sin avisos de AEMET, que solo los da el servidor)
+    let coords = String(id || '').split(',').map(Number);
+    if (!(coords.length === 2 && coords.every(Number.isFinite)) && id && navigator.onLine !== false) {
+        try {
+            const g = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(id)}&count=1&language=es&format=json`)).json();
+            const r = g.results && g.results[0];
+            if (r) {
+                coords = [r.latitude, r.longitude];
+                if (!localStorage.getItem('lastName')) localStorage.setItem('lastName', r.name);
+                localStorage.setItem('lastRegion', [r.admin1, r.country].filter(Boolean).join(', '));
+            }
+        } catch (e) { /* sin red */ }
+    }
     if (coords.length === 2 && coords.every(Number.isFinite) && navigator.onLine !== false) {
         try {
             return await clientWeather({ lat: coords[0], lon: coords[1], name: localStorage.getItem('lastName') || '', region: localStorage.getItem('lastRegion') || '' }, null);
@@ -2918,6 +2945,48 @@ if (geoBtn) {
 // ============================================================
 // 30. ONBOARDING
 // ============================================================
+// Lo que el usuario cuenta en la bienvenida: actividades y alergias
+const USER_PREFS_KEY = 'aeris_prefs';
+const getUserPrefs = () => ({ activities: [], allergies: [], ...(lsGet(USER_PREFS_KEY) || {}) });
+const ACT_NAMES = { run: 'Correr', cycle: 'Bici', bbq: 'Barbacoa', car: 'Lavar el coche', star: 'Ver estrellas', dog: 'Pasear al perro', beach: 'Playa', drive: 'Conducir' };
+const ALLERGY_NAMES = { grass: 'Gramíneas', olive: 'Olivo', birch: 'Abedul', alder: 'Aliso', mugwort: 'Artemisa', ragweed: 'Ambrosía' };
+function renderOnboardingChoices() {
+    const p = getUserPrefs();
+    const chips = (map, sel, kind) => Object.entries(map).map(([k, n]) =>
+        `<button type="button" class="ob-chip" data-kind="${kind}" data-k="${k}" aria-pressed="${sel.includes(k)}">${n}</button>`).join('');
+    const a = document.getElementById('ob-activities'), al = document.getElementById('ob-allergies'), pe = document.getElementById('ob-personas');
+    if (a) a.innerHTML = chips(ACT_NAMES, p.activities, 'activities');
+    if (al) al.innerHTML = chips(ALLERGY_NAMES, p.allergies, 'allergies');
+    if (pe) pe.innerHTML = ['normal', 'zen', 'madre', 'abuela', 'villano', 'gato', 'pirata', 'comediante'].filter(k => aiLogic[k])
+        .map(k => `<button type="button" class="ob-persona" data-persona="${k}" aria-pressed="${k === currentPersona}"><span>${aiLogic[k].icon}</span>${aiLogic[k].name}</button>`).join('');
+}
+function updatePersonaPreview() {
+    const el = document.getElementById('ob-preview');
+    if (!el) return;
+    if (lastWeatherData) updateAIText(lastWeatherData);
+    el.textContent = `“${document.getElementById('tip-text')?.innerText || ''}”`;
+}
+document.getElementById('onboarding-overlay')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('.ob-chip');
+    if (chip) {
+        const p = getUserPrefs(), list = p[chip.dataset.kind], k = chip.dataset.k;
+        const on = !list.includes(k);
+        p[chip.dataset.kind] = on ? [...list, k] : list.filter(x => x !== k);
+        lsSet(USER_PREFS_KEY, p);
+        chip.setAttribute('aria-pressed', on);
+        if (chip.dataset.kind === 'allergies') { const pp = getPushPrefs(); pp.polen = p.allergies.length > 0; setPushPrefs(pp); }
+        if (window._lastFullData) { renderLifestyle(window._lastFullData.current, window._lastFullData.daily, window._lastFullData.hourly); renderPollen(window._lastFullData.pollen); }
+        return;
+    }
+    const per = e.target.closest('.ob-persona');
+    if (per) {
+        currentPersona = per.dataset.persona;
+        localStorage.setItem('aeris_persona', currentPersona);
+        document.querySelectorAll('.ob-persona').forEach(b => b.setAttribute('aria-pressed', b === per));
+        updatePersonaPreview();
+    }
+});
+
 // Lo que tiene que esperar a que se cierre la bienvenida (p. ej. pedir avisos)
 let onboardingOpen = false;
 const afterOnboardingQueue = [];
@@ -2931,6 +3000,7 @@ function initOnboarding() {
     onboardingOpen = true;
     lockScroll(true);
     let slide = 0;
+    renderOnboardingChoices();
     const slides = document.querySelectorAll('.onboarding-slide');
     const dots   = document.querySelectorAll('.ob-dot');
     const next   = document.getElementById('ob-next');
@@ -2940,7 +3010,8 @@ function initOnboarding() {
         slides.forEach((s, i) => s.classList.toggle('active', i === n));
         dots.forEach((d, i) => d.classList.toggle('active', i === n));
         slide = n;
-        next.textContent = n === slides.length - 1 ? '¡Empezar! 🚀' : 'Siguiente →';
+        next.textContent = n === slides.length - 1 ? '¡Empezar!' : 'Siguiente';
+        if (n === 2) updatePersonaPreview();
     };
 
     const finish = () => {
