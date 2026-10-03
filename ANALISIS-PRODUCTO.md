@@ -388,7 +388,7 @@ Casi toda la hoja de ruta está hecha. Lo que queda, por orden de importancia:
 
 ### A. Para no perder nada (lo primero)
 
-1. **¿La base de datos es la Postgres gratis de Render?**
+1. ✅ **¿La base de datos es la Postgres gratis de Render?** No: está en Supabase y no caduca. El plan gratis de Supabase pausa los proyectos que pasan 7 días sin actividad, pero el cron la usa cada 15 minutos. Si se parara el cron, `/healthz` lo avisaría.
    - Si lo es, caduca a los 30 días y se pierden las suscripciones.
    - Se mira en Render → Databases.
    - Si es así, conviene pasarla a Neon o Supabase (gratis y sin caducidad).
